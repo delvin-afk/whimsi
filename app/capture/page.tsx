@@ -209,6 +209,7 @@ export default function CapturePage() {
   const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [activeLesson, setActiveLesson] = useState<LessonRow | null>(null);
+  const [loadingStickerId, setLoadingStickerId] = useState<string | null>(null);
 
   const targetLang = "es";
   const canSave = base64 && mimeType && detections.length > 0 && !saving;
@@ -253,24 +254,31 @@ export default function CapturePage() {
       imageHeight = img.height;
     } catch {}
 
-    const res = await fetch("/api/posts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ base64, mimeType, imageWidth, imageHeight, detections }),
-    });
-    const json = await res.json();
-    if (res.ok) {
-      setSavedPost(json.post);
-      setDetections(json.post.detections ?? []);
-    } else {
-      alert(json.error ?? "Save failed");
+    try {
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64, mimeType, imageWidth, imageHeight, detections }),
+      });
+      
+      const json = await res.json();
+      
+      if (res.ok) {
+        setSavedPost(json.post);
+        // Sync local detections with DB detections (including new IDs)
+        setDetections(json.post.detections ?? []);
+      } else {
+        alert(json.error ?? "Save failed");
+      }
+    } catch (err) {
+      alert("Save failed due to a network error.");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function generateLesson(d: Detection) {
     if (!savedPost) { alert("Save the post first."); return; }
-
     const existing = lessons.find(
       (l) => l.payload?.label?.toLowerCase() === d.label?.toLowerCase()
     );
@@ -290,6 +298,40 @@ export default function CapturePage() {
       alert(json.error ?? "Lesson failed");
     }
     setLoadingLessonId(null);
+  }
+
+  async function extractSticker(d: Detection) {
+    const box = d.box_2d;
+    if (!box || !Array.isArray(box)) {
+      alert("No bounding box available. Save the post first.");
+      return;
+    }
+  
+    setLoadingStickerId(d.id ?? d.label);
+  
+    try {
+      const res = await fetch("/api/sticker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64, mimeType, box_2d: box }),
+      });
+  
+      const json = await res.json();
+      if (res.ok) {
+        // Downloads the isolated object (no background)
+        const a = document.createElement("a");
+        a.href = json.sticker;
+        a.download = `${d.label}-sticker.png`;
+        a.click();
+      } else {
+        alert(json.error ?? "Sticker extraction failed");
+      }
+    } catch (error) {
+      console.error("Sticker error:", error);
+      alert("Background removal service is currently unavailable.");
+    } finally {
+      setLoadingStickerId(null);
+    }
   }
 
   function prevCard() {
@@ -315,7 +357,6 @@ export default function CapturePage() {
   return (
     <main className="space-y-4">
       <h1 className="text-2xl font-semibold">Capture</h1>
-
       <input
         type="file"
         accept="image/*"
@@ -332,7 +373,6 @@ export default function CapturePage() {
             onMarkerClick={generateLesson}
           />
 
-          {/* Save button */}
           <div className="flex items-center gap-3">
             <button
               className="px-4 py-2 rounded-xl border disabled:opacity-50"
@@ -347,7 +387,6 @@ export default function CapturePage() {
             )}
           </div>
 
-          {/* Flashcard carousel */}
           {savedPost && detections.length > 0 && (
             <div className="space-y-3">
               <p className="text-sm font-medium opacity-70">
@@ -355,7 +394,6 @@ export default function CapturePage() {
               </p>
 
               <div className="rounded-2xl border p-5 space-y-4 min-h-[160px]">
-                {/* Nav header */}
                 <div className="flex items-center justify-between">
                   <button
                     onClick={prevCard}
@@ -381,7 +419,6 @@ export default function CapturePage() {
                   </button>
                 </div>
 
-                {/* Card body */}
                 {loadingLessonId === (currentDetection?.id ?? currentDetection?.label) ? (
                   <p className="text-sm opacity-60 text-center py-2">Generating lesson…</p>
                 ) : currentLesson ? (
@@ -408,9 +445,20 @@ export default function CapturePage() {
                     </button>
                   </div>
                 )}
+
+                <div className="text-center border-t pt-3">
+                  <button
+                    onClick={() => extractSticker(currentDetection)}
+                    disabled={loadingStickerId === (currentDetection?.id ?? currentDetection?.label)}
+                    className="px-4 py-1.5 rounded-xl border text-sm hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  >
+                    {loadingStickerId === (currentDetection?.id ?? currentDetection?.label)
+                      ? "Extracting…"
+                      : "🎨 Extract Sticker"}
+                  </button>
+                </div>
               </div>
 
-              {/* Dot indicators */}
               <div className="flex justify-center gap-1.5">
                 {detections.map((_, i) => (
                   <button
