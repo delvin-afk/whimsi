@@ -1,6 +1,6 @@
-import type { DetectorProvider } from "../types";
-import type { Detection } from "@/types";
 import vision from "@google-cloud/vision";
+import type { Detection } from "@/types";
+import type { DetectorProvider, VisionResult } from "../types";
 
 type NormalizedVertex = { x?: number; y?: number };
 
@@ -28,43 +28,48 @@ function polyToBox2d(
 }
 
 export class GoogleVisionDetector implements DetectorProvider {
-  private client: vision.ImageAnnotatorClient;
+  private client = new vision.ImageAnnotatorClient();
 
-  constructor() {
-    // Uses GOOGLE_APPLICATION_CREDENTIALS automatically
-    this.client = new vision.ImageAnnotatorClient();
-  }
-
-  async detect({
+  async detectAll({
     base64,
   }: {
     base64: string;
     mimeType: string;
-  }): Promise<Detection[]> {
-    // objectLocalization returns localizedObjectAnnotations with boundingPoly.normalizedVertices
-    const [result] = await this.client.objectLocalization({
-      image: { content: Buffer.from(base64, "base64") },
-    });
+  }): Promise<VisionResult> {
+    const image = { content: Buffer.from(base64, "base64") };
 
-    const objects = result.localizedObjectAnnotations ?? [];
+    // Run object + label detection in parallel
+    const [[objectRes], [labelRes]] = await Promise.all([
+      this.client.objectLocalization({ image }),
+      this.client.labelDetection({ image }),
+    ]);
 
-    const detections = objects
-      .map((obj) => {
-        const name = obj.name;
-        const verts = obj.boundingPoly?.normalizedVertices ?? [];
-        const score = obj.score ?? 0;
+    const objects: Detection[] = (objectRes.localizedObjectAnnotations ?? [])
+      .map((obj: any) => {
+        const name = obj.name as string | undefined;
+        const verts: NormalizedVertex[] =
+          obj.boundingPoly?.normalizedVertices ?? [];
 
         if (!name || verts.length === 0) return null;
 
         return {
           label: name,
-          box_2d: polyToBox2d(verts as any),
-          score,
-        } as any;
+          box_2d: polyToBox2d(verts),
+        } as Detection;
       })
-      .filter(Boolean) as any[];
+      .filter(Boolean) as Detection[];
 
-    detections.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-    return detections.slice(0, 3).map(({ score, ...d }) => d);
+    const labels = (labelRes.labelAnnotations ?? [])
+      .map((l: any) => ({
+        label: l.description as string,
+        score: l.score as number | undefined,
+      }))
+      .filter((x: any) => (x.score ?? 0) >= 0.6)
+      .slice(0, 10);
+
+    return {
+      objects: objects.slice(0, 3), // keep your top-3 object logic
+      labels,
+    };
   }
 }

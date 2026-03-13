@@ -1,10 +1,20 @@
 import type { Detection } from "@/types";
 
+export type VisionLabel = {
+  label: string;
+  score?: number;
+};
+
 export type DetectorInput = {
-  base64: string; // base64 bytes only (no data:image/... prefix)
-  mimeType: string; // e.g. image/jpeg
+  base64: string;
+  mimeType: string;
+};
+
+export type VisionResult = {
+  objects: Detection[];
+  labels: VisionLabel[];
 };
 
 export interface DetectorProvider {
-  detect(input: DetectorInput): Promise<Detection[]>;
+  detectAll(input: DetectorInput): Promise<VisionResult>;
 }

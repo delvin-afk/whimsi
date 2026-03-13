@@ -20,18 +20,19 @@ export default function Marker({ label, box, imageW, imageH, onClick }: Props) {
   const height = ((ymax - ymin) / 1000) * imageH;
 
   return (
-    <button
-      onClick={onClick}
-      className="absolute rounded-xl border border-white/60 bg-black/40 text-white px-2 py-1 text-xs backdrop-blur hover:bg-black/55"
-      style={{ left, top }}
-      title={label}
-      type="button"
-    >
-      {label}
-      <span
-        className="absolute left-0 top-0 rounded-xl border border-white/40"
-        style={{ width, height }}
-      />
-    </button>
+    <div className="absolute" style={{ left, top, width, height }}>
+      {/* Bounding box outline */}
+      <div className="absolute inset-0 rounded-xl border-2 border-white ring-1 ring-black/30 pointer-events-none" />
+
+      {/* Label button */}
+      <button
+        onClick={onClick}
+        className="absolute -top-0.5 -left-0.5 rounded-lg border border-white/60 bg-black/50 text-white px-2 py-0.5 text-xs backdrop-blur hover:bg-black/70"
+        title={label}
+        type="button"
+      >
+        {label}
+      </button>
+    </div>
   );
 }

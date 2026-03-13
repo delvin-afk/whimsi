@@ -1,477 +1,288 @@
-// "use client";
-
-// import { useMemo, useState } from "react";
-// import PhotoCanvas from "@/components/PhotoCanvas";
-// import type { Detection, LessonRow, PostRow } from "@/types";
-// import { fileToBase64 } from "@/lib/utils/image";
-
-// export default function CapturePage() {
-//   const [localImageUrl, setLocalImageUrl] = useState<string>("");
-//   const [mimeType, setMimeType] = useState<string>("");
-//   const [base64, setBase64] = useState<string>("");
-
-//   const [detections, setDetections] = useState<Detection[]>([]);
-//   const [loadingVision, setLoadingVision] = useState(false);
-//   const [saving, setSaving] = useState(false);
-
-//   const [savedPost, setSavedPost] = useState<PostRow | null>(null);
-
-//   const [lessons, setLessons] = useState<LessonRow[]>([]);
-//   const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
-
-//   const targetLang = "es"; // MVP default; later pull from profile table
-
-//   const canSave = base64 && mimeType && detections.length > 0 && !saving;
-
-//   async function onFileChange(file: File | null) {
-//     if (!file) return;
-
-//     setSavedPost(null);
-//     setLessons([]);
-//     setDetections([]);
-
-//     setMimeType(file.type);
-//     setLocalImageUrl(URL.createObjectURL(file));
-//     setBase64(await fileToBase64(file));
-
-//     // call vision
-//     setLoadingVision(true);
-//     const res = await fetch("/api/vision", {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//       body: JSON.stringify({
-//         base64: await fileToBase64(file),
-//         mimeType: file.type,
-//       }),
-//     });
-
-//     const json = await res.json();
-//     if (res.ok) setDetections(json.detections ?? []);
-//     else alert(json.error ?? "Vision failed");
-//     setLoadingVision(false);
-//   }
-
-//   async function savePost() {
-//     if (!canSave) return;
-//     setSaving(true);
-
-//     // best effort image dimensions from browser
-//     let imageWidth: number | null = null;
-//     let imageHeight: number | null = null;
-
-//     try {
-//       const img = new Image();
-//       img.src = localImageUrl;
-//       await new Promise((r) => (img.onload = r));
-//       imageWidth = img.width;
-//       imageHeight = img.height;
-//     } catch {}
-
-//     const res = await fetch("/api/posts", {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//       body: JSON.stringify({
-//         base64,
-//         mimeType,
-//         imageWidth,
-//         imageHeight,
-//         detections,
-//       }),
-//     });
-
-//     const json = await res.json();
-//     if (res.ok) {
-//       setSavedPost(json.post);
-//       // replace detections with DB rows (now have ids)
-//       setDetections(json.post.detections ?? []);
-//     } else {
-//       alert(json.error ?? "Save failed");
-//     }
-
-//     setSaving(false);
-//   }
-
-//   async function generateLesson(d: Detection) {
-//     if (!savedPost) {
-//       alert("Save the post first (so we can attach the lesson).");
-//       return;
-//     }
-
-//     setLoadingLessonId(d.id ?? d.label);
-
-//     const res = await fetch("/api/lesson", {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//       body: JSON.stringify({
-//         postId: savedPost.id,
-//         detectionId: d.id ?? null,
-//         label: d.label,
-//         targetLang,
-//       }),
-//     });
-
-//     const json = await res.json();
-//     if (res.ok) {
-//       setLessons((prev) => [json.lesson, ...prev]);
-//     } else {
-//       alert(json.error ?? "Lesson failed");
-//     }
-
-//     setLoadingLessonId(null);
-//   }
-
-//   const lessonText = useMemo(() => {
-//     if (!lessons.length) return null;
-//     const l = lessons[0];
-//     return (
-//       <div className="rounded-2xl border p-4 space-y-2">
-//         <div className="font-semibold">
-//           {l.payload.label} → {l.payload.meaning} ({l.payload.target_lang})
-//         </div>
-//         <div className="text-sm opacity-90">
-//           Examples:
-//           <ul className="list-disc pl-5 mt-1">
-//             {l.payload.examples.slice(0, 3).map((ex, i) => (
-//               <li key={i}>
-//                 {ex.target} — <span className="opacity-80">{ex.english}</span>
-//               </li>
-//             ))}
-//           </ul>
-//         </div>
-//       </div>
-//     );
-//   }, [lessons]);
-
-//   return (
-//     <main className="space-y-4">
-//       <h1 className="text-2xl font-semibold">Capture</h1>
-
-//       <input
-//         type="file"
-//         accept="image/*"
-//         onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
-//       />
-
-//       {loadingVision && (
-//         <p className="text-sm opacity-70">Detecting objects…</p>
-//       )}
-
-//       {localImageUrl && (
-//         <div className="space-y-3">
-//           <PhotoCanvas
-//             src={localImageUrl}
-//             detections={detections}
-//             onMarkerClick={generateLesson}
-//           />
-
-//           <div className="flex items-center gap-3">
-//             <button
-//               className="px-4 py-2 rounded-xl border disabled:opacity-50"
-//               onClick={savePost}
-//               disabled={!canSave}
-//               type="button"
-//             >
-//               {saving ? "Saving…" : savedPost ? "Saved ✅" : "Save Post"}
-//             </button>
-
-//             <div className="text-sm opacity-70">
-//               Tip: Save first, then tap markers to generate lessons.
-//             </div>
-//           </div>
-
-//           {loadingLessonId && (
-//             <p className="text-sm opacity-70">Generating lesson…</p>
-//           )}
-
-//           {lessonText}
-//         </div>
-//       )}
-//     </main>
-//   );
-// }
-
 "use client";
 
-import { useMemo, useState } from "react";
-import PhotoCanvas from "@/components/PhotoCanvas";
-import type { Detection, LessonRow, PostRow } from "@/types";
+import { useEffect, useRef, useState } from "react";
 import { fileToBase64 } from "@/lib/utils/image";
+import CollageBoard, { type CollageBoardHandle } from "@/components/CollageBoard";
+import LocationInput from "@/components/LocationInput";
+
+function getUserId(): string {
+  let id = localStorage.getItem("sticker_user_id");
+  if (!id) { id = crypto.randomUUID(); localStorage.setItem("sticker_user_id", id); }
+  return id;
+}
+
+type StickerSlot = {
+  key: string;
+  localImageUrl: string;
+  base64: string;
+  mimeType: string;
+  stickerDataUrl: string | null;
+  loading: boolean;
+};
+
+function emptySlot(): StickerSlot {
+  return { key: crypto.randomUUID(), localImageUrl: "", base64: "", mimeType: "", stickerDataUrl: null, loading: false };
+}
 
 export default function CapturePage() {
-  const [localImageUrl, setLocalImageUrl] = useState<string>("");
-  const [mimeType, setMimeType] = useState<string>("");
-  const [base64, setBase64] = useState<string>("");
-  const [detections, setDetections] = useState<Detection[]>([]);
-  const [loadingVision, setLoadingVision] = useState(false);
+  const [slots, setSlots] = useState<StickerSlot[]>([emptySlot()]);
+  const [showShareForm, setShowShareForm] = useState(false);
+  const [caption, setCaption] = useState("");
+  const [locationName, setLocationName] = useState("");
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+  const [username, setUsername] = useState("");
   const [saving, setSaving] = useState(false);
-  const [savedPost, setSavedPost] = useState<PostRow | null>(null);
-  const [lessons, setLessons] = useState<LessonRow[]>([]);
-  const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
-  const [carouselIndex, setCarouselIndex] = useState(0);
-  const [activeLesson, setActiveLesson] = useState<LessonRow | null>(null);
-  const [loadingStickerId, setLoadingStickerId] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const boardRef = useRef<CollageBoardHandle>(null);
+  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const targetLang = "es";
-  const canSave = base64 && mimeType && detections.length > 0 && !saving;
+  useEffect(() => {
+    setUsername(localStorage.getItem("sticker_username") ?? "");
+  }, []);
 
-  async function onFileChange(file: File | null) {
+  function updateSlot(key: string, patch: Partial<StickerSlot>) {
+    setSlots((prev) => prev.map((s) => s.key === key ? { ...s, ...patch } : s));
+  }
+
+  async function onFileChange(key: string, file: File | null) {
     if (!file) return;
-    setSavedPost(null);
-    setLessons([]);
-    setDetections([]);
-    setActiveLesson(null);
-    setCarouselIndex(0);
-    setMimeType(file.type);
-    setLocalImageUrl(URL.createObjectURL(file));
-    setBase64(await fileToBase64(file));
-
-    setLoadingVision(true);
-    const res = await fetch("/api/vision", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ base64: await fileToBase64(file), mimeType: file.type }),
+    updateSlot(key, {
+      localImageUrl: URL.createObjectURL(file),
+      base64: await fileToBase64(file),
+      mimeType: file.type,
+      stickerDataUrl: null,
     });
-    const json = await res.json();
-    if (res.ok) {
-      const d = json.detections;
-      setDetections(Array.isArray(d) ? d : d?.items ?? []);
-    } else {
-      alert(json.error ?? "Vision failed");
-    }
-    setLoadingVision(false);
+    setSaved(false);
   }
 
-  async function savePost() {
-    if (!canSave) return;
-    setSaving(true);
-    let imageWidth: number | null = null;
-    let imageHeight: number | null = null;
-    try {
-      const img = new Image();
-      img.src = localImageUrl;
-      await new Promise((r) => (img.onload = r));
-      imageWidth = img.width;
-      imageHeight = img.height;
-    } catch {}
-
-    try {
-      const res = await fetch("/api/posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ base64, mimeType, imageWidth, imageHeight, detections }),
-      });
-      
-      const json = await res.json();
-      
-      if (res.ok) {
-        setSavedPost(json.post);
-        // Sync local detections with DB detections (including new IDs)
-        setDetections(json.post.detections ?? []);
-      } else {
-        alert(json.error ?? "Save failed");
-      }
-    } catch (err) {
-      alert("Save failed due to a network error.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function generateLesson(d: Detection) {
-    if (!savedPost) { alert("Save the post first."); return; }
-    const existing = lessons.find(
-      (l) => l.payload?.label?.toLowerCase() === d.label?.toLowerCase()
-    );
-    if (existing) { setActiveLesson(existing); return; }
-
-    setLoadingLessonId(d.id ?? d.label);
-    const res = await fetch("/api/lesson", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postId: savedPost.id, detectionId: d.id ?? null, label: d.label, targetLang }),
-    });
-    const json = await res.json();
-    if (res.ok) {
-      setLessons((prev) => [json.lesson, ...prev]);
-      setActiveLesson(json.lesson);
-    } else {
-      alert(json.error ?? "Lesson failed");
-    }
-    setLoadingLessonId(null);
-  }
-
-  async function extractSticker(d: Detection) {
-    const box = d.box_2d;
-    if (!box || !Array.isArray(box)) {
-      alert("No bounding box available. Save the post first.");
-      return;
-    }
-  
-    setLoadingStickerId(d.id ?? d.label);
-  
+  async function extractSticker(key: string) {
+    const slot = slots.find((s) => s.key === key);
+    if (!slot?.base64) return;
+    updateSlot(key, { loading: true });
     try {
       const res = await fetch("/api/sticker", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ base64, mimeType, box_2d: box }),
+        body: JSON.stringify({ base64: slot.base64, mimeType: slot.mimeType }),
       });
-  
       const json = await res.json();
-      if (res.ok) {
-        // Downloads the isolated object (no background)
-        const a = document.createElement("a");
-        a.href = json.sticker;
-        a.download = `${d.label}-sticker.png`;
-        a.click();
-      } else {
-        alert(json.error ?? "Sticker extraction failed");
-      }
-    } catch (error) {
-      console.error("Sticker error:", error);
-      alert("Background removal service is currently unavailable.");
-    } finally {
-      setLoadingStickerId(null);
-    }
+      if (res.ok) updateSlot(key, { stickerDataUrl: json.sticker });
+      else alert(json.error ?? "Sticker extraction failed");
+    } catch { alert("Sticker service unavailable."); }
+    finally { updateSlot(key, { loading: false }); }
   }
 
-  function prevCard() {
-    setCarouselIndex((i) => (i - 1 + detections.length) % detections.length);
-    setActiveLesson(null);
+  async function share() {
+    if (!boardRef.current) return;
+    const uname = username.trim();
+    if (!uname) { alert("Enter a username first"); return; }
+    localStorage.setItem("sticker_username", uname);
+    setSaving(true);
+    try {
+      const compositeDataUrl = await boardRef.current.toDataURL();
+      const res = await fetch("/api/sticker/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stickerBase64: compositeDataUrl,
+          caption: caption.trim() || null,
+          locationName: locationName.trim() || null,
+          lat, lng,
+          userId: getUserId(),
+          username: uname,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok) { setSaved(true); setShowShareForm(false); }
+      else alert(json.error ?? "Failed to share");
+    } catch { alert("Network error"); }
+    finally { setSaving(false); }
   }
 
-  function nextCard() {
-    setCarouselIndex((i) => (i + 1) % detections.length);
-    setActiveLesson(null);
-  }
+  const readyStickers = slots
+    .filter((s) => s.stickerDataUrl)
+    .map((s) => ({ id: s.key, url: s.stickerDataUrl! }));
 
-  const currentDetection = detections[carouselIndex];
-
-  const currentLesson = useMemo(() => {
-    if (activeLesson) return activeLesson;
-    if (!currentDetection) return null;
-    return lessons.find(
-      (l) => l.payload?.label?.toLowerCase() === currentDetection.label?.toLowerCase()
-    ) ?? null;
-  }, [activeLesson, currentDetection, lessons]);
+  const anyLoading = slots.some((s) => s.loading);
 
   return (
-    <main className="space-y-4">
-      <h1 className="text-2xl font-semibold">Capture</h1>
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
-      />
+    <main className="max-w-lg mx-auto p-5 space-y-4">
+      <h1 className="text-2xl font-bold pt-2">Make a Sticker</h1>
 
-      {loadingVision && <p className="text-sm opacity-70">Detecting objects…</p>}
+      {/* Sticker slots — compact once board is visible */}
+      <div className={`space-y-3 ${readyStickers.length > 0 ? "hidden" : ""}`}>
+        {slots.map((slot) => (
+          <div key={slot.key} className="space-y-2">
+            <label>
+              <input
+                ref={(el) => { fileRefs.current[slot.key] = el; }}
+                className="sr-only"
+                type="file"
+                accept="image/*"
+                onChange={(e) => onFileChange(slot.key, e.target.files?.[0] ?? null)}
+              />
+              <div
+                onClick={() => fileRefs.current[slot.key]?.click()}
+                className="flex items-center justify-center gap-3 h-28 rounded-2xl border-2 border-dashed border-neutral-300 hover:bg-neutral-50 cursor-pointer text-neutral-500"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                <span className="font-medium text-sm">
+                  {slot.localImageUrl ? "Change photo" : "Choose photo"}
+                </span>
+              </div>
+            </label>
 
-      {localImageUrl && (
-        <div className="space-y-4">
-          <PhotoCanvas
-            src={localImageUrl}
-            detections={detections}
-            onMarkerClick={generateLesson}
-          />
+            {slot.localImageUrl && (
+              <div className="rounded-2xl overflow-hidden border bg-white shadow-sm max-h-52 flex items-center justify-center">
+                <img src={slot.localImageUrl} alt="Uploaded" className="max-h-52 w-full object-contain" />
+              </div>
+            )}
 
-          <div className="flex items-center gap-3">
-            <button
-              className="px-4 py-2 rounded-xl border disabled:opacity-50"
-              onClick={savePost}
-              disabled={!canSave}
-              type="button"
-            >
-              {saving ? "Saving…" : savedPost ? "Saved ✅" : "Save Post"}
-            </button>
-            {!savedPost && (
-              <p className="text-sm opacity-70">Tip: Save first, then explore lessons.</p>
+            {slot.localImageUrl && !slot.stickerDataUrl && (
+              <button
+                onClick={() => extractSticker(slot.key)}
+                disabled={slot.loading}
+                className="w-full py-3 rounded-2xl bg-linear-to-r from-pink-500 to-yellow-400 text-white font-semibold text-base shadow disabled:opacity-50"
+              >
+                {slot.loading ? "Creating sticker…" : "🎨 Make Sticker"}
+              </button>
             )}
           </div>
+        ))}
+      </div>
 
-          {savedPost && detections.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-sm font-medium opacity-70">
-                {detections.length} item{detections.length !== 1 ? "s" : ""} detected — explore lessons
-              </p>
+      {/* Collage board — shown once at least one sticker is ready */}
+      {readyStickers.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="font-semibold text-sm text-neutral-700">
+              Arrange your sticker{readyStickers.length > 1 ? "s" : ""}
+            </p>
+            <span className="text-xs text-neutral-400">drag to reposition</span>
+          </div>
 
-              <div className="rounded-2xl border p-5 space-y-4 min-h-[160px]">
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={prevCard}
-                    disabled={detections.length <= 1}
-                    className="text-xl px-2 py-1 rounded-lg hover:bg-gray-100 disabled:opacity-30"
-                  >
-                    ←
-                  </button>
-                  <div className="text-center">
-                    <span className="text-lg font-semibold capitalize">
-                      {currentDetection?.label}
-                    </span>
-                    <div className="text-xs opacity-50 mt-0.5">
-                      {carouselIndex + 1} / {detections.length}
-                    </div>
-                  </div>
-                  <button
-                    onClick={nextCard}
-                    disabled={detections.length <= 1}
-                    className="text-xl px-2 py-1 rounded-lg hover:bg-gray-100 disabled:opacity-30"
-                  >
-                    →
-                  </button>
-                </div>
+          <CollageBoard ref={boardRef} stickers={readyStickers} />
 
-                {loadingLessonId === (currentDetection?.id ?? currentDetection?.label) ? (
-                  <p className="text-sm opacity-60 text-center py-2">Generating lesson…</p>
-                ) : currentLesson ? (
-                  <div className="space-y-2 text-sm">
-                    <div className="font-medium">
-                      {currentLesson.payload.label} → {currentLesson.payload.meaning}{" "}
-                      <span className="opacity-50">({currentLesson.payload.target_lang})</span>
-                    </div>
-                    <ul className="list-disc pl-5 space-y-1 opacity-80">
-                      {currentLesson.payload.examples.slice(0, 3).map((ex, i) => (
-                        <li key={i}>
-                          {ex.target} — <span className="opacity-70">{ex.english}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <div className="text-center pt-1">
+          {/* Per-slot status row */}
+          <div className="flex flex-wrap gap-2">
+            {slots.map((slot, idx) => (
+              <div key={slot.key} className="flex items-center gap-1.5">
+                {slot.stickerDataUrl ? (
+                  <div className="relative">
+                    <img
+                      src={slot.stickerDataUrl}
+                      alt="s"
+                      className="w-10 h-10 object-contain rounded-xl border border-neutral-100 bg-neutral-50"
+                    />
                     <button
-                      onClick={() => generateLesson(currentDetection)}
-                      className="px-5 py-2 rounded-xl bg-black text-white text-sm hover:opacity-80 transition-opacity"
-                    >
-                      Learn "{currentDetection?.label}" in Spanish
-                    </button>
+                      onClick={() => updateSlot(slot.key, { stickerDataUrl: null })}
+                      className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-neutral-500 text-white text-[9px] rounded-full flex items-center justify-center"
+                    >✕</button>
                   </div>
-                )}
-
-                <div className="text-center border-t pt-3">
+                ) : slot.localImageUrl ? (
                   <button
-                    onClick={() => extractSticker(currentDetection)}
-                    disabled={loadingStickerId === (currentDetection?.id ?? currentDetection?.label)}
-                    className="px-4 py-1.5 rounded-xl border text-sm hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                    onClick={() => extractSticker(slot.key)}
+                    disabled={slot.loading}
+                    className="px-3 py-1.5 rounded-xl bg-pink-50 text-pink-600 text-xs font-semibold border border-pink-200 disabled:opacity-50"
                   >
-                    {loadingStickerId === (currentDetection?.id ?? currentDetection?.label)
-                      ? "Extracting…"
-                      : "🎨 Extract Sticker"}
+                    {slot.loading ? "…" : `Make #${idx + 1}`}
                   </button>
-                </div>
+                ) : null}
               </div>
+            ))}
 
-              <div className="flex justify-center gap-1.5">
-                {detections.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => { setCarouselIndex(i); setActiveLesson(null); }}
-                    className={`w-2 h-2 rounded-full transition-all ${
-                      i === carouselIndex ? "bg-black scale-125" : "bg-gray-300"
-                    }`}
-                  />
-                ))}
-              </div>
+            {/* Add another photo */}
+            {!anyLoading && (
+              <label className="cursor-pointer">
+                <input
+                  className="sr-only"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const newSlot = emptySlot();
+                    setSlots((prev) => [...prev, newSlot]);
+                    // slight delay so the slot is in state
+                    setTimeout(() => onFileChange(newSlot.key, file), 10);
+                  }}
+                />
+                <div className="flex items-center gap-1 px-3 py-1.5 rounded-xl border-2 border-dashed border-pink-300 text-pink-500 text-xs font-semibold hover:bg-pink-50">
+                  <span>+ Add photo</span>
+                </div>
+              </label>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Share */}
+      {readyStickers.length > 0 && !saved && (
+        <button
+          onClick={() => setShowShareForm((v) => !v)}
+          className="w-full py-3 rounded-2xl bg-black text-white font-semibold text-base"
+        >
+          📍 Share to Map & Feed
+        </button>
+      )}
+
+      {saved && (
+        <div className="rounded-2xl bg-green-50 border border-green-200 p-4 text-center text-green-700 font-medium">
+          ✅ Shared! Check the feed.
+        </div>
+      )}
+
+      {/* Share form */}
+      {showShareForm && !saved && (
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5 space-y-4 shadow-sm">
+          <p className="font-semibold">Share your post</p>
+
+          <div>
+            <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Your name</label>
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="e.g. Jess"
+              className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Caption</label>
+            <textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Write something…"
+              rows={2}
+              className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-pink-300"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Location</label>
+            <div className="mt-1">
+              <LocationInput
+                value={locationName}
+                onChange={(name, newLat, newLng) => {
+                  setLocationName(name);
+                  if (newLat !== undefined) setLat(newLat);
+                  if (newLng !== undefined) setLng(newLng);
+                }}
+              />
             </div>
-          )}
+            {lat && lng && <p className="text-xs text-neutral-400 mt-1">{lat.toFixed(4)}, {lng.toFixed(4)}</p>}
+          </div>
+
+          <button
+            onClick={share}
+            disabled={saving}
+            className="w-full py-3 rounded-2xl bg-linear-to-r from-pink-500 to-yellow-400 text-white font-semibold disabled:opacity-50"
+          >
+            {saving ? "Composing & sharing…" : "🚀 Share"}
+          </button>
         </div>
       )}
     </main>

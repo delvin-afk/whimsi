@@ -35,3 +35,25 @@ export type PostRow = {
   detections?: Detection[];
   lessons?: LessonRow[];
 };
+
+// ── New types for the sticker social app ──────────────────────────────────────
+
+export type Profile = {
+  id: string;       // localStorage UUID
+  username: string;
+  created_at?: string;
+};
+
+export type StickerPost = {
+  id: string;
+  user_id: string;
+  username: string;
+  image_url: string;   // Supabase Storage public URL
+  caption: string | null;
+  location_name: string | null;
+  lat: number | null;
+  lng: number | null;
+  is_public: boolean;
+  created_at: string;
+  group_id: string | null;
+};
