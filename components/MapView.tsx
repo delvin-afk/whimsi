@@ -21,10 +21,12 @@ export default function MapView({ stickers }: Props) {
     import("mapbox-gl").then(({ default: mapboxgl }) => {
       import("mapbox-gl/dist/mapbox-gl.css");
 
+      if (!containerRef.current) return;
+
       mapboxgl.accessToken = token;
 
       const map = new mapboxgl.Map({
-        container: containerRef.current!,
+        container: containerRef.current,
         style: "mapbox://styles/mapbox/streets-v12",
         center: [0, 20],
         zoom: 1.5,

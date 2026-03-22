@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { StickerPost } from "@/types";
 import Link from "next/link";
 import StickerOptionsSheet from "@/components/StickerOptionsSheet";
+import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 function StickerCard({
   sticker,
@@ -76,21 +78,27 @@ function StickerCard({
 }
 
 export default function ScrapbookPage() {
+  const router = useRouter();
   const [stickers, setStickers] = useState<StickerPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const id = localStorage.getItem("sticker_user_id");
-    setUserId(id);
-    if (!id) { setLoading(false); return; }
-
-    fetch(`/api/stickers?user_id=${id}`)
-      .then((r) => r.json())
-      .then((j) => setStickers(j.stickers ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+    const supabase = getSupabaseBrowser();
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        router.push("/auth");
+        return;
+      }
+      const id = data.user.id;
+      setUserId(id);
+      fetch(`/api/stickers?user_id=${id}`)
+        .then((r) => r.json())
+        .then((j) => setStickers(j.stickers ?? []))
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    });
+  }, [router]);
 
   // Group by location
   const grouped = stickers.reduce<Record<string, StickerPost[]>>((acc, s) => {
@@ -104,7 +112,18 @@ export default function ScrapbookPage() {
     <main className="max-w-lg mx-auto px-4 pt-5 pb-6 space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">My Scrapbook</h1>
-        <Link href="/capture" className="text-sm text-pink-500 font-medium">+ New</Link>
+        <div className="flex items-center gap-3">
+          <Link href="/capture" className="text-sm text-pink-500 font-medium">+ New</Link>
+          <button
+            onClick={async () => {
+              await getSupabaseBrowser().auth.signOut();
+              router.push("/auth");
+            }}
+            className="text-sm text-neutral-400 hover:text-neutral-700"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
 
       {/* Build scrapbook CTA */}

@@ -39,8 +39,10 @@ export type PostRow = {
 // ── New types for the sticker social app ──────────────────────────────────────
 
 export type Profile = {
-  id: string;       // localStorage UUID
+  id: string;
   username: string;
+  birthday?: string | null;
+  interests?: string[] | null;
   created_at?: string;
 };
 

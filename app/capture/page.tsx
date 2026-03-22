@@ -1,15 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { fileToBase64 } from "@/lib/utils/image";
 import CollageBoard, { type CollageBoardHandle } from "@/components/CollageBoard";
 import LocationInput from "@/components/LocationInput";
-
-function getUserId(): string {
-  let id = localStorage.getItem("sticker_user_id");
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem("sticker_user_id", id); }
-  return id;
-}
+import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 type StickerSlot = {
   key: string;
@@ -25,6 +21,7 @@ function emptySlot(): StickerSlot {
 }
 
 export default function CapturePage() {
+  const router = useRouter();
   const [slots, setSlots] = useState<StickerSlot[]>([emptySlot()]);
   const [showShareForm, setShowShareForm] = useState(false);
   const [caption, setCaption] = useState("");
@@ -32,14 +29,31 @@ export default function CapturePage() {
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
   const [username, setUsername] = useState("");
+  const [userId, setUserId] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const boardRef = useRef<CollageBoardHandle>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
-    setUsername(localStorage.getItem("sticker_username") ?? "");
-  }, []);
+    const supabase = getSupabaseBrowser();
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        router.push("/auth");
+        return;
+      }
+      setUserId(data.user.id);
+      // Fetch profile for username
+      supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", data.user.id)
+        .single()
+        .then(({ data: profile }) => {
+          if (profile?.username) setUsername(profile.username);
+        });
+    });
+  }, [router]);
 
   function updateSlot(key: string, patch: Partial<StickerSlot>) {
     setSlots((prev) => prev.map((s) => s.key === key ? { ...s, ...patch } : s));
@@ -77,7 +91,7 @@ export default function CapturePage() {
     if (!boardRef.current) return;
     const uname = username.trim();
     if (!uname) { alert("Enter a username first"); return; }
-    localStorage.setItem("sticker_username", uname);
+    if (!userId) { router.push("/auth"); return; }
     setSaving(true);
     try {
       const compositeDataUrl = await boardRef.current.toDataURL();
@@ -89,7 +103,7 @@ export default function CapturePage() {
           caption: caption.trim() || null,
           locationName: locationName.trim() || null,
           lat, lng,
-          userId: getUserId(),
+          userId,
           username: uname,
         }),
       });
