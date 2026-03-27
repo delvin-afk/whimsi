@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    const { stickerBase64, caption, locationName, lat, lng, userId, username, groupId } =
+    const { stickerBase64, caption, locationName, lat, lng, userId, username, groupId, isPublic } =
       await req.json();
 
     if (!stickerBase64 || !userId || !username) {
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         location_name: locationName || null,
         lat: lat ?? null,
         lng: lng ?? null,
-        is_public: true,
+        is_public: isPublic !== false,
         group_id: groupId ?? null,
       })
       .select()

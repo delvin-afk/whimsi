@@ -4,13 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { StickerPost } from "@/types";
 import CollageBoard, { type CollageBoardHandle } from "@/components/CollageBoard";
-import LocationInput from "@/components/LocationInput";
-
-function getUserId(): string {
-  let id = localStorage.getItem("sticker_user_id");
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem("sticker_user_id", id); }
-  return id;
-}
+import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 export default function CreateScrapbookPage() {
   const router = useRouter();
@@ -18,24 +12,34 @@ export default function CreateScrapbookPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [caption, setCaption] = useState("");
-  const [locationName, setLocationName] = useState("");
-  const [lat, setLat] = useState<number | null>(null);
-  const [lng, setLng] = useState<number | null>(null);
   const [username, setUsername] = useState("");
+  const [userId, setUserId] = useState("");
   const [saving, setSaving] = useState(false);
   const boardRef = useRef<CollageBoardHandle>(null);
 
   useEffect(() => {
-    const id = localStorage.getItem("sticker_user_id");
-    setUsername(localStorage.getItem("sticker_username") ?? "");
-    if (!id) { setLoading(false); return; }
+    const supabase = getSupabaseBrowser();
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) { router.push("/auth"); return; }
+      const uid = data.user.id;
+      setUserId(uid);
 
-    fetch(`/api/stickers?user_id=${id}`)
-      .then((r) => r.json())
-      .then((j) => setShelf(j.stickers ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+      supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", uid)
+        .single()
+        .then(({ data: profile }) => {
+          if (profile?.username) setUsername(profile.username);
+        });
+
+      fetch(`/api/stickers?user_id=${uid}`)
+        .then((r) => r.json())
+        .then((j) => setShelf(j.stickers ?? []))
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    });
+  }, [router]);
 
   function toggleSticker(id: string) {
     setSelected((prev) => {
@@ -46,11 +50,11 @@ export default function CreateScrapbookPage() {
     });
   }
 
-  async function saveScrapbook() {
+  async function saveCollage() {
     if (!boardRef.current || selected.size === 0) return;
     const uname = username.trim();
     if (!uname) { alert("Enter a username first"); return; }
-    localStorage.setItem("sticker_username", uname);
+    if (!userId) { router.push("/auth"); return; }
     setSaving(true);
     try {
       const compositeDataUrl = await boardRef.current.toDataURL();
@@ -60,10 +64,12 @@ export default function CreateScrapbookPage() {
         body: JSON.stringify({
           stickerBase64: compositeDataUrl,
           caption: caption.trim() || null,
-          locationName: locationName.trim() || null,
-          lat, lng,
-          userId: getUserId(),
+          locationName: null,
+          lat: null,
+          lng: null,
+          userId,
           username: uname,
+          isPublic: false,
         }),
       });
       const json = await res.json();
@@ -83,13 +89,13 @@ export default function CreateScrapbookPage() {
         <button onClick={() => router.back()} className="text-neutral-400 hover:text-neutral-700">
           ← Back
         </button>
-        <h1 className="text-xl font-bold">Build a Scrapbook Page</h1>
+        <h1 className="text-xl font-bold">Build a Collage</h1>
       </div>
 
       {/* Sticker shelf */}
       <div className="space-y-2">
         <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wide">
-          Your sticker shelf — tap to add
+          Your stickers — tap to add
         </p>
 
         {loading && (
@@ -150,10 +156,11 @@ export default function CreateScrapbookPage() {
         <CollageBoard ref={boardRef} stickers={boardStickers} />
       </div>
 
-      {/* Details + share */}
+      {/* Save form */}
       {selected.size > 0 && (
         <div className="rounded-2xl border border-neutral-200 bg-white p-5 space-y-4 shadow-sm">
-          <p className="font-semibold">Share this scrapbook page</p>
+          <p className="font-semibold">Save to your scrapbook</p>
+          <p className="text-xs text-neutral-400">Collages are saved privately — they won't appear on the map.</p>
 
           <div>
             <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Your name</label>
@@ -176,26 +183,12 @@ export default function CreateScrapbookPage() {
             />
           </div>
 
-          <div>
-            <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Location</label>
-            <div className="mt-1">
-              <LocationInput
-                value={locationName}
-                onChange={(name, newLat, newLng) => {
-                  setLocationName(name);
-                  if (newLat !== undefined) setLat(newLat);
-                  if (newLng !== undefined) setLng(newLng);
-                }}
-              />
-            </div>
-          </div>
-
           <button
-            onClick={saveScrapbook}
+            onClick={saveCollage}
             disabled={saving}
             className="w-full py-3 rounded-2xl bg-black text-white font-semibold disabled:opacity-50"
           >
-            {saving ? "Composing & saving…" : "📖 Save Scrapbook Page"}
+            {saving ? "Saving…" : "📖 Save Collage"}
           </button>
         </div>
       )}
