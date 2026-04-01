@@ -124,7 +124,7 @@ export default function StickerOptionsSheet({
                 <button
                   onClick={handleSaveCaption}
                   disabled={saving}
-                  className="flex-1 py-3 rounded-2xl bg-black text-white text-sm font-semibold disabled:opacity-50"
+                  className="flex-1 py-3 rounded-2xl bg-[#4ade80] text-black text-sm font-bold disabled:opacity-50"
                 >
                   {saving ? "Saving…" : "Save"}
                 </button>

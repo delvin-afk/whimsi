@@ -154,7 +154,7 @@ export default function FeedPage() {
           <p className="font-semibold text-neutral-700">No stickers yet</p>
           <p className="text-sm text-neutral-400">Be the first — make a sticker and share it!</p>
           <Link href="/capture"
-            className="inline-block mt-2 px-5 py-2.5 rounded-xl bg-black text-white text-sm font-medium">
+            className="inline-block mt-2 px-5 py-2.5 rounded-xl bg-[#4ade80] text-black text-sm font-bold">
             Make a Sticker
           </Link>
         </div>

@@ -186,9 +186,9 @@ export default function CreateScrapbookPage() {
           <button
             onClick={saveCollage}
             disabled={saving}
-            className="w-full py-3 rounded-2xl bg-black text-white font-semibold disabled:opacity-50"
+            className="w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold disabled:opacity-50"
           >
-            {saving ? "Saving…" : "📖 Save Collage"}
+            {saving ? "Saving…" : "Save Collage"}
           </button>
         </div>
       )}

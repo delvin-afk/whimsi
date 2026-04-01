@@ -147,9 +147,9 @@ export default function CapturePage() {
             <button
               onClick={extractSticker}
               disabled={loading}
-              className="w-full py-3 rounded-2xl bg-linear-to-r from-pink-500 to-yellow-400 text-white font-semibold text-base shadow disabled:opacity-50"
+              className="w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold text-base disabled:opacity-50"
             >
-              {loading ? "Creating sticker…" : "🎨 Make Sticker"}
+              {loading ? "Creating sticker…" : "Make Sticker"}
             </button>
           )}
 
@@ -193,9 +193,9 @@ export default function CapturePage() {
       {stickerDataUrl && !saved && (
         <button
           onClick={() => setShowShareForm((v) => !v)}
-          className="w-full py-3 rounded-2xl bg-black text-white font-semibold text-base"
+          className="w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold text-base"
         >
-          📍 Share to Map & Feed
+          Share to Map & Feed
         </button>
       )}
 
@@ -238,9 +238,9 @@ export default function CapturePage() {
           <button
             onClick={share}
             disabled={saving}
-            className="w-full py-3 rounded-2xl bg-linear-to-r from-pink-500 to-yellow-400 text-white font-semibold disabled:opacity-50"
+            className="w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold disabled:opacity-50"
           >
-            {saving ? "Sharing…" : "🚀 Share"}
+            {saving ? "Sharing…" : "Share"}
           </button>
         </div>
       )}

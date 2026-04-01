@@ -153,7 +153,7 @@ export default function ScrapbookPage() {
           <p className="font-semibold text-neutral-700">Your scrapbook is empty</p>
           <p className="text-sm text-neutral-400">Make a sticker and share it to start your collection.</p>
           <Link href="/capture"
-            className="inline-block mt-2 px-5 py-2.5 rounded-xl bg-black text-white text-sm font-medium">
+            className="inline-block mt-2 px-5 py-2.5 rounded-xl bg-[#4ade80] text-black text-sm font-bold">
             Make a Sticker
           </Link>
         </div>
@@ -165,7 +165,7 @@ export default function ScrapbookPage() {
           <p className="font-semibold text-neutral-700">No stickers yet</p>
           <p className="text-sm text-neutral-400">Create and share stickers to fill your scrapbook.</p>
           <Link href="/capture"
-            className="inline-block mt-2 px-5 py-2.5 rounded-xl bg-black text-white text-sm font-medium">
+            className="inline-block mt-2 px-5 py-2.5 rounded-xl bg-[#4ade80] text-black text-sm font-bold">
             Make a Sticker
           </Link>
         </div>
