@@ -1,5 +1,19 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 export default function Home() {
-  redirect("/feed");
+  const router = useRouter();
+
+  useEffect(() => {
+    getSupabaseBrowser()
+      .auth.getUser()
+      .then(({ data }) => {
+        router.replace(data.user ? "/feed" : "/auth");
+      });
+  }, [router]);
+
+  return null;
 }

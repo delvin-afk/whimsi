@@ -20,7 +20,7 @@ export default function CreateScrapbookPage() {
   useEffect(() => {
     const supabase = getSupabaseBrowser();
     supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) { router.push("/auth"); return; }
+      if (!data.user) { router.push("/auth?redirect=/scrapbook/create"); return; }
       const uid = data.user.id;
       setUserId(uid);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { StickerPost } from "@/types";
 
 interface Props {
@@ -10,14 +10,15 @@ interface Props {
 export default function MapView({ stickers }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    if (!containerRef.current || mapRef.current || !token) return;
 
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-    if (!token) return;
-
-    // Dynamically import mapbox-gl to avoid SSR issues
     import("mapbox-gl").then(({ default: mapboxgl }) => {
       import("mapbox-gl/dist/mapbox-gl.css");
 
@@ -36,7 +37,6 @@ export default function MapView({ stickers }: Props) {
 
       map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
-      // Add sticker markers after map loads
       map.on("load", () => {
         const located = stickers.filter((s) => s.lat != null && s.lng != null);
 
@@ -70,7 +70,6 @@ export default function MapView({ stickers }: Props) {
             .addTo(map);
         });
 
-        // Fit map to markers if any
         if (located.length > 0) {
           const bounds = located.reduce(
             (b, s) => b.extend([s.lng!, s.lat!] as [number, number]),
@@ -80,6 +79,15 @@ export default function MapView({ stickers }: Props) {
             )
           );
           map.fitBounds(bounds, { padding: 80, maxZoom: 10, duration: 800 });
+        } else {
+          // No stickers — fly to user's current location
+          navigator.geolocation?.getCurrentPosition((pos) => {
+            map.flyTo({
+              center: [pos.coords.longitude, pos.coords.latitude],
+              zoom: 12,
+              duration: 1200,
+            });
+          });
         }
       });
     });
@@ -90,10 +98,41 @@ export default function MapView({ stickers }: Props) {
     };
   }, []); // only mount once
 
-  // Re-add markers when stickers change (simple approach: rebuild map)
-  // For prototype, a full re-mount on sticker change is acceptable
+  async function searchCity(e: React.FormEvent) {
+    e.preventDefault();
+    if (!query.trim() || !token || !mapRef.current) return;
+    setSearching(true);
+    try {
+      const res = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query.trim())}.json?access_token=${token}&types=place,region,country&limit=1`
+      );
+      const json = await res.json();
+      const feature = json.features?.[0];
+      if (feature) {
+        const [lng, lat] = feature.center;
+        mapRef.current.flyTo({ center: [lng, lat], zoom: 10, duration: 1000 });
+        setQuery("");
+      }
+    } finally {
+      setSearching(false);
+    }
+  }
 
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  function locateMe() {
+    if (!mapRef.current) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        mapRef.current.flyTo({
+          center: [pos.coords.longitude, pos.coords.latitude],
+          zoom: 13,
+          duration: 1000,
+        });
+        setLocating(false);
+      },
+      () => setLocating(false)
+    );
+  }
 
   if (!token) {
     return (
@@ -106,5 +145,46 @@ export default function MapView({ stickers }: Props) {
     );
   }
 
-  return <div ref={containerRef} className="w-full h-full rounded-2xl overflow-hidden" />;
+  return (
+    <div className="relative w-full h-full">
+      {/* Search bar */}
+      <form
+        onSubmit={searchCity}
+        className="absolute top-3 left-3 right-14 z-10 flex gap-2"
+      >
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search city or place…"
+          className="flex-1 h-10 rounded-xl bg-white shadow-md border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-pink-300"
+        />
+        <button
+          type="submit"
+          disabled={searching || !query.trim()}
+          className="h-10 px-3 rounded-xl bg-white shadow-md border border-neutral-200 text-sm font-medium text-neutral-700 disabled:opacity-50 hover:bg-neutral-50"
+        >
+          {searching ? "…" : "Go"}
+        </button>
+      </form>
+
+      {/* Locate me button */}
+      <button
+        onClick={locateMe}
+        disabled={locating}
+        title="Center on my location"
+        className="absolute bottom-10 right-3 z-10 w-10 h-10 rounded-xl bg-white shadow-md border border-neutral-200 flex items-center justify-center text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+      >
+        {locating ? (
+          <div className="w-4 h-4 rounded-full border-2 border-neutral-300 border-t-pink-500 animate-spin" />
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+          </svg>
+        )}
+      </button>
+
+      <div ref={containerRef} className="w-full h-full rounded-2xl overflow-hidden" />
+    </div>
+  );
 }

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/feed";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,7 +31,7 @@ export default function LoginPage() {
         setError(signInError.message);
         return;
       }
-      router.push("/feed");
+      router.push(redirectTo);
     } catch {
       setError("Something went wrong. Try again.");
     } finally {
@@ -41,7 +43,9 @@ export default function LoginPage() {
     const supabase = getSupabaseBrowser();
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/feed` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/onboard?redirect=${encodeURIComponent(redirectTo)}`,
+      },
     });
   }
 

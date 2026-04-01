@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fileToBase64 } from "@/lib/utils/image";
-import LocationInput from "@/components/LocationInput";
+import dynamic from "next/dynamic";
+const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ssr: false });
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 export default function CapturePage() {
@@ -22,12 +23,13 @@ export default function CapturePage() {
   const [userId, setUserId] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
     supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) { router.push("/auth"); return; }
+      if (!data.user) { router.push("/auth?redirect=/capture"); return; }
       setUserId(data.user.id);
       supabase
         .from("profiles")
@@ -42,6 +44,7 @@ export default function CapturePage() {
 
   async function onFileChange(file: File | null) {
     if (!file) return;
+    setError("");
     setLocalImageUrl(URL.createObjectURL(file));
     setBase64(await fileToBase64(file));
     setMimeType(file.type);
@@ -52,6 +55,7 @@ export default function CapturePage() {
   async function extractSticker() {
     if (!base64) return;
     setLoading(true);
+    setError("");
     try {
       const res = await fetch("/api/sticker", {
         method: "POST",
@@ -60,8 +64,8 @@ export default function CapturePage() {
       });
       const json = await res.json();
       if (res.ok) setStickerDataUrl(json.sticker);
-      else alert(json.error ?? "Sticker extraction failed");
-    } catch { alert("Sticker service unavailable."); }
+      else setError(json.error ?? "Couldn't create a sticker from this photo. Try a clearer image with a distinct subject.");
+    } catch { setError("Sticker service unavailable. Please try again."); }
     finally { setLoading(false); }
   }
 
@@ -102,6 +106,7 @@ export default function CapturePage() {
     setLocationName("");
     setLat(null);
     setLng(null);
+    setError("");
   }
 
   return (
@@ -147,6 +152,22 @@ export default function CapturePage() {
               {loading ? "Creating sticker…" : "🎨 Make Sticker"}
             </button>
           )}
+
+          {error && (
+            <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-3">
+              <span className="text-red-500 text-lg leading-none mt-0.5">⚠</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-red-700 text-sm font-medium">Couldn't make a sticker</p>
+                <p className="text-red-500 text-sm mt-0.5">{error}</p>
+                <button
+                  onClick={() => { setError(""); fileRef.current?.click(); }}
+                  className="mt-2 text-xs text-red-600 underline underline-offset-2"
+                >
+                  Try a different photo
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -191,16 +212,6 @@ export default function CapturePage() {
           <p className="font-semibold">Share your sticker</p>
 
           <div>
-            <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Your name</label>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. Jess"
-              className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
-            />
-          </div>
-
-          <div>
             <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Caption</label>
             <textarea
               value={caption}
@@ -213,17 +224,15 @@ export default function CapturePage() {
 
           <div>
             <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Location</label>
-            <div className="mt-1">
-              <LocationInput
-                value={locationName}
+            <div className="mt-2">
+              <LocationPicker
                 onChange={(name, newLat, newLng) => {
                   setLocationName(name);
-                  if (newLat !== undefined) setLat(newLat);
-                  if (newLng !== undefined) setLng(newLng);
+                  setLat(newLat);
+                  setLng(newLng);
                 }}
               />
             </div>
-            {lat && lng && <p className="text-xs text-neutral-400 mt-1">{lat.toFixed(4)}, {lng.toFixed(4)}</p>}
           </div>
 
           <button
