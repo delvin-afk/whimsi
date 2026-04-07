@@ -77,7 +77,7 @@ export default function OnboardPage() {
         .eq("id", data.user.id)
         .single();
 
-      if (profile != null && profile.username) {
+      if (profile && (profile as { username?: string | null }).username) {
         router.replace(redirectTo);
       } else {
         setChecking(false);
