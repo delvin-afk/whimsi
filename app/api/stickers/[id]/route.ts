@@ -3,8 +3,9 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { userId } = await req.json();
     if (!userId) {
@@ -15,7 +16,7 @@ export async function DELETE(
     const { data: sticker, error: fetchError } = await supabaseAdmin
       .from("stickers")
       .select("user_id, image_url, group_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (fetchError || !sticker) {
@@ -28,7 +29,7 @@ export async function DELETE(
     // If part of a group, delete all stickers in the group
     const scope = sticker.group_id
       ? supabaseAdmin.from("stickers").select("id, image_url").eq("group_id", sticker.group_id)
-      : supabaseAdmin.from("stickers").select("id, image_url").eq("id", params.id);
+      : supabaseAdmin.from("stickers").select("id, image_url").eq("id", id);
 
     const { data: toDelete } = await scope;
 
@@ -58,8 +59,9 @@ export async function DELETE(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { userId, caption } = await req.json();
     if (!userId) {
@@ -70,7 +72,7 @@ export async function PATCH(
     const { data: sticker, error: fetchError } = await supabaseAdmin
       .from("stickers")
       .select("user_id, group_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (fetchError || !sticker) {
@@ -85,7 +87,7 @@ export async function PATCH(
     if (sticker.group_id) {
       await update.eq("group_id", sticker.group_id);
     } else {
-      await update.eq("id", params.id);
+      await update.eq("id", id);
     }
 
     return NextResponse.json({ ok: true });
