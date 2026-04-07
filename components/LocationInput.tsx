@@ -20,7 +20,7 @@ export default function LocationInput({ value, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
   const [locLoading, setLocLoading] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Keep local query in sync when parent resets value
   useEffect(() => { setQuery(value); }, [value]);
