@@ -126,7 +126,6 @@ export default function CapturePage() {
               onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
             />
             <div
-              onClick={() => fileRef.current?.click()}
               className="flex items-center justify-center gap-3 h-28 rounded-2xl border-2 border-dashed border-neutral-300 hover:bg-neutral-50 cursor-pointer text-neutral-500"
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
