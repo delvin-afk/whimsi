@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 import Link from "next/link";
@@ -43,6 +43,14 @@ const PERMISSION_INFO: Record<string, { title: string; button: string; icon: str
 };
 
 export default function OnboardingPage() {
+  return (
+    <Suspense>
+      <OnboardingForm />
+    </Suspense>
+  );
+}
+
+function OnboardingForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/feed";

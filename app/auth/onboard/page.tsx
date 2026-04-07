@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
@@ -42,6 +42,14 @@ const PERMISSION_INFO: Record<string, { title: string; button: string; icon: str
 };
 
 export default function OnboardPage() {
+  return (
+    <Suspense>
+      <OnboardForm />
+    </Suspense>
+  );
+}
+
+function OnboardForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/feed";
