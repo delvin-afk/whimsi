@@ -109,7 +109,8 @@ export default function OnboardingPage() {
           ? `${bdYyyy}-${bdMm.padStart(2, "0")}-${bdDd.padStart(2, "0")}`
           : null;
 
-      await supabase.from("profiles").upsert({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from("profiles").upsert({
         id: data.user.id,
         username: name.trim(),
         birthday: birthdayStr,

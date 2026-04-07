@@ -24,12 +24,13 @@ export default function CreateScrapbookPage() {
       const uid = data.user.id;
       setUserId(uid);
 
-      supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
         .from("profiles")
         .select("username")
         .eq("id", uid)
         .single()
-        .then(({ data: profile }) => {
+        .then(({ data: profile }: { data: { username?: string } | null }) => {
           if (profile?.username) setUsername(profile.username);
         });
 

@@ -31,12 +31,13 @@ export default function CapturePage() {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) { router.push("/auth?redirect=/capture"); return; }
       setUserId(data.user.id);
-      supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
         .from("profiles")
         .select("username")
         .eq("id", data.user.id)
         .single()
-        .then(({ data: profile }) => {
+        .then(({ data: profile }: { data: { username?: string } | null }) => {
           if (profile?.username) setUsername(profile.username);
         });
     });
