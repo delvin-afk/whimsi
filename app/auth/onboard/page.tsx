@@ -71,13 +71,14 @@ export default function OnboardPage() {
       setUserId(data.user.id);
 
       // Returning user who already has a profile — skip onboarding
-      const { data: profile } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: profile } = await (supabase as any)
         .from("profiles")
         .select("username")
         .eq("id", data.user.id)
         .single();
 
-      if (profile && (profile as { username?: string | null }).username) {
+      if (profile?.username) {
         router.replace(redirectTo);
       } else {
         setChecking(false);
@@ -116,7 +117,8 @@ export default function OnboardPage() {
           ? `${bdYyyy}-${bdMm.padStart(2, "0")}-${bdDd.padStart(2, "0")}`
           : null;
 
-      await supabase.from("profiles").upsert({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from("profiles").upsert({
         id: userId,
         username: name.trim(),
         birthday: birthdayStr,
