@@ -2,7 +2,7 @@ import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 
 export const metadata = {
-  title: "Stickermap",
+  title: "whimsi",
   description: "Turn your travels into stickers",
 };
 
