@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { StickerPost } from "@/types";
 import Link from "next/link";
 import StickerOptionsSheet from "@/components/StickerOptionsSheet";
+import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -127,7 +128,9 @@ export default function FeedPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    setCurrentUserId(localStorage.getItem("sticker_user_id"));
+    getSupabaseBrowser().auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id ?? null);
+    });
     fetch("/api/stickers")
       .then((r) => r.json())
       .then((j) => setPosts(j.stickers ?? []))
