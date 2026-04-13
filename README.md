@@ -1,83 +1,90 @@
-# AI Langauage Immersion
+# whimsi
 
+Turn your photos into stickers and pin them on a map.
 
 ## Tech Stack
 
-- Frontend & API: Next.js 15 (App Router)
+- **Frontend & API:** Next.js 16 (App Router)
+- **Styling:** Tailwind CSS v4
+- **Auth:** Supabase Auth (email/password + Google OAuth)
+- **Database & Storage:** Supabase (Postgres + Storage)
+- **AI / Sticker extraction:** Google Gemini, Replicate (SAM2), Sharp
+- **Maps:** Mapbox GL JS
+- **Language:** TypeScript
 
-- Styling: Tailwind CSS v4
+## Features
 
-- AI: Google Gemini (Vision + Text) 
-
-- Backend services: Supabase (Database + Storage)
-
-- Language: TypeScript
-
-
-## Project Structure High Level
-
-<img width="527" height="430" alt="image" src="https://github.com/user-attachments/assets/4617c182-752a-47a7-a63e-1312fb1f56ce" />
-
+- Onboarding flow for new users (name, birthday, interests, permissions)
+- Upload a photo → AI extracts the subject as a transparent sticker
+- Pin stickers on an interactive map with location tagging
+- Feed showing all shared stickers with captions and timestamps
+- Delete or edit captions on your own stickers
 
 ## Getting Started (Local Setup)
 
-1️⃣ Clone the repository
-- git clone https://github.com/<your-org-or-username>/ai-lang-immersion.git
-- cd ai-lang-immersion
+**1. Clone the repository**
+```
+git clone https://github.com/delvin-afk/whimsi.git
+cd whimsi
+```
 
-2️⃣ Install dependencies
+**2. Install dependencies** (requires Node.js 18+)
+```
+npm install
+```
 
-- Requires Node.js 18 or newer
+**3. Set up environment variables**
 
-- npm install
+Create `.env.local` in the project root:
 
-3️⃣ Set up environment variables
-
-Create a file called .env.local in the project root:
+```
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # Google Gemini
 GEMINI_API_KEY=your_google_ai_studio_key
 
-# Supabase
-- NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-- NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-- SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+# Replicate (SAM2 sticker extraction)
+REPLICATE_API_TOKEN=your_replicate_token
 
-⚠️ Important
+# Mapbox
+NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_public_token
+```
 
-.env.local is ignored by git — do not commit it
+> `.env.local` is git-ignored — never commit it.
+> `SUPABASE_SERVICE_ROLE_KEY` is server-only (used in API routes only).
 
-SUPABASE_SERVICE_ROLE_KEY is server-only (used in API routes)
+**4. Supabase setup (one-time)**
 
-4️⃣ Supabase setup (one-time)
+In your Supabase project, create:
 
-In your Supabase project:
+- Storage bucket: `Stickers`
+- Tables: `profiles`, `stickers`
+- Enable Google OAuth under Authentication → Providers
+- Add your local and production URLs to Authentication → URL Configuration
 
-Create a storage bucket called moments
+**5. Run the development server**
+```
+npm run dev
+```
 
-Create tables:
+Open [http://localhost:3000](http://localhost:3000)
 
--  posts
+## Key Routes
 
--  detections
+| Route | Description |
+|---|---|
+| `/` | Landing / auth check |
+| `/auth` | Sign up |
+| `/auth/login` | Sign in |
+| `/auth/onboard` | Post-OAuth onboarding |
+| `/capture` | Upload photo and make a sticker |
+| `/feed` | View all shared stickers |
+| `/map` | Interactive sticker map |
+| `/scrapbook` | Personal scrapbook |
 
--  lessons
+## Deployment
 
-(For MVP) Allow server inserts using the service role key
-
-Table schemas are documented in code comments and API routes.
-
-5️⃣ Run the development server
-- npm run dev
-
-
-Open:
-
-http://localhost:3000
- → Home
-
-http://localhost:3000/capture
- → Upload & detect objects
-
-http://localhost:3000/feed
- → View saved posts
+Deployed on Vercel. Add all env vars under **Settings → Environment Variables** in the Vercel dashboard.
