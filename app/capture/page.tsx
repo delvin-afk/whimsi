@@ -8,13 +8,23 @@ const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ss
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 // SpeechRecognition is not in TypeScript's default lib — declare it manually
+interface ISpeechRecognitionResult {
+  readonly isFinal: boolean;
+  readonly length: number;
+  item(index: number): { transcript: string };
+  [index: number]: { transcript: string };
+}
+interface ISpeechRecognitionEvent extends Event {
+  readonly resultIndex: number;
+  readonly results: { length: number; item(i: number): ISpeechRecognitionResult; [i: number]: ISpeechRecognitionResult };
+}
 interface ISpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
   lang: string;
   start(): void;
   stop(): void;
-  onresult: ((e: SpeechRecognitionEvent) => void) | null;
+  onresult: ((e: ISpeechRecognitionEvent) => void) | null;
   onerror: (() => void) | null;
   onend: (() => void) | null;
 }
@@ -106,7 +116,7 @@ export default function CapturePage() {
     // Snapshot whatever the user has already typed so we append to it
     committedRef.current = caption;
 
-    recognition.onresult = (e: SpeechRecognitionEvent) => {
+    recognition.onresult = (e: ISpeechRecognitionEvent) => {
       let interim = "";
       let newCommitted = committedRef.current;
 
