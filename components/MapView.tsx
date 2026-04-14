@@ -19,13 +19,26 @@ export default function MapView({ stickers }: Props) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !token) return;
 
-    import("mapbox-gl").then(({ default: mapboxgl }) => {
+    const FALLBACK: [number, number] = [-122.4783, 37.8199];
+
+    // Request geolocation in parallel with map load
+    const geoPromise = new Promise<[number, number]>((resolve) => {
+      if (!navigator.geolocation) { resolve(FALLBACK); return; }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve([pos.coords.longitude, pos.coords.latitude]),
+        () => resolve(FALLBACK),
+        { timeout: 6000 }
+      );
+    });
+
+    import("mapbox-gl").then(async ({ default: mapboxgl }) => {
       import("mapbox-gl/dist/mapbox-gl.css");
 
       if (!containerRef.current) return;
 
       mapboxgl.accessToken = token;
 
+      // Start zoomed out on the globe
       const map = new mapboxgl.Map({
         container: containerRef.current,
         style: "mapbox://styles/mapbox/streets-v12",
@@ -38,6 +51,7 @@ export default function MapView({ stickers }: Props) {
       map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
       map.on("load", () => {
+        // Add sticker markers
         const located = stickers.filter((s) => s.lat != null && s.lng != null);
 
         located.forEach((sticker) => {
@@ -50,10 +64,7 @@ export default function MapView({ stickers }: Props) {
             background-position: center;
             cursor: pointer;
             filter: drop-shadow(0 0 5px rgba(0,0,0,0.6)) drop-shadow(0 3px 10px rgba(0,0,0,0.4));
-            transition: transform 0.15s;
           `;
-          el.onmouseenter = () => (el.style.transform = "scale(1.15)");
-          el.onmouseleave = () => (el.style.transform = "scale(1)");
 
           const popup = new mapboxgl.Popup({ offset: 28, closeButton: false })
             .setHTML(`
@@ -70,25 +81,17 @@ export default function MapView({ stickers }: Props) {
             .addTo(map);
         });
 
-        if (located.length > 0) {
-          const bounds = located.reduce(
-            (b, s) => b.extend([s.lng!, s.lat!] as [number, number]),
-            new mapboxgl.LngLatBounds(
-              [located[0].lng!, located[0].lat!],
-              [located[0].lng!, located[0].lat!]
-            )
-          );
-          map.fitBounds(bounds, { padding: 80, maxZoom: 10, duration: 800 });
-        } else {
-          // No stickers — fly to user's current location
-          navigator.geolocation?.getCurrentPosition((pos) => {
-            map.flyTo({
-              center: [pos.coords.longitude, pos.coords.latitude],
-              zoom: 12,
-              duration: 1200,
-            });
+        // Once geolocation resolves, fly in — this runs independently of marker setup
+        // so fitBounds / other calls can't cancel the animation
+        geoPromise.then((center) => {
+          map.flyTo({
+            center,
+            zoom: 15,
+            duration: 4500,
+            curve: 1.8,
+            essential: true,
           });
-        }
+        });
       });
     });
 
@@ -98,7 +101,7 @@ export default function MapView({ stickers }: Props) {
     };
   }, []); // only mount once
 
-  async function searchCity(e: React.FormEvent) {
+  async function searchCity(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!query.trim() || !token || !mapRef.current) return;
     setSearching(true);
