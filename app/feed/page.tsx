@@ -107,6 +107,7 @@ function PostCard({
             <p className="text-sm text-neutral-700">{post.caption}</p>
           </div>
         )}
+
       </div>
 
       {isOwner && (
