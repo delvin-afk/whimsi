@@ -50,21 +50,36 @@ export default function MapView({ stickers, journeys = [] }: Props) {
       mapRef.current = map;
       map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
-      map.on("load", () => {
+      map.on("load", async () => {
         // ── Solo sticker markers ──────────────────────────────────────────────
         const located = stickers.filter((s) => s.lat != null && s.lng != null);
         located.forEach((sticker) => {
-          const el = document.createElement("div");
-          el.style.cssText = `
-            width: 72px; height: 72px;
-            background-image: url(${sticker.image_url});
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
+          // Wrapper: sticker image on top, tiny pin dot at the bottom.
+          // anchor:'bottom' puts the dot tip exactly at the coordinate at every zoom.
+          const wrapper = document.createElement("div");
+          wrapper.style.cssText = `
+            display: flex; flex-direction: column; align-items: center;
             cursor: pointer;
-            filter: drop-shadow(0 0 5px rgba(0,0,0,0.6)) drop-shadow(0 3px 10px rgba(0,0,0,0.4));
           `;
-          const popup = new mapboxgl.Popup({ offset: 28, closeButton: false })
+          const img = document.createElement("img");
+          img.src = sticker.image_url;
+          img.style.cssText = `
+            width: 40px; height: 40px;
+            object-fit: contain;
+            display: block;
+            filter: drop-shadow(0 0 4px rgba(0,0,0,0.5));
+          `;
+          const pin = document.createElement("div");
+          pin.style.cssText = `
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #f43f5e; border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            margin-top: 2px; flex-shrink: 0;
+          `;
+          wrapper.appendChild(img);
+          wrapper.appendChild(pin);
+
+          const popup = new mapboxgl.Popup({ offset: [0, -52], closeButton: false })
             .setHTML(`
               <div style="font-family:sans-serif;max-width:160px">
                 <p style="font-weight:600;margin:0 0 2px">${sticker.username}</p>
@@ -72,19 +87,48 @@ export default function MapView({ stickers, journeys = [] }: Props) {
                 ${sticker.caption ? `<p style="font-size:13px;margin:0">${sticker.caption}</p>` : ""}
               </div>
             `);
-          new mapboxgl.Marker({ element: el })
+          new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
             .setLngLat([sticker.lng!, sticker.lat!])
             .setPopup(popup)
             .addTo(map);
         });
 
         // ── Journey lines + numbered markers ─────────────────────────────────
-        journeys.forEach((journey, journeyIndex) => {
+        const journeyPromises = journeys.map(async (journey, journeyIndex) => {
           const color = JOURNEY_COLORS[journeyIndex % JOURNEY_COLORS.length];
           const validStops = journey.stickers.filter((s) => s.lat != null && s.lng != null);
           if (validStops.length < 2) return;
 
-          const coordinates = validStops.map((s) => [s.lng!, s.lat!]);
+          // Fetch road-following route between each consecutive pair of stops
+          const straightCoords = validStops.map((s) => [s.lng!, s.lat!]);
+          let routeCoordinates: number[][] = [];
+
+          for (let i = 0; i < straightCoords.length - 1; i++) {
+            const [lng1, lat1] = straightCoords[i];
+            const [lng2, lat2] = straightCoords[i + 1];
+            try {
+              const res = await fetch(
+                `https://api.mapbox.com/directions/v5/mapbox/driving/${lng1},${lat1};${lng2},${lat2}?geometries=geojson&overview=full&access_token=${token}`
+              );
+              const json = await res.json();
+              const leg: number[][] | undefined = json.routes?.[0]?.geometry?.coordinates;
+              if (leg && leg.length > 0) {
+                // Avoid duplicate point at segment join
+                if (routeCoordinates.length > 0) leg.shift();
+                routeCoordinates = routeCoordinates.concat(leg);
+              } else {
+                // Fallback: straight line for this segment
+                if (routeCoordinates.length === 0) routeCoordinates.push(straightCoords[i]);
+                routeCoordinates.push(straightCoords[i + 1]);
+              }
+            } catch {
+              // Fallback: straight line for this segment
+              if (routeCoordinates.length === 0) routeCoordinates.push(straightCoords[i]);
+              routeCoordinates.push(straightCoords[i + 1]);
+            }
+          }
+
+          const coordinates = routeCoordinates.length >= 2 ? routeCoordinates : straightCoords;
 
           // Add GeoJSON line source + layer
           const sourceId = `journey-${journey.id}`;
@@ -128,45 +172,63 @@ export default function MapView({ stickers, journeys = [] }: Props) {
 
           // Numbered sticker markers along the route
           validStops.forEach((stop, stopIndex) => {
-            // Sticker image marker
-            const imgEl = document.createElement("div");
-            imgEl.style.cssText = `
-              width: 60px; height: 60px;
-              background-image: url(${stop.image_url});
-              background-size: contain;
-              background-repeat: no-repeat;
-              background-position: center;
+            // Wrapper: sticker+badge on top, journey-coloured pin dot at bottom.
+            // anchor:'bottom' keeps the dot exactly at the coordinate at every zoom level.
+            const wrapper = document.createElement("div");
+            wrapper.style.cssText = `
+              display: flex; flex-direction: column; align-items: center;
               cursor: pointer;
-              filter: drop-shadow(0 0 4px rgba(0,0,0,0.5));
-              position: relative;
             `;
 
-            // Number badge overlay
+            const stickerWrap = document.createElement("div");
+            stickerWrap.style.cssText = `position: relative; width: 40px; height: 40px;`;
+
+            const img = document.createElement("img");
+            img.src = stop.image_url;
+            img.style.cssText = `
+              width: 40px; height: 40px;
+              object-fit: contain;
+              display: block;
+              filter: drop-shadow(0 0 3px rgba(0,0,0,0.45));
+            `;
+            stickerWrap.appendChild(img);
+
             const badge = document.createElement("div");
             badge.style.cssText = `
               position: absolute;
-              top: -6px; left: -6px;
-              width: 20px; height: 20px;
+              top: -5px; left: -5px;
+              width: 17px; height: 17px;
               border-radius: 50%;
               background: ${color};
               color: white;
-              font-size: 11px;
+              font-size: 10px;
               font-weight: 700;
               display: flex;
               align-items: center;
               justify-content: center;
               font-family: sans-serif;
-              box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+              box-shadow: 0 1px 3px rgba(0,0,0,0.4);
               border: 1.5px solid white;
             `;
             badge.textContent = String(stopIndex + 1);
-            imgEl.appendChild(badge);
+            stickerWrap.appendChild(badge);
+
+            const pin = document.createElement("div");
+            pin.style.cssText = `
+              width: 8px; height: 8px; border-radius: 50%;
+              background: ${color}; border: 2px solid white;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.45);
+              margin-top: 2px; flex-shrink: 0;
+            `;
+
+            wrapper.appendChild(stickerWrap);
+            wrapper.appendChild(pin);
 
             const takenAt = stop.photo_taken_at
               ? new Date(stop.photo_taken_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
               : null;
 
-            const popup = new mapboxgl.Popup({ offset: 30, closeButton: false })
+            const popup = new mapboxgl.Popup({ offset: [0, -54], closeButton: false })
               .setHTML(`
                 <div style="font-family:sans-serif;max-width:180px">
                   <p style="font-weight:700;margin:0 0 2px;color:${color}">
@@ -178,7 +240,7 @@ export default function MapView({ stickers, journeys = [] }: Props) {
                 </div>
               `);
 
-            new mapboxgl.Marker({ element: imgEl })
+            new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
               .setLngLat([stop.lng!, stop.lat!])
               .setPopup(popup)
               .addTo(map);
@@ -196,10 +258,12 @@ export default function MapView({ stickers, journeys = [] }: Props) {
             font-size: 13px;
           `;
           startEl.textContent = "🚩";
-          new mapboxgl.Marker({ element: startEl })
+          new mapboxgl.Marker({ element: startEl, anchor: "center" })
             .setLngLat(coordinates[0] as [number, number])
             .addTo(map);
         });
+
+        await Promise.all(journeyPromises);
 
         // Fly to user location
         geoPromise.then((center) => {
