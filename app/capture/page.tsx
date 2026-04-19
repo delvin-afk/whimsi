@@ -274,7 +274,7 @@ export default function CapturePage() {
   // ── Journey mode state ─────────────────────────────────────────────────────
   const [journeyPhotos, setJourneyPhotos] = useState<PhotoItem[]>([]);
   const [journeyCaption, setJourneyCaption] = useState("");
-  const [journeyStep, setJourneyStep] = useState<"details" | "processing" | "saving" | "done">("details");
+  const [journeyStep, setJourneyStep] = useState<"details" | "processing" | "saving" | "done" | "rescue">("details");
   const [journeyProgress, setJourneyProgress] = useState({ current: 0, total: 0 });
   const [journeySaveError, setJourneySaveError] = useState("");
   // Cut-out popup: shown mid-processing when a photo fails
