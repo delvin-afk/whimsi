@@ -475,44 +475,45 @@ export default function CapturePage() {
     setJourneyProgress({ current: 0, total: journeyPhotos.length });
     setJourneySaveError("");
 
-    // Extract stickers sequentially — update state as we go
-    for (let i = 0; i < journeyPhotos.length; i++) {
-      const photo = journeyPhotos[i];
-      updatePhoto(photo.id, { status: "processing" });
-      setJourneyProgress({ current: i + 1, total: journeyPhotos.length });
+    // Track results locally — don't rely on reading React state after async updates
+    const results: PhotoItem[] = journeyPhotos.map((p) => ({ ...p }));
+
+    for (let i = 0; i < results.length; i++) {
+      results[i] = { ...results[i], status: "processing" };
+      updatePhoto(results[i].id, { status: "processing" });
+      setJourneyProgress({ current: i + 1, total: results.length });
       try {
         const res = await fetch("/api/sticker", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ base64: photo.base64, mimeType: photo.mimeType }),
+          body: JSON.stringify({ base64: results[i].base64, mimeType: results[i].mimeType }),
         });
         const json = await res.json();
         if (res.ok) {
-          updatePhoto(photo.id, { stickerDataUrl: json.sticker, status: "done" });
+          results[i] = { ...results[i], stickerDataUrl: json.sticker, status: "done" };
+          updatePhoto(results[i].id, { stickerDataUrl: json.sticker, status: "done" });
         } else {
-          updatePhoto(photo.id, { status: "error", errorMsg: json.error ?? "Sticker creation failed" });
+          results[i] = { ...results[i], status: "error", errorMsg: json.error ?? "Sticker creation failed" };
+          updatePhoto(results[i].id, { status: "error", errorMsg: results[i].errorMsg });
         }
       } catch {
-        updatePhoto(photo.id, { status: "error", errorMsg: "Network error" });
+        results[i] = { ...results[i], status: "error", errorMsg: "Network error" };
+        updatePhoto(results[i].id, { status: "error", errorMsg: "Network error" });
       }
     }
 
-    // Use the latest state via functional update to check results
-    setJourneyPhotos((latest) => {
-      const hasFailures = latest.some((p) => p.status === "error");
-      const validCount  = latest.filter((p) => p.stickerDataUrl).length;
-      if (hasFailures) {
-        // Go to rescue step so user can pick cut-outs for failed photos
-        setJourneyStep("rescue");
-      } else if (validCount >= 2) {
-        // All succeeded — save immediately
-        void saveJourney(latest);
-      } else {
-        setJourneySaveError("Fewer than 2 stickers could be created. Try different photos.");
-        setJourneyStep("details");
-      }
-      return latest;
-    });
+    // Decide next step based on local results (not stale React state)
+    const hasFailures = results.some((p) => p.status === "error");
+    const validCount  = results.filter((p) => p.stickerDataUrl).length;
+
+    if (hasFailures) {
+      setJourneyStep("rescue");
+    } else if (validCount >= 2) {
+      void saveJourney(results);
+    } else {
+      setJourneySaveError("Fewer than 2 stickers could be created. Try different photos.");
+      setJourneyStep("details");
+    }
   }
 
   async function applyCutoutToPhoto(photoId: string, shape: CutoutShape) {
