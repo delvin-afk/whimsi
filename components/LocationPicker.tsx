@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 
 interface Props {
   onChange: (name: string, lat: number, lng: number) => void;
+  defaultLat?: number;
+  defaultLng?: number;
 }
 
 function shortName(placeName: string): string {
@@ -11,7 +13,7 @@ function shortName(placeName: string): string {
   return parts.slice(0, 2).join(", ");
 }
 
-export default function LocationPicker({ onChange }: Props) {
+export default function LocationPicker({ onChange, defaultLat, defaultLng }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -78,6 +80,15 @@ export default function LocationPicker({ onChange }: Props) {
       });
 
       map.on("load", () => {
+        // If EXIF GPS was extracted from the photo, use that first
+        if (defaultLat !== undefined && defaultLng !== undefined) {
+          map.flyTo({ center: [defaultLng, defaultLat], zoom: 15, duration: 800 });
+          marker.setLngLat([defaultLng, defaultLat]);
+          reverseGeocode(defaultLat, defaultLng);
+          setLocating(false);
+          return;
+        }
+        // Otherwise fall back to browser geolocation
         navigator.geolocation?.getCurrentPosition(
           ({ coords: { latitude: lat, longitude: lng } }) => {
             map.flyTo({ center: [lng, lat], zoom: 13, duration: 800 });
