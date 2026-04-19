@@ -6,6 +6,8 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("user_id"); // for scrapbook (own stickers)
 
+    const excludeJourney = searchParams.get("exclude_journey") === "true";
+
     let query = supabaseAdmin
       .from("stickers")
       .select("*")
@@ -16,6 +18,11 @@ export async function GET(req: Request) {
       query = query.eq("user_id", userId);
     } else {
       query = query.eq("is_public", true);
+    }
+
+    // Exclude stickers that belong to a journey (they're rendered via journey lines)
+    if (excludeJourney) {
+      query = query.is("journey_id", null);
     }
 
     const { data, error } = await query;

@@ -58,4 +58,17 @@ export type StickerPost = {
   is_public: boolean;
   created_at: string;
   group_id: string | null;
+  journey_id: string | null;
+  photo_taken_at: string | null;
+  order_index: number | null;
+};
+
+export type Journey = {
+  id: string;
+  user_id: string;
+  username: string;
+  caption: string | null;
+  is_public: boolean;
+  created_at: string;
+  stickers: StickerPost[]; // ordered by photo_taken_at / order_index
 };
