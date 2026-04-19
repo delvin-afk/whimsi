@@ -274,9 +274,12 @@ export default function CapturePage() {
   // ── Journey mode state ─────────────────────────────────────────────────────
   const [journeyPhotos, setJourneyPhotos] = useState<PhotoItem[]>([]);
   const [journeyCaption, setJourneyCaption] = useState("");
-  const [journeyStep, setJourneyStep] = useState<"details" | "processing" | "rescue" | "saving" | "done">("details");
+  const [journeyStep, setJourneyStep] = useState<"details" | "processing" | "saving" | "done">("details");
   const [journeyProgress, setJourneyProgress] = useState({ current: 0, total: 0 });
   const [journeySaveError, setJourneySaveError] = useState("");
+  // Cut-out popup: shown mid-processing when a photo fails
+  const [cutoutModalPhoto, setCutoutModalPhoto] = useState<PhotoItem | null>(null);
+  const cutoutResolverRef = useRef<((shape: CutoutShape | null) => void) | null>(null);
 
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
@@ -475,13 +478,15 @@ export default function CapturePage() {
     setJourneyProgress({ current: 0, total: journeyPhotos.length });
     setJourneySaveError("");
 
-    // Track results locally — don't rely on reading React state after async updates
     const results: PhotoItem[] = journeyPhotos.map((p) => ({ ...p }));
 
     for (let i = 0; i < results.length; i++) {
       results[i] = { ...results[i], status: "processing" };
       updatePhoto(results[i].id, { status: "processing" });
       setJourneyProgress({ current: i + 1, total: results.length });
+
+      // Try AI sticker extraction
+      let stickerDataUrl: string | null = null;
       try {
         const res = await fetch("/api/sticker", {
           method: "POST",
@@ -489,44 +494,57 @@ export default function CapturePage() {
           body: JSON.stringify({ base64: results[i].base64, mimeType: results[i].mimeType }),
         });
         const json = await res.json();
-        if (res.ok) {
-          results[i] = { ...results[i], stickerDataUrl: json.sticker, status: "done" };
-          updatePhoto(results[i].id, { stickerDataUrl: json.sticker, status: "done" });
+        if (res.ok) stickerDataUrl = json.sticker;
+      } catch { /* fall through to cut-out prompt */ }
+
+      if (stickerDataUrl) {
+        results[i] = { ...results[i], stickerDataUrl, status: "done" };
+        updatePhoto(results[i].id, { stickerDataUrl, status: "done" });
+      } else {
+        // ── Pause: show cut-out popup and wait for user choice ──
+        results[i] = { ...results[i], status: "error" };
+        updatePhoto(results[i].id, { status: "error" });
+
+        const chosenShape = await new Promise<CutoutShape | null>((resolve) => {
+          cutoutResolverRef.current = resolve;
+          setCutoutModalPhoto({ ...results[i] });
+        });
+        setCutoutModalPhoto(null);
+        cutoutResolverRef.current = null;
+
+        if (chosenShape) {
+          // Generate cut-out client-side
+          updatePhoto(results[i].id, { status: "processing" });
+          try {
+            const dataUrl = await generateCutout(results[i].localUrl, chosenShape);
+            results[i] = { ...results[i], stickerDataUrl: dataUrl, status: "done" };
+            updatePhoto(results[i].id, { stickerDataUrl: dataUrl, status: "done" });
+          } catch {
+            results[i] = { ...results[i], status: "error", errorMsg: "Cut-out failed" };
+            updatePhoto(results[i].id, { status: "error", errorMsg: "Cut-out failed" });
+          }
         } else {
-          results[i] = { ...results[i], status: "error", errorMsg: json.error ?? "Sticker creation failed" };
-          updatePhoto(results[i].id, { status: "error", errorMsg: results[i].errorMsg });
+          // Skipped — keep as error/skipped
+          results[i] = { ...results[i], status: "error", errorMsg: "Skipped" };
+          updatePhoto(results[i].id, { status: "error", errorMsg: "Skipped" });
         }
-      } catch {
-        results[i] = { ...results[i], status: "error", errorMsg: "Network error" };
-        updatePhoto(results[i].id, { status: "error", errorMsg: "Network error" });
       }
     }
 
-    // Decide next step based on local results (not stale React state)
-    const hasFailures = results.some((p) => p.status === "error");
-    const validCount  = results.filter((p) => p.stickerDataUrl).length;
-
-    if (hasFailures) {
-      setJourneyStep("rescue");
-    } else if (validCount >= 2) {
+    // All done — save if we have enough
+    const validCount = results.filter((p) => p.stickerDataUrl).length;
+    if (validCount >= 2) {
       void saveJourney(results);
     } else {
-      setJourneySaveError("Fewer than 2 stickers could be created. Try different photos.");
+      setJourneySaveError(`Only ${validCount} sticker${validCount === 1 ? "" : "s"} — need at least 2 to create a journey.`);
       setJourneyStep("details");
     }
   }
 
-  async function applyCutoutToPhoto(photoId: string, shape: CutoutShape) {
-    const photo = journeyPhotos.find((p) => p.id === photoId);
-    if (!photo) return;
-    updatePhoto(photoId, { status: "processing", errorMsg: "" });
-    try {
-      const dataUrl = await generateCutout(photo.localUrl, shape);
-      updatePhoto(photoId, { stickerDataUrl: dataUrl, status: "done" });
-    } catch {
-      updatePhoto(photoId, { status: "error", errorMsg: "Cut-out failed. Try another shape." });
-    }
+  function onPickCutout(shape: CutoutShape | null) {
+    cutoutResolverRef.current?.(shape);
   }
+
 
   async function saveJourney(photos: PhotoItem[]) {
     const validPhotos = photos.filter((p) => p.stickerDataUrl);
@@ -578,6 +596,7 @@ export default function CapturePage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
+    <>
     <main className="max-w-lg mx-auto p-5 space-y-4 pb-10">
       <h1 className="text-2xl font-bold pt-2">
         {mode === "journey" ? "Create a Journey" : "Create a Sticker"}
@@ -892,109 +911,6 @@ export default function CapturePage() {
             </div>
           )}
 
-          {/* Rescue — some stickers failed, offer cut-outs */}
-          {(journeyStep === "rescue" || journeyStep === "saving") && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-base">Some photos need a cut-out</p>
-                  <p className="text-xs text-neutral-500 mt-0.5">Pick a shape for photos that couldn&apos;t be processed</p>
-                </div>
-                <button onClick={resetJourney} className="text-xs text-neutral-400 hover:text-neutral-700">Start over</button>
-              </div>
-
-              {journeyPhotos.map((photo, index) => (
-                <div key={photo.id} className="rounded-2xl border overflow-hidden"
-                  style={{ borderColor: photo.status === "done" ? "#4ade80" : photo.status === "error" ? "#fca5a5" : "#e5e7eb" }}>
-                  <div className="flex gap-3 p-3 items-start">
-                    {/* Thumbnail + number */}
-                    <div className="relative shrink-0">
-                      <img src={photo.localUrl} alt="" className="w-16 h-16 object-cover rounded-xl" />
-                      <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center shadow">
-                        {index + 1}
-                      </span>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      {/* Success */}
-                      {photo.status === "done" && (
-                        <div className="flex items-center gap-2 h-16">
-                          <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="3"><path d="M5 13l4 4L19 7"/></svg>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-green-700">Sticker ready</p>
-                            {photo.location_name && <p className="text-xs text-neutral-400 truncate">📍 {photo.locationName}</p>}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Processing cut-out */}
-                      {photo.status === "processing" && (
-                        <div className="flex items-center gap-2 h-16">
-                          <div className="w-4 h-4 rounded-full border-2 border-purple-300 border-t-purple-600 animate-spin shrink-0" />
-                          <p className="text-sm text-neutral-500">Generating cut-out…</p>
-                        </div>
-                      )}
-
-                      {/* Error — show cut-out picker */}
-                      {photo.status === "error" && (
-                        <div className="space-y-2">
-                          <p className="text-xs text-red-500 font-medium">Couldn&apos;t create sticker — pick a cut-out:</p>
-                          <div className="flex gap-2">
-                            {CUTOUT_SHAPES.map(({ id, label }) => (
-                              <button
-                                key={id}
-                                onClick={() => applyCutoutToPhoto(photo.id, id)}
-                                disabled={journeyStep === "saving"}
-                                className="flex flex-col items-center gap-1 p-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 active:scale-95 transition disabled:opacity-50"
-                              >
-                                <CutoutShapeIcon shape={id} />
-                                <span className="text-white text-xs">{label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {journeySaveError && (
-                <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                  {journeySaveError}
-                </div>
-              )}
-
-              {/* Save button — enabled once 2+ stickers are ready */}
-              {(() => {
-                const readyCount = journeyPhotos.filter((p) => p.stickerDataUrl).length;
-                const pendingCount = journeyPhotos.filter((p) => p.status === "error").length;
-                return (
-                  <div className="space-y-2">
-                    {pendingCount > 0 && readyCount >= 2 && (
-                      <p className="text-xs text-center text-neutral-400">
-                        {readyCount} stickers ready · {pendingCount} still need a cut-out (optional)
-                      </p>
-                    )}
-                    <button
-                      onClick={() => saveJourney(journeyPhotos)}
-                      disabled={readyCount < 2 || journeyStep === "saving"}
-                      className="w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold text-base disabled:opacity-40 transition"
-                    >
-                      {journeyStep === "saving"
-                        ? "Saving journey…"
-                        : readyCount < 2
-                          ? `Need ${2 - readyCount} more sticker${2 - readyCount === 1 ? "" : "s"}`
-                          : `Save Journey (${readyCount} stickers)`}
-                    </button>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
           {/* Done */}
           {journeyStep === "done" && (
             <div className="space-y-4 py-6 text-center">
@@ -1026,5 +942,55 @@ export default function CapturePage() {
         </>
       )}
     </main>
+
+      {/* ── Cut-out popup modal (mid-processing) ── */}
+      {cutoutModalPhoto && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+          {/* Sheet */}
+          <div className="relative w-full max-w-lg bg-neutral-900 rounded-t-3xl p-6 space-y-5 pb-10">
+            {/* Handle */}
+            <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-1" />
+
+            {/* Header with photo */}
+            <div className="flex items-center gap-4">
+              <img
+                src={cutoutModalPhoto.localUrl}
+                alt=""
+                className="w-16 h-16 rounded-xl object-cover shrink-0 border-2 border-red-400/50"
+              />
+              <div>
+                <p className="text-white font-semibold">Couldn&apos;t create sticker</p>
+                <p className="text-neutral-400 text-sm mt-0.5">Pick a cut-out shape for this photo instead</p>
+              </div>
+            </div>
+
+            {/* Shape options */}
+            <div className="grid grid-cols-4 gap-3">
+              {CUTOUT_SHAPES.map(({ id, label }) => (
+                <button
+                  key={id}
+                  onClick={() => onPickCutout(id)}
+                  className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 transition"
+                >
+                  <CutoutShapeIcon shape={id} />
+                  <span className="text-white text-xs font-medium">{label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Skip */}
+            <button
+              onClick={() => onPickCutout(null)}
+              className="w-full py-3 rounded-2xl border border-white/10 text-neutral-400 text-sm font-medium hover:text-white hover:border-white/20 transition"
+            >
+              Skip this photo
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
