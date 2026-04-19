@@ -35,6 +35,150 @@ declare global {
   }
 }
 
+// ── Cut-out shapes ────────────────────────────────────────────────────────────
+type CutoutShape = "circle" | "star" | "square" | "diamond";
+
+const CUTOUT_SHAPES: { id: CutoutShape; label: string }[] = [
+  { id: "circle",  label: "Circle"  },
+  { id: "star",    label: "Star"    },
+  { id: "square",  label: "Square"  },
+  { id: "diamond", label: "Diamond" },
+];
+
+function buildShapePath(
+  ctx: CanvasRenderingContext2D,
+  shape: CutoutShape,
+  cx: number, cy: number, r: number,
+  rough: boolean,
+) {
+  const n = (scale: number) => rough ? (Math.random() - 0.5) * scale : 0;
+  ctx.beginPath();
+  switch (shape) {
+    case "circle": {
+      const steps = 80;
+      for (let i = 0; i <= steps; i++) {
+        const a = (i / steps) * Math.PI * 2 - Math.PI / 2;
+        const rr = r + n(r * 0.07);
+        const x = cx + rr * Math.cos(a);
+        const y = cy + rr * Math.sin(a);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      break;
+    }
+    case "star": {
+      const pts = 12;
+      const inner = r * 0.42;
+      for (let i = 0; i < pts * 2; i++) {
+        const a = (i / (pts * 2)) * Math.PI * 2 - Math.PI / 2;
+        const rr = (i % 2 === 0 ? r : inner) + n(r * 0.06);
+        const x = cx + rr * Math.cos(a);
+        const y = cy + rr * Math.sin(a);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      break;
+    }
+    case "square": {
+      if (rough) {
+        const sides = 4;
+        const corners: [number, number][] = [[-r,-r],[r,-r],[r,r],[-r,r]];
+        const steps = 20;
+        for (let s = 0; s < sides; s++) {
+          const [x1,y1] = corners[s];
+          const [x2,y2] = corners[(s+1)%sides];
+          for (let j = 0; j <= steps; j++) {
+            const t = j / steps;
+            const x = cx + x1 + (x2-x1)*t + n(r * 0.05);
+            const y = cy + y1 + (y2-y1)*t + n(r * 0.05);
+            s===0 && j===0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          }
+        }
+      } else {
+        ctx.rect(cx-r, cy-r, r*2, r*2);
+      }
+      break;
+    }
+    case "diamond": {
+      const tips: [number,number][] = [
+        [cx,       cy-r+n(r*.05)],
+        [cx+r+n(r*.05), cy      ],
+        [cx,       cy+r+n(r*.05)],
+        [cx-r+n(r*.05), cy      ],
+      ];
+      const steps = 15;
+      for (let i = 0; i < 4; i++) {
+        const [x1,y1] = tips[i];
+        const [x2,y2] = tips[(i+1)%4];
+        for (let j = 0; j <= steps; j++) {
+          const t = j / steps;
+          const x = x1 + (x2-x1)*t + n(r*.05);
+          const y = y1 + (y2-y1)*t + n(r*.05);
+          i===0 && j===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+        }
+      }
+      break;
+    }
+  }
+  ctx.closePath();
+}
+
+function generateCutout(localUrl: string, shape: CutoutShape): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const SIZE = 500;
+      const BORDER = 26;
+      const canvas = document.createElement("canvas");
+      canvas.width = SIZE; canvas.height = SIZE;
+      const ctx = canvas.getContext("2d")!;
+      ctx.clearRect(0, 0, SIZE, SIZE);
+      const cx = SIZE / 2, cy = SIZE / 2;
+      const outerR = SIZE / 2 - 8;
+      const innerR = outerR - BORDER;
+      // White rough border
+      ctx.save();
+      buildShapePath(ctx, shape, cx, cy, outerR, true);
+      ctx.fillStyle = "white";
+      ctx.fill();
+      ctx.restore();
+      // Image clipped to inner shape
+      ctx.save();
+      buildShapePath(ctx, shape, cx, cy, innerR, false);
+      ctx.clip();
+      const scale = Math.max(SIZE / img.width, SIZE / img.height);
+      const w = img.width * scale, h = img.height * scale;
+      ctx.drawImage(img, (SIZE-w)/2, (SIZE-h)/2, w, h);
+      ctx.restore();
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.onerror = () => reject(new Error("Image load failed"));
+    img.src = localUrl;
+  });
+}
+
+function CutoutShapeIcon({ shape }: { shape: CutoutShape }) {
+  const s = 48;
+  const cx = s/2, cy = s/2, r = s/2 - 4;
+  switch (shape) {
+    case "circle":
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><circle cx={cx} cy={cy} r={r} fill="white"/></svg>;
+    case "star": {
+      const pts = 12, inner = r*.42;
+      const d = Array.from({length: pts*2}, (_,i) => {
+        const a = (i/(pts*2))*Math.PI*2 - Math.PI/2;
+        const rr = i%2===0 ? r : inner;
+        return `${i===0?"M":"L"}${cx+rr*Math.cos(a)} ${cy+rr*Math.sin(a)}`;
+      }).join(" ")+"Z";
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={d} fill="white"/></svg>;
+    }
+    case "square":
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><rect x={4} y={4} width={s-8} height={s-8} fill="white"/></svg>;
+    case "diamond": {
+      const d = `M${cx} ${4} L${s-4} ${cy} L${cx} ${s-4} L${4} ${cy}Z`;
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={d} fill="white"/></svg>;
+    }
+  }
+}
+
 // ── Journey photo item ────────────────────────────────────────────────────────
 type PhotoItem = {
   id: string;
@@ -121,6 +265,7 @@ export default function CapturePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [cuttingOut, setCuttingOut] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState("");
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
@@ -242,6 +387,20 @@ export default function CapturePage() {
       else setError(json.error ?? "Couldn't create a sticker. Try a clearer image with a distinct subject.");
     } catch { setError("Sticker service unavailable. Please try again."); }
     finally { setLoading(false); }
+  }
+
+  async function applyCutout(shape: CutoutShape) {
+    if (!localImageUrl) return;
+    setCuttingOut(true);
+    setError("");
+    try {
+      const dataUrl = await generateCutout(localImageUrl, shape);
+      setStickerDataUrl(dataUrl);
+    } catch {
+      setError("Could not generate cut-out. Try a different photo.");
+    } finally {
+      setCuttingOut(false);
+    }
   }
 
   function startListening() {
@@ -449,15 +608,40 @@ export default function CapturePage() {
               )}
 
               {error && (
-                <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-3">
-                  <span className="text-red-500 text-lg leading-none mt-0.5">⚠</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-red-700 text-sm font-medium">Couldn&apos;t make a sticker</p>
-                    <p className="text-red-500 text-sm mt-0.5">{error}</p>
-                    <button onClick={() => { setError(""); fileRef.current?.click(); }}
-                      className="mt-2 text-xs text-red-600 underline underline-offset-2">
-                      Try a different photo
-                    </button>
+                <div className="space-y-3">
+                  {/* Error message */}
+                  <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-3">
+                    <span className="text-red-500 text-lg leading-none mt-0.5">⚠</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-red-700 text-sm font-medium">Couldn&apos;t make a sticker</p>
+                      <p className="text-red-500 text-sm mt-0.5">{error}</p>
+                      <button onClick={() => { setError(""); fileRef.current?.click(); }}
+                        className="mt-2 text-xs text-red-600 underline underline-offset-2">
+                        Try a different photo
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Cut-out fallback */}
+                  <div className="rounded-2xl bg-neutral-900 p-4 space-y-3">
+                    <p className="text-white font-semibold text-sm">Choose Cut Out</p>
+                    <p className="text-neutral-400 text-xs">Pick a shape to cut your photo into instead</p>
+                    <div className="grid grid-cols-4 gap-3">
+                      {CUTOUT_SHAPES.map(({ id, label }) => (
+                        <button
+                          key={id}
+                          onClick={() => applyCutout(id)}
+                          disabled={cuttingOut}
+                          className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 transition disabled:opacity-50"
+                        >
+                          <CutoutShapeIcon shape={id} />
+                          <span className="text-white text-xs font-medium">{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {cuttingOut && (
+                      <p className="text-neutral-400 text-xs text-center animate-pulse">Generating cut-out…</p>
+                    )}
                   </div>
                 </div>
               )}
