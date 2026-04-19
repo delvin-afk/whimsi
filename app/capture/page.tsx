@@ -47,6 +47,8 @@ export default function CapturePage() {
   const [locationName, setLocationName] = useState("");
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
+  const [exifLat, setExifLat] = useState<number | undefined>(undefined);
+  const [exifLng, setExifLng] = useState<number | undefined>(undefined);
   const [username, setUsername] = useState("");
   const [userId, setUserId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -85,6 +87,20 @@ export default function CapturePage() {
     setMimeType(file.type);
     setStickerDataUrl(null);
     setSaved(false);
+    // Reset EXIF coords so LocationPicker re-initialises correctly
+    setExifLat(undefined);
+    setExifLng(undefined);
+    // Try to extract GPS from EXIF metadata
+    try {
+      const exifr = (await import("exifr")).default;
+      const gps = await exifr.gps(file);
+      if (gps?.latitude && gps?.longitude) {
+        setExifLat(gps.latitude);
+        setExifLng(gps.longitude);
+      }
+    } catch {
+      // No EXIF or no GPS — LocationPicker will fall back to browser geolocation
+    }
   }
 
   async function extractSticker() {
@@ -191,6 +207,8 @@ export default function CapturePage() {
     setLocationName("");
     setLat(null);
     setLng(null);
+    setExifLat(undefined);
+    setExifLng(undefined);
     setError("");
     stopListening();
   }
@@ -365,6 +383,8 @@ export default function CapturePage() {
             <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Location</label>
             <div className="mt-2">
               <LocationPicker
+                defaultLat={exifLat}
+                defaultLng={exifLng}
                 onChange={(name, newLat, newLng) => {
                   setLocationName(name);
                   setLat(newLat);
