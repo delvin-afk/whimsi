@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import type { Journey } from "@/types";
 import ShareButton from "@/components/ShareButton";
+import JourneyShareCardModal from "@/components/JourneyShareCardModal";
 import Link from "next/link";
 
 const JOURNEY_COLORS = ["#a855f7", "#3b82f6", "#f97316", "#ec4899", "#14b8a6"];
@@ -18,6 +20,8 @@ function timeAgo(dateStr: string) {
 
 export default function JourneySharePage({ journey }: { journey: Journey }) {
   const color = JOURNEY_COLORS[0];
+  const [showShareCard, setShowShareCard] = useState(false);
+  const journeyUrl = typeof window !== "undefined" ? window.location.href : `/journey/${journey.id}`;
 
   const dateRange = (() => {
     const withTime = journey.stickers.filter((s) => s.photo_taken_at);
@@ -104,7 +108,21 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
           </div>
         </div>
 
-        {/* Share + CTA */}
+        {/* Share card button */}
+        <button
+          onClick={() => setShowShareCard(true)}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-white font-semibold text-sm transition active:scale-95"
+          style={{ background: color }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+            <polyline points="16 6 12 2 8 6"/>
+            <line x1="12" y1="2" x2="12" y2="15"/>
+          </svg>
+          Share Journey Card
+        </button>
+
+        {/* Share link */}
         <ShareButton
           title={journey.caption ?? `${journey.username}'s journey on whimsi`}
           text={shareText}
@@ -116,6 +134,15 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
           Discover more on whimsi →
         </Link>
       </div>
+
+      {showShareCard && (
+        <JourneyShareCardModal
+          journeyId={journey.id}
+          journeyTitle={journey.caption ?? `${journey.username}'s journey`}
+          journeyUrl={journeyUrl}
+          onClose={() => setShowShareCard(false)}
+        />
+      )}
     </main>
   );
 }

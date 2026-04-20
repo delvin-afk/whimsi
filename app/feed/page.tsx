@@ -5,6 +5,7 @@ import type { StickerPost, Journey } from "@/types";
 import Link from "next/link";
 import StickerOptionsSheet from "@/components/StickerOptionsSheet";
 import ShareButton from "@/components/ShareButton";
+import JourneyShareCardModal from "@/components/JourneyShareCardModal";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 const JOURNEY_COLORS = ["#a855f7", "#3b82f6", "#f97316", "#ec4899", "#14b8a6"];
@@ -120,6 +121,7 @@ function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic }: {
   const stops = journey.stickers.filter((s) => s.lat != null);
   const [sharing, setSharing] = useState(false);
   const [shared, setShared] = useState(journey.is_public);
+  const [showShareCard, setShowShareCard] = useState(false);
 
   const dateRange = (() => {
     const withTime = journey.stickers.filter((s) => s.photo_taken_at);
@@ -236,11 +238,21 @@ function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic }: {
             style={{ background: color }}>
             View on Map
           </Link>
-          <ShareButton
-            title={journey.caption ?? `${journey.username}'s journey`}
-            text={`${journey.caption ?? journey.username + "'s journey"} · ${journey.stickers.length} stops on whimsi`}
-            url={`${typeof window !== "undefined" ? window.location.origin : ""}/journey/${journey.id}`}
-          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowShareCard(true)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white transition active:scale-95"
+              style={{ background: color }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+              Share Card
+            </button>
+            <ShareButton
+              title={journey.caption ?? `${journey.username}'s journey`}
+              text={`${journey.caption ?? journey.username + "'s journey"} · ${journey.stickers.length} stops on whimsi`}
+              url={`${typeof window !== "undefined" ? window.location.origin : ""}/journey/${journey.id}`}
+              className="flex-1"
+            />
+          </div>
         </div>
       )}
 
@@ -255,12 +267,31 @@ function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic }: {
               View on Map
             </Link>
           </div>
-          <ShareButton
-            title={journey.caption ?? `${journey.username}'s journey`}
-            text={`${journey.caption ?? journey.username + "'s journey"} · ${journey.stickers.length} stops on whimsi`}
-            url={`${typeof window !== "undefined" ? window.location.origin : ""}/journey/${journey.id}`}
-          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowShareCard(true)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white transition active:scale-95"
+              style={{ background: color }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+              Share Card
+            </button>
+            <ShareButton
+              title={journey.caption ?? `${journey.username}'s journey`}
+              text={`${journey.caption ?? journey.username + "'s journey"} · ${journey.stickers.length} stops on whimsi`}
+              url={`${typeof window !== "undefined" ? window.location.origin : ""}/journey/${journey.id}`}
+              className="flex-1"
+            />
+          </div>
         </div>
+      )}
+
+      {showShareCard && (
+        <JourneyShareCardModal
+          journeyId={journey.id}
+          journeyTitle={journey.caption ?? `${journey.username}'s journey`}
+          journeyUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/journey/${journey.id}`}
+          onClose={() => setShowShareCard(false)}
+        />
       )}
     </div>
   );
