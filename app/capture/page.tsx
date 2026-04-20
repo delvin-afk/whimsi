@@ -196,6 +196,7 @@ type PhotoItem = {
   status: "pending" | "processing" | "done" | "error";
   errorMsg: string;
   showLocationPicker: boolean;
+  caption: string;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -281,6 +282,14 @@ export default function CapturePage() {
   const [cutoutModalPhoto, setCutoutModalPhoto] = useState<PhotoItem | null>(null);
   const cutoutResolverRef = useRef<((shape: CutoutShape | null) => void) | null>(null);
 
+  // Caption popup: shown mid-processing after each sticker is ready
+  const [captionModalPhoto, setCaptionModalPhoto] = useState<PhotoItem | null>(null);
+  const captionResolverRef = useRef<((caption: string) => void) | null>(null);
+  const [journeyCaptionInput, setJourneyCaptionInput] = useState("");
+  const [isJourneyListening, setIsJourneyListening] = useState(false);
+  const [journeyInterimText, setJourneyInterimText] = useState("");
+  const journeyCommittedRef = useRef("");
+
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
   useEffect(() => {
@@ -358,6 +367,7 @@ export default function CapturePage() {
             status: "pending" as const,
             errorMsg: "",
             showLocationPicker: false,
+            caption: "",
           };
         })
       );
@@ -529,6 +539,20 @@ export default function CapturePage() {
           updatePhoto(results[i].id, { status: "error", errorMsg: "Skipped" });
         }
       }
+
+      // ── Pause: ask for a caption if sticker was created ──────────────────
+      if (results[i].stickerDataUrl) {
+        setJourneyCaptionInput("");
+        journeyCommittedRef.current = "";
+        const enteredCaption = await new Promise<string>((resolve) => {
+          captionResolverRef.current = resolve;
+          setCaptionModalPhoto({ ...results[i] });
+        });
+        setCaptionModalPhoto(null);
+        captionResolverRef.current = null;
+        results[i] = { ...results[i], caption: enteredCaption };
+        updatePhoto(results[i].id, { caption: enteredCaption });
+      }
     }
 
     // All done — save if we have enough
@@ -543,6 +567,48 @@ export default function CapturePage() {
 
   function onPickCutout(shape: CutoutShape | null) {
     cutoutResolverRef.current?.(shape);
+  }
+
+  // ── Journey caption voice helpers ─────────────────────────────────────────
+  function startJourneyListening() {
+    const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+    if (!SR) { alert("Speech recognition isn't supported in this browser."); return; }
+    const recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    journeyCommittedRef.current = journeyCaptionInput;
+    recognition.onresult = (e: ISpeechRecognitionEvent) => {
+      let interim = "";
+      let newCommitted = journeyCommittedRef.current;
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const text = e.results[i][0].transcript;
+        if (e.results[i].isFinal) { newCommitted += (newCommitted ? " " : "") + text.trim(); journeyCommittedRef.current = newCommitted; }
+        else interim += text;
+      }
+      setJourneyCaptionInput(newCommitted + (interim ? " " + interim : ""));
+      setJourneyInterimText(interim);
+    };
+    recognition.onerror = () => stopJourneyListening();
+    recognition.onend = () => { setIsJourneyListening(false); setJourneyInterimText(""); };
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsJourneyListening(true);
+  }
+
+  function stopJourneyListening() {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+    setIsJourneyListening(false);
+    setJourneyInterimText("");
+    setJourneyCaptionInput(journeyCommittedRef.current);
+  }
+
+  function onSubmitJourneyCaption(skip: boolean) {
+    const value = skip ? "" : journeyCommittedRef.current || journeyCaptionInput;
+    stopJourneyListening();
+    setJourneyCaptionInput("");
+    captionResolverRef.current?.(value.trim());
   }
 
 
@@ -564,6 +630,7 @@ export default function CapturePage() {
           caption: journeyCaption.trim() || null,
           stickers: validPhotos.map((p, i) => ({
             stickerBase64: p.stickerDataUrl,
+            caption: p.caption || null,
             locationName: p.locationName || null,
             lat: p.lat,
             lng: p.lng,
@@ -987,6 +1054,80 @@ export default function CapturePage() {
               className="w-full py-3 rounded-2xl border border-white/10 text-neutral-400 text-sm font-medium hover:text-white hover:border-white/20 transition"
             >
               Skip this photo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Caption popup modal (mid-processing, per sticker) ── */}
+      {captionModalPhoto && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative w-full max-w-lg bg-neutral-900 rounded-t-3xl p-6 space-y-4 pb-10">
+            <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-1" />
+
+            {/* Header */}
+            <div className="flex items-center gap-4">
+              {captionModalPhoto.stickerDataUrl && (
+                <img src={captionModalPhoto.stickerDataUrl} alt=""
+                  className="w-16 h-16 object-contain rounded-xl shrink-0 bg-neutral-800" />
+              )}
+              <div>
+                <p className="text-white font-semibold">Add a caption?</p>
+                <p className="text-neutral-400 text-sm mt-0.5">
+                  Photo {journeyPhotos.findIndex((p) => p.id === captionModalPhoto.id) + 1} of {journeyPhotos.length}
+                </p>
+              </div>
+            </div>
+
+            {/* Text input */}
+            <div className="relative">
+              <textarea
+                value={journeyCaptionInput + (journeyInterimText ? " " + journeyInterimText : "")}
+                onChange={(e) => {
+                  journeyCommittedRef.current = e.target.value;
+                  setJourneyCaptionInput(e.target.value);
+                }}
+                placeholder="What's happening here?"
+                rows={2}
+                className="w-full bg-neutral-800 text-white placeholder-neutral-500 rounded-2xl px-4 py-3 text-sm resize-none outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            {/* Voice + submit row */}
+            <div className="flex gap-3">
+              <button
+                onClick={isJourneyListening ? stopJourneyListening : startJourneyListening}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition ${
+                  isJourneyListening
+                    ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                    : "bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700"
+                }`}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="23"/>
+                  <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+                {isJourneyListening ? "Stop" : "Voice"}
+              </button>
+
+              <button
+                onClick={() => onSubmitJourneyCaption(false)}
+                disabled={!journeyCaptionInput.trim() && !journeyInterimText.trim()}
+                className="flex-1 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-purple-700 transition"
+              >
+                Add Caption
+              </button>
+            </div>
+
+            {/* Skip */}
+            <button
+              onClick={() => onSubmitJourneyCaption(true)}
+              className="w-full py-3 rounded-2xl border border-white/10 text-neutral-400 text-sm font-medium hover:text-white hover:border-white/20 transition"
+            >
+              Skip
             </button>
           </div>
         </div>

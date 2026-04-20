@@ -1,6 +1,21 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const { data, error } = await supabaseAdmin
+    .from("stickers")
+    .select("*")
+    .eq("id", id)
+    .eq("is_public", true)
+    .single();
+  if (error || !data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json({ sticker: data });
+}
+
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

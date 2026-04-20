@@ -234,6 +234,7 @@ export default function MapView({ stickers, journeys = [] }: Props) {
                   <p style="font-weight:700;margin:0 0 2px;color:${color}">
                     Stop ${stopIndex + 1} · ${journey.caption ?? journey.username + "'s Journey"}
                   </p>
+                  ${stop.caption ? `<p style="font-size:13px;margin:0 0 4px">${stop.caption}</p>` : ""}
                   ${stop.location_name ? `<p style="font-size:12px;color:#555;margin:0 0 3px">📍 ${stop.location_name}</p>` : ""}
                   ${takenAt ? `<p style="font-size:11px;color:#888;margin:0">🕐 ${takenAt}</p>` : ""}
                   ${!journey.is_public ? `<p style="font-size:11px;color:#a855f7;margin:4px 0 0">🔒 Private journey</p>` : ""}

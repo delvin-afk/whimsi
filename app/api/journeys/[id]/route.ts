@@ -1,6 +1,28 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const { data: journey, error } = await supabaseAdmin
+    .from("journeys")
+    .select("*")
+    .eq("id", id)
+    .eq("is_public", true)
+    .single();
+  if (error || !journey) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const { data: stickers } = await supabaseAdmin
+    .from("stickers")
+    .select("*")
+    .eq("journey_id", id)
+    .order("order_index", { ascending: true });
+
+  return NextResponse.json({ journey: { ...journey, stickers: stickers ?? [] } });
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
