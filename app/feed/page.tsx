@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { StickerPost, Journey } from "@/types";
 import Link from "next/link";
 import StickerOptionsSheet from "@/components/StickerOptionsSheet";
+import ShareButton from "@/components/ShareButton";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 const JOURNEY_COLORS = ["#a855f7", "#3b82f6", "#f97316", "#ec4899", "#14b8a6"];
@@ -90,6 +91,14 @@ function PostCard({ post, currentUserId, onDeleted, onCaptionUpdated }: {
             <p className="text-sm text-neutral-700">{post.caption}</p>
           </div>
         )}
+        <div className="px-4 pb-4 pt-2">
+          <ShareButton
+            title={post.caption ?? `${post.username}'s sticker`}
+            text={[post.caption, post.location_name ? `📍 ${post.location_name}` : null].filter(Boolean).join(" · ") || "Check out this sticker on whimsi!"}
+            url={`${typeof window !== "undefined" ? window.location.origin : ""}/s/${post.id}`}
+            imageUrl={post.image_url}
+          />
+        </div>
       </div>
       {isOwner && (
         <StickerOptionsSheet open={sheetOpen} onClose={() => setSheetOpen(false)}
@@ -222,23 +231,35 @@ function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic }: {
       )}
 
       {shared && !isOwner && (
-        <div className="px-4 pb-4">
+        <div className="px-4 pb-4 space-y-2">
           <Link href="/map" className="block text-center py-2.5 rounded-xl text-sm font-semibold text-white"
             style={{ background: color }}>
             View on Map
           </Link>
+          <ShareButton
+            title={journey.caption ?? `${journey.username}'s journey`}
+            text={`${journey.caption ?? journey.username + "'s journey"} · ${journey.stickers.length} stops on whimsi`}
+            url={`${typeof window !== "undefined" ? window.location.origin : ""}/journey/${journey.id}`}
+          />
         </div>
       )}
 
       {shared && isOwner && (
-        <div className="px-4 pb-4 flex gap-2">
-          <span className="flex-1 text-center py-2 rounded-xl text-xs font-medium text-neutral-400 border border-neutral-100">
-            Shared publicly
-          </span>
-          <Link href="/map" className="flex-1 block text-center py-2 rounded-xl text-xs font-semibold text-white"
-            style={{ background: color }}>
-            View on Map
-          </Link>
+        <div className="px-4 pb-4 space-y-2">
+          <div className="flex gap-2">
+            <span className="flex-1 text-center py-2 rounded-xl text-xs font-medium text-neutral-400 border border-neutral-100">
+              Shared publicly
+            </span>
+            <Link href="/map" className="flex-1 block text-center py-2 rounded-xl text-xs font-semibold text-white"
+              style={{ background: color }}>
+              View on Map
+            </Link>
+          </div>
+          <ShareButton
+            title={journey.caption ?? `${journey.username}'s journey`}
+            text={`${journey.caption ?? journey.username + "'s journey"} · ${journey.stickers.length} stops on whimsi`}
+            url={`${typeof window !== "undefined" ? window.location.origin : ""}/journey/${journey.id}`}
+          />
         </div>
       )}
     </div>

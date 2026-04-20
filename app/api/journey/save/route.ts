@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 
 interface StickerInput {
   stickerBase64: string;
+  caption: string | null;
   locationName: string | null;
   lat: number | null;
   lng: number | null;
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
           user_id: userId,
           username,
           image_url: publicUrl,
-          caption: null,
+          caption: s.caption ?? null,
           location_name: s.locationName ?? null,
           lat: s.lat ?? null,
           lng: s.lng ?? null,
