@@ -52,6 +52,7 @@ export type StickerPost = {
   username: string;
   image_url: string;   // Supabase Storage public URL
   caption: string | null;
+  voice_url: string | null;
   location_name: string | null;
   lat: number | null;
   lng: number | null;

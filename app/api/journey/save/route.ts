@@ -11,6 +11,8 @@ interface StickerInput {
   lng: number | null;
   photoTakenAt: string | null;
   orderIndex: number;
+  voiceBase64: string | null;
+  voiceMimeType: string | null;
 }
 
 export async function POST(req: Request) {
@@ -59,6 +61,22 @@ export async function POST(req: Request) {
         .from("Stickers")
         .getPublicUrl(filename);
 
+      let voiceUrl: string | null = null;
+      if (s.voiceBase64 && s.voiceMimeType) {
+        const voiceBuffer = Buffer.from(s.voiceBase64, "base64");
+        const ext = s.voiceMimeType.includes("mp4") ? "m4a" : "webm";
+        const voiceFilename = `audio/${userId}/${Date.now()}-${s.orderIndex}.${ext}`;
+        const { error: voiceUploadError } = await supabaseAdmin.storage
+          .from("Stickers")
+          .upload(voiceFilename, voiceBuffer, { contentType: s.voiceMimeType, upsert: false });
+        if (!voiceUploadError) {
+          const { data: { publicUrl: voicePublicUrl } } = supabaseAdmin.storage
+            .from("Stickers")
+            .getPublicUrl(voiceFilename);
+          voiceUrl = voicePublicUrl;
+        }
+      }
+
       const { data: sticker, error: insertError } = await supabaseAdmin
         .from("stickers")
         .insert({
@@ -66,10 +84,11 @@ export async function POST(req: Request) {
           username,
           image_url: publicUrl,
           caption: s.caption ?? null,
+          voice_url: voiceUrl,
           location_name: s.locationName ?? null,
           lat: s.lat ?? null,
           lng: s.lng ?? null,
-          is_public: false, // journey stickers inherit journey privacy
+          is_public: false,
           journey_id: journey.id,
           photo_taken_at: s.photoTakenAt ?? null,
           order_index: s.orderIndex,

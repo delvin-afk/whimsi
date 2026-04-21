@@ -10,7 +10,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen bg-neutral-50 text-neutral-900">
-        <div className="pb-20">{children}</div>
+        <div className="pb-24">{children}</div>
         <BottomNav />
       </body>
     </html>

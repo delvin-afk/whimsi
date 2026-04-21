@@ -92,6 +92,18 @@ function PostCard({ post, currentUserId, onDeleted, onCaptionUpdated }: {
             <p className="text-sm text-neutral-700">{post.caption}</p>
           </div>
         )}
+
+        {post.voice_url && (
+          <div className="px-4 py-3 border-t border-neutral-50 flex items-center gap-3">
+            <span className="w-7 h-7 rounded-full bg-[#4ade80] flex items-center justify-center shrink-0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="2" width="6" height="12" rx="3" stroke="black" strokeWidth="1.5"/>
+                <path d="M5 10a7 7 0 0 0 14 0" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </span>
+            <audio src={post.voice_url} controls className="flex-1 h-9" />
+          </div>
+        )}
         <div className="px-4 pb-4 pt-2">
           <ShareButton
             title={post.caption ?? `${post.username}'s sticker`}
@@ -238,21 +250,13 @@ function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic }: {
             style={{ background: color }}>
             View on Map
           </Link>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowShareCard(true)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white transition active:scale-95"
-              style={{ background: color }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-              Share Card
-            </button>
-            <ShareButton
-              title={journey.caption ?? `${journey.username}'s journey`}
-              text={`${journey.caption ?? journey.username + "'s journey"} · ${journey.stickers.length} stops on whimsi`}
-              url={`${typeof window !== "undefined" ? window.location.origin : ""}/journey/${journey.id}`}
-              className="flex-1"
-            />
-          </div>
+          <button
+            onClick={() => setShowShareCard(true)}
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white transition active:scale-95"
+            style={{ background: color }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            Share Card
+          </button>
         </div>
       )}
 
@@ -267,28 +271,19 @@ function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic }: {
               View on Map
             </Link>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowShareCard(true)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white transition active:scale-95"
-              style={{ background: color }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-              Share Card
-            </button>
-            <ShareButton
-              title={journey.caption ?? `${journey.username}'s journey`}
-              text={`${journey.caption ?? journey.username + "'s journey"} · ${journey.stickers.length} stops on whimsi`}
-              url={`${typeof window !== "undefined" ? window.location.origin : ""}/journey/${journey.id}`}
-              className="flex-1"
-            />
-          </div>
+          <button
+            onClick={() => setShowShareCard(true)}
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white transition active:scale-95"
+            style={{ background: color }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            Share Card
+          </button>
         </div>
       )}
 
       {showShareCard && (
         <JourneyShareCardModal
           journeyId={journey.id}
-          journeyTitle={journey.caption ?? `${journey.username}'s journey`}
           journeyUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/journey/${journey.id}`}
           onClose={() => setShowShareCard(false)}
         />

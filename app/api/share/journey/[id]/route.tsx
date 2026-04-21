@@ -251,14 +251,7 @@ export async function GET(
 
           {/* Branding */}
           <div style={{ display: "flex", marginTop: "auto", justifyContent: "flex-end" }}>
-            <span
-              style={{
-                color: "#a855f7",
-                fontSize: 32,
-                fontWeight: 900,
-                letterSpacing: "-0.5px",
-              }}
-            >
+            <span style={{ color: "#a855f7", fontSize: 32, fontWeight: 900, letterSpacing: "-0.5px" }}>
               whimsi
             </span>
           </div>

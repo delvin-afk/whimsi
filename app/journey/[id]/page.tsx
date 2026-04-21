@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import JourneySharePage from "./JourneySharePage";
@@ -21,14 +22,9 @@ export async function generateMetadata(
     : `${journey.username}'s journey`;
   const description = `A whimsi journey by ${journey.username}`;
 
-  const { data: stickers } = await supabaseAdmin
-    .from("stickers")
-    .select("image_url")
-    .eq("journey_id", id)
-    .order("order_index", { ascending: true })
-    .limit(1);
-
-  const coverImage = stickers?.[0]?.image_url;
+  const host = (await headers()).get("host") ?? "localhost:3000";
+  const protocol = host.startsWith("localhost") ? "http" : "https";
+  const shareCardUrl = `${protocol}://${host}/api/share/journey/${id}`;
 
   return {
     title,
@@ -36,14 +32,14 @@ export async function generateMetadata(
     openGraph: {
       title,
       description,
-      images: coverImage ? [{ url: coverImage, width: 500, height: 500 }] : [],
+      images: [{ url: shareCardUrl, width: 1200, height: 1200 }],
       siteName: "whimsi",
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: coverImage ? [coverImage] : [],
+      images: [shareCardUrl],
     },
   };
 }
