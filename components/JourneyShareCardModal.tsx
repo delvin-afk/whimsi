@@ -4,34 +4,23 @@ import { useState } from "react";
 
 interface Props {
   journeyId: string;
-  journeyTitle: string;
   journeyUrl: string;
   onClose: () => void;
 }
 
-export default function JourneyShareCardModal({ journeyId, journeyTitle, journeyUrl, onClose }: Props) {
+export default function JourneyShareCardModal({ journeyId, journeyUrl, onClose }: Props) {
   const [sharing, setSharing] = useState(false);
-  const [copied, setCopied] = useState(false);
   const cardSrc = `/api/share/journey/${journeyId}`;
 
   async function shareCard() {
     setSharing(true);
     try {
-      const res = await fetch(cardSrc);
-      const blob = await res.blob();
-      const file = new File([blob], "whimsi-journey.png", { type: "image/png" });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: journeyTitle,
-          text: journeyTitle,
-          url: journeyUrl,
-        });
-      } else if (navigator.share) {
-        await navigator.share({ title: journeyTitle, text: journeyTitle, url: journeyUrl });
+      if (navigator.share) {
+        await navigator.share({ url: journeyUrl });
       } else {
-        // Fallback: download the image
+        // Fallback: download the card image
+        const res = await fetch(cardSrc);
+        const blob = await res.blob();
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
         a.download = "whimsi-journey.png";
@@ -42,12 +31,6 @@ export default function JourneyShareCardModal({ journeyId, journeyTitle, journey
     } finally {
       setSharing(false);
     }
-  }
-
-  async function copyLink() {
-    await navigator.clipboard.writeText(journeyUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -99,24 +82,6 @@ export default function JourneyShareCardModal({ journeyId, journeyTitle, journey
             {sharing ? "Preparing…" : "Share Card"}
           </button>
 
-          <button
-            onClick={copyLink}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-white/10 text-neutral-300 text-sm font-medium hover:bg-white/5 transition active:scale-95"
-          >
-            {copied ? (
-              <>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 13l4 4L19 7"/></svg>
-                Link copied!
-              </>
-            ) : (
-              <>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                </svg>
-                Copy Link
-              </>
-            )}
-          </button>
         </div>
       </div>
     </div>

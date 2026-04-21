@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    const { stickerBase64, caption, locationName, lat, lng, userId, username, groupId, isPublic } =
+    const { stickerBase64, voiceBase64, voiceMimeType, caption, locationName, lat, lng, userId, username, groupId, isPublic } =
       await req.json();
 
     if (!stickerBase64 || !userId || !username) {
@@ -32,7 +32,25 @@ export async function POST(req: Request) {
       .from("Stickers")
       .getPublicUrl(filename);
 
-    // 3) Insert sticker row
+    // 3) Optionally upload voice memo
+    let voicePublicUrl: string | null = null;
+    if (voiceBase64 && voiceMimeType) {
+      const ext = voiceMimeType.includes("mp4") ? "m4a" : "webm";
+      const audioBuffer = Buffer.from(voiceBase64, "base64");
+      const audioFilename = `audio/${userId}/${Date.now()}.${ext}`;
+
+      const { error: audioUploadError } = await supabaseAdmin.storage
+        .from("Stickers")
+        .upload(audioFilename, audioBuffer, { contentType: voiceMimeType, upsert: false });
+
+      if (audioUploadError) throw new Error(`Audio upload failed: ${audioUploadError.message}`);
+
+      voicePublicUrl = supabaseAdmin.storage
+        .from("Stickers")
+        .getPublicUrl(audioFilename).data.publicUrl;
+    }
+
+    // 4) Insert sticker row
     const { data: sticker, error: insertError } = await supabaseAdmin
       .from("stickers")
       .insert({
@@ -40,6 +58,7 @@ export async function POST(req: Request) {
         username,
         image_url: publicUrl,
         caption: caption || null,
+        voice_url: voicePublicUrl,
         location_name: locationName || null,
         lat: lat ?? null,
         lng: lng ?? null,

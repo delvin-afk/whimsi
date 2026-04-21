@@ -197,6 +197,8 @@ type PhotoItem = {
   errorMsg: string;
   showLocationPicker: boolean;
   caption: string;
+  voiceBlob: Blob | null;
+  voiceMimeType: string | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -272,6 +274,14 @@ export default function CapturePage() {
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
   const committedRef = useRef("");
 
+  // Voice memo recorder
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null);
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState<string | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // ── Journey mode state ─────────────────────────────────────────────────────
   const [journeyPhotos, setJourneyPhotos] = useState<PhotoItem[]>([]);
   const [journeyCaption, setJourneyCaption] = useState("");
@@ -284,11 +294,19 @@ export default function CapturePage() {
 
   // Caption popup: shown mid-processing after each sticker is ready
   const [captionModalPhoto, setCaptionModalPhoto] = useState<PhotoItem | null>(null);
-  const captionResolverRef = useRef<((caption: string) => void) | null>(null);
+  const captionResolverRef = useRef<((result: { caption: string; voiceBlob: Blob | null; voiceMimeType: string | null }) => void) | null>(null);
   const [journeyCaptionInput, setJourneyCaptionInput] = useState("");
   const [isJourneyListening, setIsJourneyListening] = useState(false);
   const [journeyInterimText, setJourneyInterimText] = useState("");
   const journeyCommittedRef = useRef("");
+
+  // Journey caption voice memo recorder
+  const [journeyCaptionIsRecording, setJourneyCaptionIsRecording] = useState(false);
+  const [journeyCaptionVoiceBlob, setJourneyCaptionVoiceBlob] = useState<Blob | null>(null);
+  const [journeyCaptionVoicePreviewUrl, setJourneyCaptionVoicePreviewUrl] = useState<string | null>(null);
+  const [journeyCaptionRecordingSeconds, setJourneyCaptionRecordingSeconds] = useState(0);
+  const journeyCaptionMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const journeyCaptionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
@@ -368,6 +386,8 @@ export default function CapturePage() {
             errorMsg: "",
             showLocationPicker: false,
             caption: "",
+            voiceBlob: null,
+            voiceMimeType: null,
           };
         })
       );
@@ -450,6 +470,39 @@ export default function CapturePage() {
     setCaption(committedRef.current);
   }
 
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunks, { type: recorder.mimeType });
+        setVoiceBlob(blob);
+        setVoicePreviewUrl(URL.createObjectURL(blob));
+        if (timerRef.current) clearInterval(timerRef.current);
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      timerRef.current = setInterval(() => setRecordingSeconds((s) => s + 1), 1000);
+    } catch { alert("Microphone access denied."); }
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+  }
+
+  function clearVoiceMemo() {
+    setVoiceBlob(null);
+    setVoicePreviewUrl(null);
+    setRecordingSeconds(0);
+  }
+
   async function shareSingle() {
     if (!stickerDataUrl) return;
     const uname = username.trim();
@@ -457,10 +510,23 @@ export default function CapturePage() {
     if (!userId) { router.push("/auth"); return; }
     setSaving(true);
     try {
+      let voiceBase64: string | null = null;
+      let voiceMimeType: string | null = null;
+      if (voiceBlob) {
+        voiceBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            resolve(dataUrl.split(",")[1]);
+          };
+          reader.readAsDataURL(voiceBlob!);
+        });
+        voiceMimeType = voiceBlob.type;
+      }
       const res = await fetch("/api/sticker/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stickerBase64: stickerDataUrl, caption: caption.trim() || null, locationName: locationName.trim() || null, lat, lng, userId, username: uname }),
+        body: JSON.stringify({ stickerBase64: stickerDataUrl, voiceBase64, voiceMimeType, caption: caption.trim() || null, locationName: locationName.trim() || null, lat, lng, userId, username: uname }),
       });
       const json = await res.json();
       if (res.ok) { setSaved(true); setShowShareForm(false); }
@@ -474,6 +540,7 @@ export default function CapturePage() {
     setStickerDataUrl(null); setSaved(false); setShowShareForm(false);
     setCaption(""); setLocationName(""); setLat(null); setLng(null);
     setExifLat(undefined); setExifLng(undefined); setError("");
+    clearVoiceMemo(); stopRecording();
     stopListening();
   }
 
@@ -544,13 +611,17 @@ export default function CapturePage() {
       if (results[i].stickerDataUrl) {
         setJourneyCaptionInput("");
         journeyCommittedRef.current = "";
-        const enteredCaption = await new Promise<string>((resolve) => {
+        setJourneyCaptionIsRecording(false);
+        setJourneyCaptionVoiceBlob(null);
+        setJourneyCaptionVoicePreviewUrl(null);
+        setJourneyCaptionRecordingSeconds(0);
+        const { caption: enteredCaption, voiceBlob: enteredVoiceBlob, voiceMimeType: enteredVoiceMimeType } = await new Promise<{ caption: string; voiceBlob: Blob | null; voiceMimeType: string | null }>((resolve) => {
           captionResolverRef.current = resolve;
           setCaptionModalPhoto({ ...results[i] });
         });
         setCaptionModalPhoto(null);
         captionResolverRef.current = null;
-        results[i] = { ...results[i], caption: enteredCaption };
+        results[i] = { ...results[i], caption: enteredCaption, voiceBlob: enteredVoiceBlob, voiceMimeType: enteredVoiceMimeType };
         updatePhoto(results[i].id, { caption: enteredCaption });
       }
     }
@@ -604,11 +675,50 @@ export default function CapturePage() {
     setJourneyCaptionInput(journeyCommittedRef.current);
   }
 
+  async function startJourneyCaptionRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunks, { type: recorder.mimeType });
+        setJourneyCaptionVoiceBlob(blob);
+        setJourneyCaptionVoicePreviewUrl(URL.createObjectURL(blob));
+        if (journeyCaptionTimerRef.current) clearInterval(journeyCaptionTimerRef.current);
+      };
+      journeyCaptionMediaRecorderRef.current = recorder;
+      recorder.start();
+      setJourneyCaptionIsRecording(true);
+      setJourneyCaptionRecordingSeconds(0);
+      journeyCaptionTimerRef.current = setInterval(() => setJourneyCaptionRecordingSeconds((s) => s + 1), 1000);
+    } catch { alert("Microphone access denied."); }
+  }
+
+  function stopJourneyCaptionRecording() {
+    journeyCaptionMediaRecorderRef.current?.stop();
+    setJourneyCaptionIsRecording(false);
+    if (journeyCaptionTimerRef.current) clearInterval(journeyCaptionTimerRef.current);
+  }
+
+  function clearJourneyCaptionVoice() {
+    setJourneyCaptionVoiceBlob(null);
+    setJourneyCaptionVoicePreviewUrl(null);
+    setJourneyCaptionRecordingSeconds(0);
+  }
+
   function onSubmitJourneyCaption(skip: boolean) {
     const value = skip ? "" : journeyCommittedRef.current || journeyCaptionInput;
     stopJourneyListening();
+    if (journeyCaptionIsRecording) stopJourneyCaptionRecording();
     setJourneyCaptionInput("");
-    captionResolverRef.current?.(value.trim());
+    captionResolverRef.current?.({
+      caption: value.trim(),
+      voiceBlob: skip ? null : journeyCaptionVoiceBlob,
+      voiceMimeType: skip ? null : (journeyCaptionVoiceBlob?.type ?? null),
+    });
+    clearJourneyCaptionVoice();
   }
 
 
@@ -621,6 +731,30 @@ export default function CapturePage() {
     setJourneyStep("saving");
     setJourneySaveError("");
     try {
+      const stickersPayload = await Promise.all(validPhotos.map(async (p, i) => {
+        let voiceBase64: string | null = null;
+        let voiceMimeType: string | null = null;
+        if (p.voiceBlob) {
+          voiceBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve((reader.result as string).split(",")[1]);
+            reader.readAsDataURL(p.voiceBlob!);
+          });
+          voiceMimeType = p.voiceMimeType ?? null;
+        }
+        return {
+          stickerBase64: p.stickerDataUrl,
+          caption: p.caption || null,
+          locationName: p.locationName || null,
+          lat: p.lat,
+          lng: p.lng,
+          photoTakenAt: p.photoTakenAt ?? null,
+          orderIndex: i,
+          voiceBase64,
+          voiceMimeType,
+        };
+      }));
+
       const res = await fetch("/api/journey/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -628,15 +762,7 @@ export default function CapturePage() {
           userId,
           username,
           caption: journeyCaption.trim() || null,
-          stickers: validPhotos.map((p, i) => ({
-            stickerBase64: p.stickerDataUrl,
-            caption: p.caption || null,
-            locationName: p.locationName || null,
-            lat: p.lat,
-            lng: p.lng,
-            photoTakenAt: p.photoTakenAt ?? null,
-            orderIndex: i,
-          })),
+          stickers: stickersPayload,
         }),
       });
       const json = await res.json();
@@ -664,7 +790,7 @@ export default function CapturePage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-    <main className="max-w-lg mx-auto p-5 space-y-4 pb-10">
+    <main className="max-w-lg mx-auto p-5 space-y-4 pb-36">
       <h1 className="text-2xl font-bold pt-2">
         {mode === "journey" ? "Create a Journey" : "Create a Sticker"}
       </h1>
@@ -782,44 +908,113 @@ export default function CapturePage() {
             </div>
           )}
 
+          {/* Share form — fixed bottom sheet so it's always reachable on mobile */}
           {showShareForm && !saved && (
-            <div className="rounded-2xl border border-neutral-200 bg-white p-5 space-y-4 shadow-sm">
-              <p className="font-semibold">Share your sticker</p>
-              <div>
-                <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Caption</label>
-                <div className="mt-1 relative">
-                  <textarea value={caption}
-                    onChange={(e) => { committedRef.current = e.target.value; setCaption(e.target.value); }}
-                    placeholder="Write something…" rows={3}
-                    className={`w-full rounded-xl border px-3 py-2 pr-11 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#4ade80] transition-colors ${isListening ? "border-red-400 bg-red-50" : "border-neutral-200"}`}
-                  />
-                  <button type="button" onClick={isListening ? stopListening : startListening}
-                    className={`absolute right-2 bottom-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isListening ? "bg-red-500 text-white" : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"}`}>
-                    {isListening
-                      ? <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="2" width="8" height="8" rx="1"/></svg>
-                      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5"/><path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 19v3M9 22h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                    }
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 bg-black/40 z-40"
+                onClick={() => setShowShareForm(false)}
+              />
+              {/* Sheet */}
+              <div className="fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh]">
+                {/* Drag handle + header */}
+                <div className="flex items-center justify-between px-5 pt-4 pb-3 shrink-0">
+                  <p className="font-bold text-base">Share your sticker</p>
+                  <button onClick={() => setShowShareForm(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-neutral-100 text-neutral-500">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                   </button>
                 </div>
-                {isListening && (
-                  <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-500">
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                    Listening{interimText ? `… "${interimText}"` : "…"}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Location</label>
-                <div className="mt-2">
-                  <LocationPicker defaultLat={exifLat} defaultLng={exifLng}
-                    onChange={(name, newLat, newLng) => { setLocationName(name); setLat(newLat); setLng(newLng); }} />
+
+                {/* Scrollable content */}
+                <div className="overflow-y-auto flex-1 px-5 pb-10 space-y-4">
+                  {/* Caption */}
+                  <div>
+                    <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Caption</label>
+                    <div className="mt-1 relative">
+                      <textarea value={caption}
+                        onChange={(e) => { committedRef.current = e.target.value; setCaption(e.target.value); }}
+                        placeholder="Write something…" rows={3}
+                        className={`w-full rounded-xl border px-3 py-2 pr-11 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#4ade80] transition-colors ${isListening ? "border-red-400 bg-red-50" : "border-neutral-200"}`}
+                      />
+                      <button type="button" onClick={isListening ? stopListening : startListening}
+                        className={`absolute right-2 bottom-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isListening ? "bg-red-500 text-white" : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"}`}>
+                        {isListening
+                          ? <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="2" width="8" height="8" rx="1"/></svg>
+                          : <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5"/><path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 19v3M9 22h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                        }
+                      </button>
+                    </div>
+                    {isListening && (
+                      <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-500">
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                        Listening{interimText ? `… "${interimText}"` : "…"}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* and/or */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-neutral-200" />
+                    <span className="text-xs text-neutral-400 font-medium">and/or</span>
+                    <div className="flex-1 h-px bg-neutral-200" />
+                  </div>
+
+                  {/* Record Memo */}
+                  <div>
+                    <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Record Memo</label>
+                    <div className="mt-2">
+                      {!voicePreviewUrl && !isRecording && (
+                        <button type="button" onClick={startRecording}
+                          className="w-full flex items-center gap-3 py-3 px-4 rounded-2xl border border-neutral-200 bg-neutral-50 hover:bg-neutral-100 transition-colors">
+                          <span className="w-8 h-8 rounded-full bg-[#4ade80] flex items-center justify-center shrink-0">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                              <rect x="9" y="2" width="6" height="12" rx="3" stroke="black" strokeWidth="1.5"/>
+                              <path d="M5 10a7 7 0 0 0 14 0" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
+                              <path d="M12 19v3M9 22h6" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
+                            </svg>
+                          </span>
+                          <span className="text-sm text-neutral-500">Tap to share the story with your voice</span>
+                        </button>
+                      )}
+                      {isRecording && (
+                        <div className="flex items-center gap-3 py-3 px-4 rounded-2xl border border-[#4ade80] bg-green-50">
+                          <span className="w-3 h-3 rounded-full bg-[#4ade80] animate-pulse shrink-0" />
+                          <span className="flex-1 text-sm text-neutral-600 font-mono">
+                            {String(Math.floor(recordingSeconds / 60)).padStart(2, "0")}:{String(recordingSeconds % 60).padStart(2, "0")}
+                          </span>
+                          <button type="button" onClick={stopRecording}
+                            className="px-3 py-1.5 rounded-xl bg-neutral-800 text-white text-xs font-bold">Stop</button>
+                        </div>
+                      )}
+                      {voicePreviewUrl && !isRecording && (
+                        <div className="space-y-2">
+                          <audio src={voicePreviewUrl} controls className="w-full h-10" />
+                          <button type="button" onClick={clearVoiceMemo}
+                            className="text-xs text-neutral-400 hover:text-red-500 underline underline-offset-2">
+                            Remove &amp; re-record
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Location */}
+                  <div>
+                    <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Location</label>
+                    <div className="mt-2">
+                      <LocationPicker defaultLat={exifLat} defaultLng={exifLng}
+                        onChange={(name, newLat, newLng) => { setLocationName(name); setLat(newLat); setLng(newLng); }} />
+                    </div>
+                  </div>
+
+                  <button onClick={shareSingle} disabled={saving}
+                    className="w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold disabled:opacity-50">
+                    {saving ? "Sharing…" : "Share"}
+                  </button>
                 </div>
               </div>
-              <button onClick={shareSingle} disabled={saving}
-                className="w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold disabled:opacity-50">
-                {saving ? "Sharing…" : "Share"}
-              </button>
-            </div>
+            </>
           )}
         </>
       )}
@@ -1063,7 +1258,7 @@ export default function CapturePage() {
       {captionModalPhoto && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative w-full max-w-lg bg-neutral-900 rounded-t-3xl p-6 space-y-4 pb-10">
+          <div className="relative w-full max-w-lg bg-neutral-900 rounded-t-3xl p-6 space-y-4 pb-10 mb-20">
             <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-1" />
 
             {/* Header */}
@@ -1080,7 +1275,7 @@ export default function CapturePage() {
               </div>
             </div>
 
-            {/* Text input */}
+            {/* Text input with inline mic */}
             <div className="relative">
               <textarea
                 value={journeyCaptionInput + (journeyInterimText ? " " + journeyInterimText : "")}
@@ -1090,37 +1285,80 @@ export default function CapturePage() {
                 }}
                 placeholder="What's happening here?"
                 rows={2}
-                className="w-full bg-neutral-800 text-white placeholder-neutral-500 rounded-2xl px-4 py-3 text-sm resize-none outline-none focus:ring-2 focus:ring-purple-500"
+                className={`w-full bg-neutral-800 text-white placeholder-neutral-500 rounded-2xl px-4 py-3 pr-12 text-sm resize-none outline-none focus:ring-2 transition-colors ${isJourneyListening ? "ring-2 ring-red-500" : "focus:ring-purple-500"}`}
               />
-            </div>
-
-            {/* Voice + submit row */}
-            <div className="flex gap-3">
               <button
+                type="button"
                 onClick={isJourneyListening ? stopJourneyListening : startJourneyListening}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition ${
-                  isJourneyListening
-                    ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                    : "bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700"
-                }`}
+                className={`absolute right-2 bottom-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isJourneyListening ? "bg-red-500 text-white" : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"}`}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                  <line x1="12" y1="19" x2="12" y2="23"/>
-                  <line x1="8" y1="23" x2="16" y2="23"/>
-                </svg>
-                {isJourneyListening ? "Stop" : "Voice"}
-              </button>
-
-              <button
-                onClick={() => onSubmitJourneyCaption(false)}
-                disabled={!journeyCaptionInput.trim() && !journeyInterimText.trim()}
-                className="flex-1 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-purple-700 transition"
-              >
-                Add Caption
+                {isJourneyListening
+                  ? <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="2" width="8" height="8" rx="1"/></svg>
+                  : <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5"/><path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 19v3M9 22h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                }
               </button>
             </div>
+            {isJourneyListening && (
+              <p className="flex items-center gap-1.5 text-xs text-red-400 -mt-2">
+                <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                Listening{journeyInterimText ? `… "${journeyInterimText}"` : "…"}
+              </p>
+            )}
+
+            {/* and/or */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-xs text-neutral-500 font-medium">and/or</span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+
+            {/* Record Memo */}
+            <div>
+              <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Record Memo</label>
+              <div className="mt-2">
+                {!journeyCaptionVoicePreviewUrl && !journeyCaptionIsRecording && (
+                  <button type="button" onClick={startJourneyCaptionRecording}
+                    className="w-full flex items-center gap-3 py-3 px-4 rounded-2xl border border-white/10 bg-neutral-800 hover:bg-neutral-700 transition-colors">
+                    <span className="w-8 h-8 rounded-full bg-[#4ade80] flex items-center justify-center shrink-0">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <rect x="9" y="2" width="6" height="12" rx="3" stroke="black" strokeWidth="1.5"/>
+                        <path d="M5 10a7 7 0 0 0 14 0" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
+                        <path d="M12 19v3M9 22h6" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    </span>
+                    <span className="text-sm text-neutral-400">Tap to share the story with your voice</span>
+                  </button>
+                )}
+                {journeyCaptionIsRecording && (
+                  <div className="flex items-center gap-3 py-3 px-4 rounded-2xl border border-[#4ade80] bg-green-950/30">
+                    <span className="w-3 h-3 rounded-full bg-[#4ade80] animate-pulse shrink-0" />
+                    <span className="flex-1 text-sm text-neutral-300 font-mono">
+                      {String(Math.floor(journeyCaptionRecordingSeconds / 60)).padStart(2, "0")}:{String(journeyCaptionRecordingSeconds % 60).padStart(2, "0")}
+                    </span>
+                    <button type="button" onClick={stopJourneyCaptionRecording}
+                      className="px-3 py-1.5 rounded-xl bg-neutral-100 text-neutral-900 text-xs font-bold">Stop</button>
+                  </div>
+                )}
+                {journeyCaptionVoicePreviewUrl && !journeyCaptionIsRecording && (
+                  <div className="space-y-2">
+                    <audio src={journeyCaptionVoicePreviewUrl} controls className="w-full h-10" />
+                    <button type="button" onClick={clearJourneyCaptionVoice}
+                      className="text-xs text-neutral-500 hover:text-red-400 underline underline-offset-2">
+                      Remove &amp; re-record
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Submit */}
+            <button
+              onClick={() => onSubmitJourneyCaption(false)}
+              disabled={!journeyCaptionInput.trim() && !journeyInterimText.trim() && !journeyCaptionVoiceBlob}
+              className="w-full py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-purple-700 transition"
+            >
+              Add Caption
+            </button>
 
             {/* Skip */}
             <button
