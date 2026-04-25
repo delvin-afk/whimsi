@@ -6,6 +6,7 @@ import Link from "next/link";
 import StickerOptionsSheet from "@/components/StickerOptionsSheet";
 import ShareButton from "@/components/ShareButton";
 import JourneyShareCardModal from "@/components/JourneyShareCardModal";
+import JourneySharedModal from "@/components/JourneySharedModal";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 const JOURNEY_COLORS = ["#a855f7", "#3b82f6", "#f97316", "#ec4899", "#14b8a6"];
@@ -122,11 +123,12 @@ function PostCard({ post, currentUserId, onDeleted, onCaptionUpdated }: {
 }
 
 // ── Journey card ──────────────────────────────────────────────────────────────
-function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic }: {
+function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic, onDeleted }: {
   journey: Journey;
   currentUserId: string | null;
   colorIndex: number;
   onMadePublic: (id: string) => void;
+  onDeleted: (id: string) => void;
 }) {
   const isOwner = currentUserId === journey.user_id;
   const color = JOURNEY_COLORS[colorIndex % JOURNEY_COLORS.length];
@@ -134,6 +136,20 @@ function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic }: {
   const [sharing, setSharing] = useState(false);
   const [shared, setShared] = useState(journey.is_public);
   const [showShareCard, setShowShareCard] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showSharedModal, setShowSharedModal] = useState(false);
+
+  async function handleDelete() {
+    setDeleting(true);
+    const res = await fetch(`/api/journeys/${journey.id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: currentUserId }),
+    });
+    if (res.ok) onDeleted(journey.id);
+    else setDeleting(false);
+  }
 
   const dateRange = (() => {
     const withTime = journey.stickers.filter((s) => s.photo_taken_at);
@@ -161,13 +177,14 @@ function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: currentUserId, is_public: true }),
       });
-      if (res.ok) { setShared(true); onMadePublic(journey.id); }
+      if (res.ok) { setShared(true); onMadePublic(journey.id); setShowSharedModal(true); }
     } finally {
       setSharing(false);
     }
   }
 
   return (
+    <>
     <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
       {/* Coloured top bar */}
       <div className="h-1.5 w-full" style={{ background: color }} />
@@ -185,6 +202,12 @@ function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic }: {
           <p className="text-xs text-neutral-400">{dateRange}</p>
         </div>
         <span className="text-xs text-neutral-300 shrink-0">{timeAgo(journey.created_at)}</span>
+        {isOwner && (
+          <button onClick={() => setSheetOpen(true)}
+            className="ml-1 w-8 h-8 flex items-center justify-center rounded-full hover:bg-neutral-100 text-neutral-400 font-bold text-lg shrink-0">
+            ···
+          </button>
+        )}
       </div>
 
       {/* Caption */}
@@ -289,6 +312,46 @@ function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic }: {
         />
       )}
     </div>
+
+    {showSharedModal && (
+      <JourneySharedModal journey={journey} onClose={() => setShowSharedModal(false)} />
+    )}
+
+    {/* Options sheet — owner only */}
+    {isOwner && sheetOpen && (
+      <>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" onClick={() => setSheetOpen(false)} />
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center">
+          <div className="w-full max-w-lg bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden mb-20">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-white/20" />
+            </div>
+            <div className="px-4 pb-8 pt-2 space-y-1">
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl hover:bg-white/10 text-left disabled:opacity-40 transition-colors"
+              >
+                <span className="text-xl">🗑️</span>
+                <div>
+                  <p className="font-semibold text-sm text-red-400">
+                    {deleting ? "Deleting…" : "Delete story"}
+                  </p>
+                  <p className="text-xs text-neutral-500">Permanently remove this journey and all its stickers</p>
+                </div>
+              </button>
+              <button
+                onClick={() => setSheetOpen(false)}
+                className="w-full py-3 mt-2 rounded-2xl border border-white/10 text-sm font-medium text-neutral-400 hover:bg-white/10 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    )}
+    </>
   );
 }
 
@@ -369,6 +432,9 @@ export default function FeedPage() {
             colorIndex={i}
             onMadePublic={(id) =>
               setJourneys((prev) => prev.map((j) => j.id === id ? { ...j, is_public: true } : j))
+            }
+            onDeleted={(id) =>
+              setJourneys((prev) => prev.filter((j) => j.id !== id))
             }
           />
         );
