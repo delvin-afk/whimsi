@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { fileToBase64 } from "@/lib/utils/image";
 import dynamic from "next/dynamic";
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ssr: false });
@@ -245,6 +245,8 @@ function formatTimestamp(iso?: string) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function CapturePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const flow = searchParams.get("flow") ?? "sticker"; // "sticker" | "journey"
   const [username, setUsername] = useState("");
   const [userId, setUserId] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -792,7 +794,7 @@ export default function CapturePage() {
     <>
     <main className="max-w-lg mx-auto p-5 space-y-4 pb-36">
       <h1 className="text-2xl font-bold pt-2">
-        {mode === "journey" ? "Create a Journey" : "Create a Sticker"}
+        {mode === "journey" ? "Create a Journey" : flow === "journey" ? "Create a New Story" : "Create a Sticker"}
       </h1>
 
       {/* ── SINGLE MODE ── */}
@@ -806,15 +808,15 @@ export default function CapturePage() {
                   className="sr-only"
                   type="file"
                   accept="image/*"
-                  multiple
+                  multiple={flow !== "sticker"}
                   onChange={(e) => onFilesSelected(e.target.files)}
                 />
                 <div className="flex flex-col items-center justify-center gap-2 h-28 rounded-2xl border-2 border-dashed border-neutral-300 hover:bg-neutral-50 cursor-pointer text-neutral-500">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                     <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
-                  <span className="font-medium text-sm">{localImageUrl ? "Change photo" : "Choose photo"}</span>
-                  <span className="text-xs text-neutral-400">Select 2+ photos to create a Journey</span>
+                  <span className="font-medium text-sm">{localImageUrl ? "Change photo" : flow === "journey" ? "Choose photos" : "Choose photo"}</span>
+                  <span className="text-xs text-neutral-400">{flow === "journey" ? "Select 2+ photos for your story" : "1 photo becomes a sticker"}</span>
                 </div>
               </label>
 
