@@ -312,6 +312,77 @@ export default function CapturePage() {
 
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
+  // ── Camera-first state (mobile) ───────────────────────────────────────────
+  const [cameraStep, setCameraStep] = useState<"camera" | "preview" | null>(null);
+  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const [cameraError, setCameraError] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  // Collected photos before entering sticker/journey flow
+  const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
+
+  // Detect mobile and launch camera
+  useEffect(() => {
+    const mobile = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+    if (mobile) setCameraStep("camera");
+  }, []);
+
+  // Start/restart camera stream
+  useEffect(() => {
+    if (cameraStep !== "camera") {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      return;
+    }
+    setCameraError(false);
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+      .then((stream) => {
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      })
+      .catch(() => setCameraError(true));
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, [cameraStep, facingMode]);
+
+  function flipCamera() {
+    setFacingMode((f) => (f === "environment" ? "user" : "environment"));
+  }
+
+  function captureFrame() {
+    const video = videoRef.current;
+    if (!video) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d")!.drawImage(video, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `capture-${Date.now()}.jpg`, { type: "image/jpeg" });
+      setPendingPhotos((prev) => [...prev, file]);
+      setCameraStep("preview");
+    }, "image/jpeg", 0.92);
+  }
+
+  function addAnotherPhoto() {
+    setCameraStep("camera");
+  }
+
+  async function proceedFromPreview() {
+    // Hand off to existing file-handling logic
+    const dt = new DataTransfer();
+    pendingPhotos.forEach((f) => dt.items.add(f));
+    await onFilesSelected(dt.files);
+    setCameraStep(null);
+  }
+
+  function removePendingPhoto(index: number) {
+    setPendingPhotos((prev) => prev.filter((_, i) => i !== index));
+  }
+
   useEffect(() => {
     const supabase = getSupabaseBrowser();
     supabase.auth.getUser().then(({ data }) => {
@@ -790,6 +861,168 @@ export default function CapturePage() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  // ── Camera screen ──────────────────────────────────────────────────────────
+  if (cameraStep === "camera") {
+    return (
+      <div className="fixed inset-0 bg-black flex flex-col z-40">
+        {/* Header */}
+        <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pt-12 pb-4">
+          <button
+            onClick={() => { streamRef.current?.getTracks().forEach((t) => t.stop()); setCameraStep(null); }}
+            className="flex items-center gap-1.5 text-white font-semibold text-base"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Create a New Story
+          </button>
+          {username && (
+            <div className="w-9 h-9 rounded-full bg-[#a855f7] flex items-center justify-center text-white font-bold text-sm">
+              {username[0]?.toUpperCase()}
+            </div>
+          )}
+        </div>
+
+        {/* Camera preview */}
+        <div className="flex-1 relative overflow-hidden">
+          {cameraError ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white/60 px-8 text-center">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              <p className="text-sm">Camera not available.<br/>Use the gallery button to pick a photo.</p>
+            </div>
+          ) : (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          )}
+        </div>
+
+        {/* Controls */}
+        <div className="absolute bottom-0 left-0 right-0 pb-12 pt-6 flex items-center justify-around px-12">
+          {/* Flip */}
+          <button onClick={flipCamera}
+            className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center active:scale-90 transition">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+              <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
+              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+            </svg>
+          </button>
+
+          {/* Capture */}
+          <button
+            onClick={captureFrame}
+            disabled={cameraError}
+            className="w-20 h-20 rounded-full border-4 border-white bg-white/20 flex items-center justify-center active:scale-90 transition disabled:opacity-40"
+          >
+            <div className="w-14 h-14 rounded-full bg-white" />
+          </button>
+
+          {/* Gallery */}
+          <label className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center active:scale-90 transition cursor-pointer">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="sr-only"
+              onChange={(e) => {
+                if (!e.target.files?.length) return;
+                const files = Array.from(e.target.files);
+                setPendingPhotos((prev) => [...prev, ...files]);
+                setCameraStep("preview");
+              }}
+            />
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+          </label>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Preview screen ─────────────────────────────────────────────────────────
+  if (cameraStep === "preview" && pendingPhotos.length > 0) {
+    const mainPhoto = pendingPhotos[pendingPhotos.length - 1];
+    const mainUrl = URL.createObjectURL(mainPhoto);
+
+    return (
+      <div className="fixed inset-0 bg-neutral-950 flex flex-col z-40">
+        {/* Header */}
+        <div className="absolute top-0 left-0 right-0 z-10 flex items-center px-4 pt-12 pb-4">
+          <button
+            onClick={() => setCameraStep("camera")}
+            className="flex items-center gap-1.5 text-white font-semibold text-base"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Create a New Story
+          </button>
+        </div>
+
+        {/* Photo preview */}
+        <div className="flex-1 flex items-center justify-center relative overflow-hidden pt-20">
+          <img
+            src={mainUrl}
+            alt="Preview"
+            className="max-w-full max-h-full object-contain rounded-2xl"
+          />
+          {/* Thumbnail strip if multiple */}
+          {pendingPhotos.length > 1 && (
+            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 px-4">
+              {pendingPhotos.map((f, i) => {
+                const url = URL.createObjectURL(f);
+                return (
+                  <div key={i} className="relative">
+                    <img src={url} alt="" className="w-14 h-14 object-cover rounded-xl border-2 border-white/30" />
+                    <button
+                      onClick={() => removePendingPhoto(i)}
+                      className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center font-bold"
+                    >×</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="shrink-0 px-5 pb-12 pt-4 space-y-3">
+          <button
+            onClick={addAnotherPhoto}
+            className="w-full py-4 rounded-2xl bg-neutral-800 text-white font-bold text-base flex items-center justify-center gap-2"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            Add Another Photo
+          </button>
+          <button
+            onClick={proceedFromPreview}
+            className="w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold text-base flex items-center justify-center gap-2"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            Make Sticker
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
     <main className="max-w-lg mx-auto p-5 space-y-4 pb-36">
