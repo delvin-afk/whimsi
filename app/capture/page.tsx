@@ -313,13 +313,14 @@ function CapturePageInner() {
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
   // ── Camera-first state (mobile) ───────────────────────────────────────────
+  type PendingPhoto = { file: File; takenAt: string; lat?: number; lng?: number };
   const [cameraStep, setCameraStep] = useState<"camera" | "preview" | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [cameraError, setCameraError] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  // Collected photos before entering sticker/journey flow
-  const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
+  const capturedGpsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
 
   // Detect mobile and launch camera
   useEffect(() => {
@@ -327,7 +328,7 @@ function CapturePageInner() {
     if (mobile) setCameraStep("camera");
   }, []);
 
-  // Start/restart camera stream
+  // Start/restart camera stream; also fetch GPS when camera opens
   useEffect(() => {
     if (cameraStep !== "camera") {
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -342,6 +343,12 @@ function CapturePageInner() {
         if (videoRef.current) videoRef.current.srcObject = stream;
       })
       .catch(() => setCameraError(true));
+    // Pre-fetch GPS so it's ready at capture time
+    navigator.geolocation?.getCurrentPosition(
+      (pos) => { capturedGpsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+      () => { capturedGpsRef.current = null; },
+      { timeout: 8000 }
+    );
     return () => {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -359,10 +366,16 @@ function CapturePageInner() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d")!.drawImage(video, 0, 0);
+    const gps = capturedGpsRef.current;
     canvas.toBlob((blob) => {
       if (!blob) return;
       const file = new File([blob], `capture-${Date.now()}.jpg`, { type: "image/jpeg" });
-      setPendingPhotos((prev) => [...prev, file]);
+      setPendingPhotos((prev) => [...prev, {
+        file,
+        takenAt: new Date().toISOString(),
+        lat: gps?.lat,
+        lng: gps?.lng,
+      }]);
       setCameraStep("preview");
     }, "image/jpeg", 0.92);
   }
@@ -372,11 +385,45 @@ function CapturePageInner() {
   }
 
   async function proceedFromPreview() {
-    // Hand off to existing file-handling logic
+    // Build DataTransfer for the existing file-handling logic
     const dt = new DataTransfer();
-    pendingPhotos.forEach((f) => dt.items.add(f));
+    pendingPhotos.forEach((p) => dt.items.add(p.file));
     await onFilesSelected(dt.files);
+
+    // Inject captured GPS + timestamp since canvas photos have no EXIF
+    if (pendingPhotos.length === 1) {
+      const { lat, lng, takenAt } = pendingPhotos[0];
+      if (lat != null && lng != null) {
+        setExifLat(lat); setExifLng(lng);
+        setLat(lat); setLng(lng);
+        if (mapboxToken) reverseGeocode(lat, lng, mapboxToken).then(setLocationName);
+      }
+    } else {
+      // Journey: patch each PhotoItem with captured metadata
+      setJourneyPhotos((prev) => prev.map((item, i) => {
+        const meta = pendingPhotos[i];
+        if (!meta) return item;
+        return {
+          ...item,
+          photoTakenAt: meta.takenAt ?? item.photoTakenAt,
+          lat: meta.lat ?? item.lat,
+          lng: meta.lng ?? item.lng,
+        };
+      }));
+      // Trigger location name resolution for items that now have coords
+      pendingPhotos.forEach((meta, i) => {
+        if (meta.lat != null && meta.lng != null && mapboxToken) {
+          reverseGeocode(meta.lat, meta.lng, mapboxToken).then((name) => {
+            setJourneyPhotos((prev) => prev.map((item, idx) =>
+              idx === i ? { ...item, locationName: name } : item
+            ));
+          });
+        }
+      });
+    }
+
     setCameraStep(null);
+    setPendingPhotos([]);
   }
 
   function removePendingPhoto(index: number) {
