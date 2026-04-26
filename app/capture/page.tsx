@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { fileToBase64 } from "@/lib/utils/image";
 import dynamic from "next/dynamic";
@@ -243,7 +243,7 @@ function formatTimestamp(iso?: string) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function CapturePage() {
+function CapturePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const flow = searchParams.get("flow") ?? "sticker"; // "sticker" | "journey"
@@ -1606,5 +1606,13 @@ export default function CapturePage() {
         </div>
       )}
     </>
+  );
+}
+
+export default function CapturePage() {
+  return (
+    <Suspense>
+      <CapturePageInner />
+    </Suspense>
   );
 }
