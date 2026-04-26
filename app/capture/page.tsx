@@ -865,7 +865,7 @@ function CapturePageInner() {
   // ── Camera screen ──────────────────────────────────────────────────────────
   if (cameraStep === "camera") {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col z-40">
+      <div className="fixed inset-0 bg-black flex flex-col z-[60]">
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pt-12 pb-4">
           <button
@@ -905,8 +905,9 @@ function CapturePageInner() {
           )}
         </div>
 
-        {/* Controls */}
-        <div className="absolute bottom-0 left-0 right-0 pb-12 pt-6 flex items-center justify-around px-12">
+        {/* Controls — pb clears bottom nav (64px) + iOS safe area */}
+        <div className="absolute bottom-0 left-0 right-0 pt-6 flex items-center justify-around px-12"
+          style={{ paddingBottom: "calc(4rem + env(safe-area-inset-bottom))" }}>
           {/* Flip */}
           <button onClick={flipCamera}
             className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center active:scale-90 transition">
@@ -957,7 +958,7 @@ function CapturePageInner() {
     const mainUrl = URL.createObjectURL(mainPhoto);
 
     return (
-      <div className="fixed inset-0 bg-neutral-950 flex flex-col z-40">
+      <div className="fixed inset-0 bg-neutral-950 flex flex-col z-[60]">
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center px-4 pt-12 pb-4">
           <button
@@ -997,8 +998,9 @@ function CapturePageInner() {
           )}
         </div>
 
-        {/* Actions */}
-        <div className="shrink-0 px-5 pb-12 pt-4 space-y-3">
+        {/* Actions — pb clears bottom nav (64px) + iOS safe area */}
+        <div className="shrink-0 px-5 pt-4 space-y-3"
+          style={{ paddingBottom: "calc(4rem + env(safe-area-inset-bottom))" }}>
           <button
             onClick={addAnotherPhoto}
             className="w-full py-4 rounded-2xl bg-neutral-800 text-white font-bold text-base flex items-center justify-center gap-2"
