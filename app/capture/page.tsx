@@ -306,11 +306,16 @@ function CapturePageInner() {
 
   // Caption popup: shown mid-processing after each sticker is ready
   const [captionModalPhoto, setCaptionModalPhoto] = useState<PhotoItem | null>(null);
-  const captionResolverRef = useRef<((result: { caption: string; voiceBlob: Blob | null; voiceMimeType: string | null }) => void) | null>(null);
+  type CaptionResult = { caption: string; voiceBlob: Blob | null; voiceMimeType: string | null; photoTakenAt?: string; locationName?: string; lat?: number | null; lng?: number | null };
+  const captionResolverRef = useRef<((result: CaptionResult) => void) | null>(null);
   const [journeyCaptionInput, setJourneyCaptionInput] = useState("");
   const [isJourneyListening, setIsJourneyListening] = useState(false);
   const [journeyInterimText, setJourneyInterimText] = useState("");
   const journeyCommittedRef = useRef("");
+  const [journeyCaptionTimestamp, setJourneyCaptionTimestamp] = useState("");
+  const [journeyCaptionLocationName, setJourneyCaptionLocationName] = useState("");
+  const [journeyCaptionLat, setJourneyCaptionLat] = useState<number | null>(null);
+  const [journeyCaptionLng, setJourneyCaptionLng] = useState<number | null>(null);
 
   // Journey caption voice memo recorder
   const [journeyCaptionIsRecording, setJourneyCaptionIsRecording] = useState(false);
@@ -364,6 +369,16 @@ function CapturePageInner() {
       streamRef.current = null;
     };
   }, [cameraStep, facingMode]);
+
+  // Initialise caption modal timestamp + location when it opens
+  useEffect(() => {
+    if (!captionModalPhoto) return;
+    const iso = captionModalPhoto.photoTakenAt;
+    setJourneyCaptionTimestamp(iso ? new Date(iso).toISOString().slice(0, 16) : "");
+    setJourneyCaptionLocationName(captionModalPhoto.locationName ?? "");
+    setJourneyCaptionLat(captionModalPhoto.lat ?? null);
+    setJourneyCaptionLng(captionModalPhoto.lng ?? null);
+  }, [captionModalPhoto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pre-generate shape preview thumbnails when customize modal opens
   useEffect(() => {
@@ -760,14 +775,23 @@ function CapturePageInner() {
         setJourneyCaptionVoiceBlob(null);
         setJourneyCaptionVoicePreviewUrl(null);
         setJourneyCaptionRecordingSeconds(0);
-        const { caption: enteredCaption, voiceBlob: enteredVoiceBlob, voiceMimeType: enteredVoiceMimeType } = await new Promise<{ caption: string; voiceBlob: Blob | null; voiceMimeType: string | null }>((resolve) => {
+        const captionResult = await new Promise<CaptionResult>((resolve) => {
           captionResolverRef.current = resolve;
           setCaptionModalPhoto({ ...results[i] });
         });
         setCaptionModalPhoto(null);
         captionResolverRef.current = null;
-        results[i] = { ...results[i], caption: enteredCaption, voiceBlob: enteredVoiceBlob, voiceMimeType: enteredVoiceMimeType };
-        updatePhoto(results[i].id, { caption: enteredCaption });
+        results[i] = {
+          ...results[i],
+          caption: captionResult.caption,
+          voiceBlob: captionResult.voiceBlob,
+          voiceMimeType: captionResult.voiceMimeType,
+          photoTakenAt: captionResult.photoTakenAt ?? results[i].photoTakenAt,
+          locationName: captionResult.locationName ?? results[i].locationName,
+          lat: captionResult.lat ?? results[i].lat,
+          lng: captionResult.lng ?? results[i].lng,
+        };
+        updatePhoto(results[i].id, { caption: captionResult.caption, locationName: results[i].locationName });
       }
     }
 
@@ -902,14 +926,18 @@ function CapturePageInner() {
   }
 
   function onSubmitJourneyCaption(skip: boolean) {
-    const value = skip ? "" : journeyCommittedRef.current || journeyCaptionInput;
+    const value = skip ? "" : (journeyCommittedRef.current || journeyCaptionInput).trim();
     stopJourneyListening();
     if (journeyCaptionIsRecording) stopJourneyCaptionRecording();
     setJourneyCaptionInput("");
     captionResolverRef.current?.({
-      caption: value.trim(),
+      caption: value,
       voiceBlob: skip ? null : journeyCaptionVoiceBlob,
       voiceMimeType: skip ? null : (journeyCaptionVoiceBlob?.type ?? null),
+      photoTakenAt: journeyCaptionTimestamp ? new Date(journeyCaptionTimestamp).toISOString() : undefined,
+      locationName: journeyCaptionLocationName.trim() || undefined,
+      lat: journeyCaptionLat,
+      lng: journeyCaptionLng,
     });
     clearJourneyCaptionVoice();
   }
@@ -1681,68 +1709,65 @@ function CapturePageInner() {
         </div>
       )}
 
-      {/* ── Caption popup modal (mid-processing, per sticker) ── */}
+      {/* ── Caption / details modal (full-screen, per sticker) ── */}
       {captionModalPhoto && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative w-full max-w-lg bg-neutral-900 rounded-t-3xl p-6 space-y-4 pb-10 mb-20">
-            <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-1" />
-
-            {/* Header */}
-            <div className="flex items-center gap-4">
-              {captionModalPhoto.stickerDataUrl && (
-                <img src={captionModalPhoto.stickerDataUrl} alt=""
-                  className="w-16 h-16 object-contain rounded-xl shrink-0 bg-neutral-800" />
-              )}
-              <div>
-                <p className="text-white font-semibold">Add a caption?</p>
-                <p className="text-neutral-400 text-sm mt-0.5">
-                  Photo {journeyPhotos.findIndex((p) => p.id === captionModalPhoto.id) + 1} of {journeyPhotos.length}
-                </p>
-              </div>
-            </div>
-
-            {/* Text input with inline mic */}
-            <div className="relative">
-              <textarea
-                value={journeyCaptionInput + (journeyInterimText ? " " + journeyInterimText : "")}
-                onChange={(e) => {
-                  journeyCommittedRef.current = e.target.value;
-                  setJourneyCaptionInput(e.target.value);
-                }}
-                placeholder="What's happening here?"
-                rows={2}
-                className={`w-full bg-neutral-800 text-white placeholder-neutral-500 rounded-2xl px-4 py-3 pr-12 text-sm resize-none outline-none focus:ring-2 transition-colors ${isJourneyListening ? "ring-2 ring-red-500" : "focus:ring-purple-500"}`}
-              />
-              <button
-                type="button"
-                onClick={isJourneyListening ? stopJourneyListening : startJourneyListening}
-                className={`absolute right-2 bottom-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isJourneyListening ? "bg-red-500 text-white" : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"}`}
-              >
-                {isJourneyListening
-                  ? <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="2" width="8" height="8" rx="1"/></svg>
-                  : <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5"/><path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 19v3M9 22h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                }
-              </button>
-            </div>
-            {isJourneyListening && (
-              <p className="flex items-center gap-1.5 text-xs text-red-400 -mt-2">
-                <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                Listening{journeyInterimText ? `… "${journeyInterimText}"` : "…"}
-              </p>
+        <div className="fixed inset-0 z-[75] bg-neutral-950 flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="shrink-0 flex items-center gap-3 px-5 pt-12 pb-4">
+            {captionModalPhoto.stickerDataUrl && (
+              <img src={captionModalPhoto.stickerDataUrl} alt=""
+                className="w-14 h-14 object-contain rounded-xl shrink-0 bg-neutral-800" />
             )}
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-bold text-lg">Customize Sticker</p>
+              <p className="text-neutral-400 text-sm">
+                Photo {journeyPhotos.findIndex((p) => p.id === captionModalPhoto.id) + 1} of {journeyPhotos.length}
+              </p>
+            </div>
+          </div>
 
-            {/* and/or */}
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-white/10" />
-              <span className="text-xs text-neutral-500 font-medium">and/or</span>
-              <div className="flex-1 h-px bg-white/10" />
+          {/* Scrollable form */}
+          <div className="flex-1 overflow-y-auto px-5 space-y-4 pb-4">
+
+            {/* Write Caption */}
+            <div>
+              <label className="text-neutral-400 text-sm font-medium">Write Caption:</label>
+              <div className="mt-1.5 relative">
+                <textarea
+                  value={journeyCaptionInput + (journeyInterimText ? " " + journeyInterimText : "")}
+                  onChange={(e) => { journeyCommittedRef.current = e.target.value; setJourneyCaptionInput(e.target.value); }}
+                  placeholder="Ex: What happened here?"
+                  rows={3}
+                  className={`w-full bg-neutral-800 text-white placeholder-neutral-600 rounded-2xl px-4 py-3 pr-12 text-sm resize-none outline-none focus:ring-2 transition-colors ${isJourneyListening ? "ring-2 ring-red-500" : "focus:ring-purple-500"}`}
+                />
+                <button
+                  type="button"
+                  onClick={isJourneyListening ? stopJourneyListening : startJourneyListening}
+                  className={`absolute right-2 bottom-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isJourneyListening ? "bg-red-500 text-white" : "bg-neutral-700 text-neutral-400 hover:bg-neutral-600"}`}
+                >
+                  {isJourneyListening
+                    ? <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="2" width="8" height="8" rx="1"/></svg>
+                    : <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5"/><path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 19v3M9 22h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  }
+                </button>
+                {username && (
+                  <div className="absolute right-2 top-2 w-8 h-8 rounded-full bg-[#a855f7] flex items-center justify-center text-white font-bold text-sm pointer-events-none">
+                    {username[0]?.toUpperCase()}
+                  </div>
+                )}
+              </div>
+              {isJourneyListening && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-400">
+                  <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                  Listening{journeyInterimText ? `… "${journeyInterimText}"` : "…"}
+                </p>
+              )}
             </div>
 
             {/* Record Memo */}
             <div>
-              <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Record Memo</label>
-              <div className="mt-2">
+              <label className="text-neutral-400 text-sm font-medium">Record Memo:</label>
+              <div className="mt-1.5">
                 {!journeyCaptionVoicePreviewUrl && !journeyCaptionIsRecording && (
                   <button type="button" onClick={startJourneyCaptionRecording}
                     className="w-full flex items-center gap-3 py-3 px-4 rounded-2xl border border-white/10 bg-neutral-800 hover:bg-neutral-700 transition-colors">
@@ -1778,16 +1803,56 @@ function CapturePageInner() {
               </div>
             </div>
 
-            {/* Submit */}
+            {/* Select Date (timestamp) */}
+            <div>
+              <label className="text-neutral-400 text-sm font-medium">Select Date</label>
+              <input
+                type="datetime-local"
+                value={journeyCaptionTimestamp}
+                onChange={(e) => setJourneyCaptionTimestamp(e.target.value)}
+                className="mt-1.5 w-full bg-neutral-800 text-white rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
+              />
+            </div>
+
+            {/* Select Location */}
+            <div>
+              <label className="text-neutral-400 text-sm font-medium">Select Location</label>
+              <input
+                type="text"
+                value={journeyCaptionLocationName}
+                onChange={(e) => setJourneyCaptionLocationName(e.target.value)}
+                placeholder="Ex: Athens, Greece"
+                className="mt-1.5 w-full bg-neutral-800 text-white placeholder-neutral-600 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              {/* Static map preview if we have coordinates */}
+              {journeyCaptionLat != null && journeyCaptionLng != null && mapboxToken && (
+                <div className="mt-2 rounded-2xl overflow-hidden h-36 relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${journeyCaptionLng},${journeyCaptionLat},13/600x300?access_token=${mapboxToken}`}
+                    alt="Location map"
+                    className="w-full h-full object-cover"
+                  />
+                  {captionModalPhoto.stickerDataUrl && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <img src={captionModalPhoto.stickerDataUrl} alt=""
+                        className="w-14 h-14 object-contain drop-shadow-lg" />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sticky action buttons */}
+          <div className="shrink-0 px-5 pt-3 space-y-2.5"
+            style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}>
             <button
               onClick={() => onSubmitJourneyCaption(false)}
-              disabled={!journeyCaptionInput.trim() && !journeyInterimText.trim() && !journeyCaptionVoiceBlob}
-              className="w-full py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-purple-700 transition"
+              className="w-full py-3.5 rounded-2xl bg-purple-600 text-white font-semibold text-sm hover:bg-purple-700 active:scale-[0.98] transition"
             >
-              Add Caption
+              Next →
             </button>
-
-            {/* Skip */}
             <button
               onClick={() => onSubmitJourneyCaption(true)}
               className="w-full py-3 rounded-2xl border border-white/10 text-neutral-400 text-sm font-medium hover:text-white hover:border-white/20 transition"
