@@ -1029,7 +1029,7 @@ function CapturePageInner() {
   // ── Preview screen ─────────────────────────────────────────────────────────
   if (cameraStep === "preview" && pendingPhotos.length > 0) {
     const mainPhoto = pendingPhotos[pendingPhotos.length - 1];
-    const mainUrl = URL.createObjectURL(mainPhoto);
+    const mainUrl = URL.createObjectURL(mainPhoto.file);
 
     return (
       <div className="fixed inset-0 bg-neutral-950 flex flex-col z-[60]">
@@ -1057,7 +1057,7 @@ function CapturePageInner() {
           {pendingPhotos.length > 1 && (
             <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 px-4">
               {pendingPhotos.map((f, i) => {
-                const url = URL.createObjectURL(f);
+                const url = URL.createObjectURL(f.file);
                 return (
                   <div key={i} className="relative">
                     <img src={url} alt="" className="w-14 h-14 object-cover rounded-xl border-2 border-white/30" />
