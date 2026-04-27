@@ -20,19 +20,38 @@ function StopSheet({
   totalStops,
   journeyTitle,
   onClose,
+  onPrev,
+  onNext,
 }: {
   stop: StickerPost;
   stopIndex: number;
   totalStops: number;
   journeyTitle: string;
   onClose: () => void;
+  onPrev: (() => void) | null;
+  onNext: (() => void) | null;
 }) {
+  const touchStartX = useRef<number | null>(null);
+
   const takenAt = stop.photo_taken_at
     ? new Date(stop.photo_taken_at).toLocaleString(undefined, {
         month: "numeric", day: "numeric", year: "numeric",
         hour: "numeric", minute: "2-digit",
       })
     : null;
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) < 50) return;
+    if (dx > 0 && onPrev) onPrev();
+    else if (dx < 0 && onNext) onNext();
+  }
 
   return (
     <>
@@ -41,6 +60,8 @@ function StopSheet({
         className="absolute bottom-0 left-0 right-0 z-30 rounded-t-3xl overflow-hidden"
         style={{ background: "#1c1c1e" }}
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
@@ -59,11 +80,20 @@ function StopSheet({
           </button>
         </div>
 
-        {/* Sticker image */}
+        {/* Sticker image with prev/next arrows */}
         <div
-          className="mx-4 mb-3 rounded-2xl flex items-center justify-center overflow-hidden"
+          className="mx-4 mb-3 rounded-2xl flex items-center justify-center overflow-hidden relative"
           style={{ height: 190, background: "rgba(255,255,255,0.05)" }}
         >
+          {onPrev && (
+            <button
+              onClick={onPrev}
+              className="absolute left-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-opacity"
+              style={{ background: "rgba(0,0,0,0.4)" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+          )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={stop.image_url}
@@ -71,6 +101,15 @@ function StopSheet({
             className="max-h-full max-w-full object-contain"
             style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.6))" }}
           />
+          {onNext && (
+            <button
+              onClick={onNext}
+              className="absolute right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-opacity"
+              style={{ background: "rgba(0,0,0,0.4)" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          )}
         </div>
 
         {/* User info */}
@@ -300,44 +339,6 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
           <div ref={containerRef} className="w-full h-full" />
         )}
 
-        {/* Stop navigator pills */}
-        {validStops.length > 0 && !selectedStop && (
-          <div className="absolute bottom-3 left-3 right-3 z-10">
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg px-3 py-2.5 flex items-center gap-2">
-              <button
-                onClick={() => flyToStop(Math.max(0, activeStop - 1))}
-                disabled={activeStop === 0}
-                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 disabled:opacity-30 transition-opacity hover:bg-neutral-100"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
-              </button>
-              <div className="flex gap-2 overflow-x-auto flex-1 scrollbar-none">
-                {validStops.map((s, i) => (
-                  <button
-                    key={s.id}
-                    onClick={() => flyToStop(i)}
-                    className="flex items-center gap-1.5 rounded-full px-3 py-1.5 shrink-0 transition-all text-xs font-medium"
-                    style={activeStop === i ? { background: COLOR, color: "white" } : { background: "#f3f4f6", color: "#374151" }}
-                  >
-                    <span className="w-4 h-4 rounded-full flex items-center justify-center font-bold shrink-0"
-                      style={{ background: activeStop === i ? "rgba(255,255,255,0.3)" : COLOR, color: "white", fontSize: "10px" }}>
-                      {i + 1}
-                    </span>
-                    <span className="max-w-28 truncate">{s.location_name ?? s.caption ?? `Stop ${i + 1}`}</span>
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={() => flyToStop(Math.min(validStops.length - 1, activeStop + 1))}
-                disabled={activeStop === validStops.length - 1}
-                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 disabled:opacity-30 transition-opacity hover:bg-neutral-100"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Stop detail sheet */}
         {selectedStop && (
           <StopSheet
@@ -346,6 +347,16 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
             totalStops={validStops.length}
             journeyTitle={journeyTitle}
             onClose={() => setSelectedStop(null)}
+            onPrev={selectedStop.index > 1 ? () => {
+              const newIdx = selectedStop.index - 2;
+              flyToStop(newIdx);
+              setSelectedStop({ stop: validStops[newIdx], index: newIdx + 1 });
+            } : null}
+            onNext={selectedStop.index < validStops.length ? () => {
+              const newIdx = selectedStop.index;
+              flyToStop(newIdx);
+              setSelectedStop({ stop: validStops[newIdx], index: newIdx + 1 });
+            } : null}
           />
         )}
       </div>
