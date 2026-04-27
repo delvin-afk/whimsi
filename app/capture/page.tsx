@@ -385,14 +385,35 @@ function CapturePageInner() {
   }
 
   async function proceedFromPreview() {
+    // If GPS wasn't ready at capture time, try one more time now (3s timeout)
+    if (!capturedGpsRef.current && navigator.geolocation) {
+      await new Promise<void>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => { capturedGpsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude }; resolve(); },
+          () => resolve(),
+          { timeout: 3000, maximumAge: 30000 }
+        );
+      });
+    }
+
+    // Snapshot GPS before any async work
+    const gpsNow = capturedGpsRef.current;
+
+    // Merge fallback GPS into each pending photo that lacks it
+    const photos = pendingPhotos.map((p) => ({
+      ...p,
+      lat: p.lat ?? gpsNow?.lat,
+      lng: p.lng ?? gpsNow?.lng,
+    }));
+
     // Build DataTransfer for the existing file-handling logic
     const dt = new DataTransfer();
-    pendingPhotos.forEach((p) => dt.items.add(p.file));
+    photos.forEach((p) => dt.items.add(p.file));
     await onFilesSelected(dt.files);
 
     // Inject captured GPS + timestamp since canvas photos have no EXIF
-    if (pendingPhotos.length === 1) {
-      const { lat, lng, takenAt } = pendingPhotos[0];
+    if (photos.length === 1) {
+      const { lat, lng } = photos[0];
       if (lat != null && lng != null) {
         setExifLat(lat); setExifLng(lng);
         setLat(lat); setLng(lng);
@@ -401,7 +422,7 @@ function CapturePageInner() {
     } else {
       // Journey: patch each PhotoItem with captured metadata
       setJourneyPhotos((prev) => prev.map((item, i) => {
-        const meta = pendingPhotos[i];
+        const meta = photos[i];
         if (!meta) return item;
         return {
           ...item,
@@ -411,7 +432,7 @@ function CapturePageInner() {
         };
       }));
       // Trigger location name resolution for items that now have coords
-      pendingPhotos.forEach((meta, i) => {
+      photos.forEach((meta, i) => {
         if (meta.lat != null && meta.lng != null && mapboxToken) {
           reverseGeocode(meta.lat, meta.lng, mapboxToken).then((name) => {
             setJourneyPhotos((prev) => prev.map((item, idx) =>
