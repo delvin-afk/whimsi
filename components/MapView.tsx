@@ -27,7 +27,6 @@ function avatarColor(username: string) {
 // ── Sticker detail bottom sheet ───────────────────────────────────────────────
 function StickerSheet({ stop, onClose }: { stop: SelectedStop; onClose: () => void }) {
   const { sticker, color, journeyTitle, stopIndex } = stop;
-
   const takenAt = sticker.photo_taken_at
     ? new Date(sticker.photo_taken_at).toLocaleString(undefined, {
         month: "numeric", day: "numeric", year: "numeric",
@@ -37,95 +36,68 @@ function StickerSheet({ stop, onClose }: { stop: SelectedStop; onClose: () => vo
 
   return (
     <>
-      {/* Backdrop — tap to close */}
-      <div
-        className="absolute inset-0 z-20"
-        onClick={onClose}
-      />
-
-      {/* Sheet */}
+      <div className="absolute inset-0 z-20" onClick={onClose} />
       <div
         className="absolute bottom-0 left-0 right-0 z-30 rounded-t-3xl overflow-hidden"
         style={{ background: "#1c1c1e" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-white/20" />
         </div>
 
-        {/* Sticker image */}
         <div
           className="mx-4 mt-2 mb-3 rounded-2xl overflow-hidden flex items-center justify-center"
           style={{ height: 200, background: "rgba(255,255,255,0.05)" }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={sticker.image_url}
-            alt={sticker.caption ?? "sticker"}
+          <img src={sticker.image_url} alt={sticker.caption ?? "sticker"}
             className="max-h-full max-w-full object-contain"
-            style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.6))" }}
-          />
+            style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.6))" }} />
           {stopIndex != null && (
-            <div
-              className="absolute top-4 left-8 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
-              style={{ background: color, border: "2px solid white" }}
-            >
+            <div className="absolute top-4 left-8 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
+              style={{ background: color, border: "2px solid white" }}>
               {stopIndex}
             </div>
           )}
         </div>
 
-        {/* User info row */}
         <div className="flex items-center gap-3 px-4 mb-3">
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-            style={{ background: avatarColor(sticker.username) }}
-          >
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
+            style={{ background: avatarColor(sticker.username) }}>
             {sticker.username[0]?.toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white font-semibold text-sm leading-tight">{sticker.username}</p>
             <p className="text-neutral-500 text-xs truncate">
-              {takenAt ?? ""}
-              {sticker.location_name ? (takenAt ? ` · ${sticker.location_name}` : sticker.location_name) : ""}
+              {takenAt ?? ""}{sticker.location_name ? (takenAt ? ` · ${sticker.location_name}` : sticker.location_name) : ""}
             </p>
           </div>
-          {/* Journey label */}
           {journeyTitle && (
-            <span
-              className="shrink-0 text-xs px-2 py-1 rounded-full font-medium"
-              style={{ background: `${color}22`, color }}
-            >
+            <span className="shrink-0 text-xs px-2 py-1 rounded-full font-medium"
+              style={{ background: `${color}22`, color }}>
               {stopIndex != null ? `Stop ${stopIndex}` : journeyTitle}
             </span>
           )}
         </div>
 
-        {/* Caption */}
-        {sticker.caption && (
+        {sticker.caption ? (
           <div className="px-4 mb-3">
             <p className="text-white font-semibold text-base leading-snug">{sticker.caption}</p>
             {journeyTitle && stopIndex != null && (
               <p className="text-neutral-500 text-xs mt-0.5">{journeyTitle}</p>
             )}
           </div>
-        )}
-
-        {/* No caption fallback */}
-        {!sticker.caption && journeyTitle && (
+        ) : journeyTitle ? (
           <div className="px-4 mb-3">
             <p className="text-neutral-400 text-sm italic">{journeyTitle}</p>
           </div>
-        )}
+        ) : null}
 
-        {/* Audio player */}
         {sticker.voice_url && (
-          <div className="mx-4 mb-3 rounded-2xl px-3 py-2.5 flex items-center gap-3" style={{ background: "rgba(255,255,255,0.06)" }}>
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-              style={{ background: color }}
-            >
+          <div className="mx-4 mb-3 rounded-2xl px-3 py-2.5 flex items-center gap-3"
+            style={{ background: "rgba(255,255,255,0.06)" }}>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: color }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
                 <rect x="9" y="2" width="6" height="12" rx="3" stroke="white" strokeWidth="1.8"/>
                 <path d="M5 10a7 7 0 0 0 14 0" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
@@ -135,18 +107,15 @@ function StickerSheet({ stop, onClose }: { stop: SelectedStop; onClose: () => vo
           </div>
         )}
 
-        {/* Location row */}
         {sticker.location_name && (
           <div className="flex items-center gap-2 px-4 mb-4">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-              <circle cx="12" cy="10" r="3"/>
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
             </svg>
             <p className="text-neutral-500 text-xs">{sticker.location_name}</p>
           </div>
         )}
 
-        {/* Safe area spacing */}
         <div style={{ height: "calc(0.75rem + env(safe-area-inset-bottom))" }} />
       </div>
     </>
@@ -162,14 +131,45 @@ export default function MapView({ stickers, journeys = [] }: Props) {
   const [searching, setSearching] = useState(false);
   const [locating, setLocating] = useState(false);
   const [selectedStop, setSelectedStop] = useState<SelectedStop | null>(null);
+  const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
+
+  // Refs for imperative map updates when selectedJourneyId changes
+  const markersByJourney = useRef<Map<string, HTMLElement[]>>(new Map());
+  const clickedJourneyRef = useRef(false); // prevents map-click from immediately deselecting
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+  // ── Update line / marker visibility when selection changes ──────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    journeys.forEach((journey) => {
+      const active = selectedJourneyId === null || selectedJourneyId === journey.id;
+      const lineId = `journey-line-${journey.id}`;
+      const glowId = `${lineId}-glow`;
+
+      if (map.getLayer(lineId)) {
+        map.setPaintProperty(lineId, "line-opacity", active ? 0.9 : 0.08);
+        map.setPaintProperty(lineId, "line-width", active ? 4.5 : 2);
+      }
+      if (map.getLayer(glowId)) {
+        map.setPaintProperty(glowId, "line-opacity", active ? 0.25 : 0.04);
+        map.setPaintProperty(glowId, "line-width", active ? 10 : 6);
+      }
+
+      const els = markersByJourney.current.get(journey.id) ?? [];
+      els.forEach((el) => {
+        el.style.opacity = active ? "1" : "0.15";
+        el.style.transition = "opacity 0.25s";
+      });
+    });
+  }, [selectedJourneyId, journeys]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !token) return;
 
     const FALLBACK: [number, number] = [-122.4783, 37.8199];
-
     const geoPromise = new Promise<[number, number]>((resolve) => {
       if (!navigator.geolocation) { resolve(FALLBACK); return; }
       navigator.geolocation.getCurrentPosition(
@@ -184,19 +184,23 @@ export default function MapView({ stickers, journeys = [] }: Props) {
       if (!containerRef.current) return;
 
       mapboxgl.accessToken = token;
-
       const map = new mapboxgl.Map({
         container: containerRef.current,
         style: "mapbox://styles/mapbox/streets-v12",
         center: [0, 20],
         zoom: 1.5,
       });
-
       mapRef.current = map;
       map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
+      // Clicking empty map deselects
+      map.on("click", () => {
+        if (clickedJourneyRef.current) { clickedJourneyRef.current = false; return; }
+        setSelectedJourneyId(null);
+      });
+
       map.on("load", async () => {
-        // ── Solo sticker markers ──────────────────────────────────────────────
+        // ── Solo sticker markers ────────────────────────────────────────────
         const located = stickers.filter((s) => s.lat != null && s.lng != null);
         located.forEach((sticker) => {
           const wrapper = document.createElement("div");
@@ -208,95 +212,101 @@ export default function MapView({ stickers, journeys = [] }: Props) {
           pin.style.cssText = "width:8px;height:8px;border-radius:50%;background:#f43f5e;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.5);margin-top:2px;flex-shrink:0;";
           wrapper.appendChild(img);
           wrapper.appendChild(pin);
-
-          wrapper.addEventListener("click", () => {
+          wrapper.addEventListener("click", (e) => {
+            e.stopPropagation();
             setSelectedStop({ sticker, color: "#f43f5e", journeyTitle: null, stopIndex: null });
           });
-
           new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
             .setLngLat([sticker.lng!, sticker.lat!])
             .addTo(map);
         });
 
-        // ── Journey lines + numbered markers ─────────────────────────────────
+        // ── Journey lines + markers ─────────────────────────────────────────
         const journeyPromises = journeys.map(async (journey, journeyIndex) => {
           const color = JOURNEY_COLORS[journeyIndex % JOURNEY_COLORS.length];
           const validStops = journey.stickers.filter((s) => s.lat != null && s.lng != null);
           if (validStops.length < 2) return;
 
-          const straightCoords = validStops.map((s) => [s.lng!, s.lat!]);
-          let routeCoordinates: number[][] = [];
-
-          for (let i = 0; i < straightCoords.length - 1; i++) {
-            const [lng1, lat1] = straightCoords[i];
-            const [lng2, lat2] = straightCoords[i + 1];
+          const straight = validStops.map((s) => [s.lng!, s.lat!]);
+          let routeCoords: number[][] = [];
+          for (let i = 0; i < straight.length - 1; i++) {
+            const [lng1, lat1] = straight[i];
+            const [lng2, lat2] = straight[i + 1];
             try {
               const res = await fetch(
                 `https://api.mapbox.com/directions/v5/mapbox/driving/${lng1},${lat1};${lng2},${lat2}?geometries=geojson&overview=full&access_token=${token}`
               );
               const json = await res.json();
               const leg: number[][] | undefined = json.routes?.[0]?.geometry?.coordinates;
-              if (leg && leg.length > 0) {
-                if (routeCoordinates.length > 0) leg.shift();
-                routeCoordinates = routeCoordinates.concat(leg);
+              if (leg?.length) {
+                if (routeCoords.length > 0) leg.shift();
+                routeCoords = routeCoords.concat(leg);
               } else {
-                if (routeCoordinates.length === 0) routeCoordinates.push(straightCoords[i]);
-                routeCoordinates.push(straightCoords[i + 1]);
+                if (routeCoords.length === 0) routeCoords.push(straight[i]);
+                routeCoords.push(straight[i + 1]);
               }
             } catch {
-              if (routeCoordinates.length === 0) routeCoordinates.push(straightCoords[i]);
-              routeCoordinates.push(straightCoords[i + 1]);
+              if (routeCoords.length === 0) routeCoords.push(straight[i]);
+              routeCoords.push(straight[i + 1]);
             }
           }
 
-          const coordinates = routeCoordinates.length >= 2 ? routeCoordinates : straightCoords;
+          const coordinates = routeCoords.length >= 2 ? routeCoords : straight;
           const sourceId = `journey-${journey.id}`;
-          const layerId = `journey-line-${journey.id}`;
+          const lineId = `journey-line-${journey.id}`;
 
           map.addSource(sourceId, {
             type: "geojson",
             data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates } },
           });
-          map.addLayer({ id: `${layerId}-glow`, type: "line", source: sourceId, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": color, "line-width": 8, "line-opacity": 0.25 } });
-          map.addLayer({ id: layerId, type: "line", source: sourceId, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": color, "line-width": 3.5, "line-opacity": 0.85 } });
 
-          // Numbered sticker markers
+          map.addLayer({ id: `${lineId}-glow`, type: "line", source: sourceId, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": color, "line-width": 10, "line-opacity": 0.25 } });
+          map.addLayer({ id: lineId, type: "line", source: sourceId, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": color, "line-width": 3.5, "line-opacity": 0.85 } });
+
+          // Wide invisible hit target for easier line tapping
+          map.addLayer({ id: `${lineId}-hit`, type: "line", source: sourceId, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": color, "line-width": 24, "line-opacity": 0 } });
+
+          map.on("click", `${lineId}-hit`, () => {
+            clickedJourneyRef.current = true;
+            setSelectedJourneyId((prev) => (prev === journey.id ? null : journey.id));
+          });
+          map.on("mouseenter", `${lineId}-hit`, () => { map.getCanvas().style.cursor = "pointer"; });
+          map.on("mouseleave", `${lineId}-hit`, () => { map.getCanvas().style.cursor = ""; });
+
+          // Sticker markers
+          const journeyMarkers: HTMLElement[] = [];
           validStops.forEach((stop, stopIndex) => {
             const wrapper = document.createElement("div");
-            wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer;";
-
+            wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:opacity 0.25s;";
             const stickerWrap = document.createElement("div");
             stickerWrap.style.cssText = "position:relative;width:44px;height:44px;";
-
             const img = document.createElement("img");
             img.src = stop.image_url;
             img.style.cssText = "width:44px;height:44px;object-fit:contain;display:block;filter:drop-shadow(0 0 3px rgba(0,0,0,0.45));";
             stickerWrap.appendChild(img);
-
             const badge = document.createElement("div");
             badge.style.cssText = `position:absolute;top:-5px;left:-5px;width:18px;height:18px;border-radius:50%;background:${color};color:white;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.4);border:1.5px solid white;`;
             badge.textContent = String(stopIndex + 1);
             stickerWrap.appendChild(badge);
-
             const pin = document.createElement("div");
             pin.style.cssText = `width:8px;height:8px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.45);margin-top:2px;flex-shrink:0;`;
-
             wrapper.appendChild(stickerWrap);
             wrapper.appendChild(pin);
 
-            wrapper.addEventListener("click", () => {
-              setSelectedStop({
-                sticker: stop,
-                color,
-                journeyTitle: journey.caption ?? `${journey.username}'s Journey`,
-                stopIndex: stopIndex + 1,
-              });
+            wrapper.addEventListener("click", (e) => {
+              e.stopPropagation();
+              clickedJourneyRef.current = true;
+              setSelectedJourneyId(journey.id);
+              setSelectedStop({ sticker: stop, color, journeyTitle: journey.caption ?? `${journey.username}'s Journey`, stopIndex: stopIndex + 1 });
             });
 
+            journeyMarkers.push(wrapper);
             new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
               .setLngLat([stop.lng!, stop.lat!])
               .addTo(map);
           });
+
+          markersByJourney.current.set(journey.id, journeyMarkers);
 
           // Start flag
           const startEl = document.createElement("div");
@@ -315,10 +325,7 @@ export default function MapView({ stickers, journeys = [] }: Props) {
       });
     });
 
-    return () => {
-      mapRef.current?.remove();
-      mapRef.current = null;
-    };
+    return () => { mapRef.current?.remove(); mapRef.current = null; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function searchCity(e: React.SyntheticEvent<HTMLFormElement>) {
@@ -368,12 +375,9 @@ export default function MapView({ stickers, journeys = [] }: Props) {
     <div className="relative w-full h-full">
       {/* Search bar */}
       <form onSubmit={searchCity} className="absolute top-3 left-3 right-14 z-10 flex gap-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+        <input value={query} onChange={(e) => setQuery(e.target.value)}
           placeholder="Search city or place…"
-          className="flex-1 h-10 rounded-xl bg-white shadow-md border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-purple-300"
-        />
+          className="flex-1 h-10 rounded-xl bg-white shadow-md border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-purple-300" />
         <button type="submit" disabled={searching || !query.trim()}
           className="h-10 px-3 rounded-xl bg-white shadow-md border border-neutral-200 text-sm font-medium text-neutral-700 disabled:opacity-50 hover:bg-neutral-50">
           {searching ? "…" : "Go"}
@@ -381,7 +385,7 @@ export default function MapView({ stickers, journeys = [] }: Props) {
       </form>
 
       {/* Locate me */}
-      <button onClick={locateMe} disabled={locating} title="Center on my location"
+      <button onClick={locateMe} disabled={locating}
         className="absolute bottom-10 right-3 z-10 w-10 h-10 rounded-xl bg-white shadow-md border border-neutral-200 flex items-center justify-center text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">
         {locating
           ? <div className="w-4 h-4 rounded-full border-2 border-neutral-300 border-t-purple-500 animate-spin" />
@@ -392,22 +396,42 @@ export default function MapView({ stickers, journeys = [] }: Props) {
       {/* Journey legend */}
       {journeys.length > 0 && !selectedStop && (
         <div className="absolute bottom-10 left-3 z-10 space-y-1">
-          {journeys.slice(0, 5).map((journey, i) => (
-            <div key={journey.id}
-              className="flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-lg px-2 py-1 shadow-sm border border-neutral-100">
-              <div className="w-3 h-3 rounded-full shrink-0" style={{ background: JOURNEY_COLORS[i % JOURNEY_COLORS.length] }} />
-              <span className="text-xs font-medium text-neutral-700 max-w-30 truncate">
-                {journey.caption ?? `${journey.username}'s Journey`}
-              </span>
-              {!journey.is_public && <span className="text-xs">🔒</span>}
-            </div>
-          ))}
+          {journeys.slice(0, 5).map((journey, i) => {
+            const color = JOURNEY_COLORS[i % JOURNEY_COLORS.length];
+            const isSelected = selectedJourneyId === journey.id;
+            const isDimmed = selectedJourneyId !== null && !isSelected;
+            return (
+              <button
+                key={journey.id}
+                onClick={() => setSelectedJourneyId((prev) => prev === journey.id ? null : journey.id)}
+                className="flex items-center gap-1.5 backdrop-blur-sm rounded-lg px-2 py-1 shadow-sm border transition-all"
+                style={{
+                  background: isSelected ? `${color}22` : "rgba(255,255,255,0.9)",
+                  borderColor: isSelected ? color : "#e5e7eb",
+                  opacity: isDimmed ? 0.4 : 1,
+                }}
+              >
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
+                <span className="text-xs font-medium text-neutral-700 max-w-30 truncate">
+                  {journey.caption ?? `${journey.username}'s Journey`}
+                </span>
+                {!journey.is_public && <span className="text-xs">🔒</span>}
+              </button>
+            );
+          })}
+          {selectedJourneyId && (
+            <button
+              onClick={() => setSelectedJourneyId(null)}
+              className="w-full text-xs text-neutral-500 text-center py-1"
+            >
+              Show all
+            </button>
+          )}
         </div>
       )}
 
       <div ref={containerRef} className="w-full h-full rounded-2xl overflow-hidden" />
 
-      {/* Sticker detail sheet */}
       {selectedStop && (
         <StickerSheet stop={selectedStop} onClose={() => setSelectedStop(null)} />
       )}
