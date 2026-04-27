@@ -38,6 +38,11 @@ declare global {
 // ── Cut-out shapes ────────────────────────────────────────────────────────────
 type CutoutShape = "circle" | "star" | "square" | "diamond";
 
+type CustomizeResult =
+  | { type: "original" }
+  | { type: "cutout"; shape: CutoutShape; dataUrl: string }
+  | { type: "ai"; dataUrl: string };
+
 const CUTOUT_SHAPES: { id: CutoutShape; label: string }[] = [
   { id: "circle",  label: "Circle"  },
   { id: "star",    label: "Star"    },
@@ -290,9 +295,14 @@ function CapturePageInner() {
   const [journeyStep, setJourneyStep] = useState<"details" | "processing" | "saving" | "done" | "rescue">("details");
   const [journeyProgress, setJourneyProgress] = useState({ current: 0, total: 0 });
   const [journeySaveError, setJourneySaveError] = useState("");
-  // Cut-out popup: shown mid-processing when a photo fails
-  const [cutoutModalPhoto, setCutoutModalPhoto] = useState<PhotoItem | null>(null);
-  const cutoutResolverRef = useRef<((shape: CutoutShape | null) => void) | null>(null);
+  // Customize sticker modal: shown per photo during journey creation
+  const [customizeModalPhoto, setCustomizeModalPhoto] = useState<PhotoItem | null>(null);
+  const customizeResolverRef = useRef<((r: CustomizeResult) => void) | null>(null);
+  const [customizeSelectedMode, setCustomizeSelectedMode] = useState<"original" | CutoutShape | "ai-done">("original");
+  const [customizeCurrentDataUrl, setCustomizeCurrentDataUrl] = useState<string | null>(null);
+  const [customizeShapePreviews, setCustomizeShapePreviews] = useState<Partial<Record<CutoutShape, string>>>({});
+  const [customizeAiLoading, setCustomizeAiLoading] = useState(false);
+  const [customizeAiError, setCustomizeAiError] = useState("");
 
   // Caption popup: shown mid-processing after each sticker is ready
   const [captionModalPhoto, setCaptionModalPhoto] = useState<PhotoItem | null>(null);
@@ -354,6 +364,22 @@ function CapturePageInner() {
       streamRef.current = null;
     };
   }, [cameraStep, facingMode]);
+
+  // Pre-generate shape preview thumbnails when customize modal opens
+  useEffect(() => {
+    if (!customizeModalPhoto) return;
+    setCustomizeSelectedMode("original");
+    setCustomizeCurrentDataUrl(null);
+    setCustomizeShapePreviews({});
+    setCustomizeAiLoading(false);
+    setCustomizeAiError("");
+    const url = customizeModalPhoto.localUrl;
+    for (const { id } of CUTOUT_SHAPES) {
+      generateCutout(url, id).then((dataUrl) => {
+        setCustomizeShapePreviews((prev) => ({ ...prev, [id]: dataUrl }));
+      }).catch(() => {});
+    }
+  }, [customizeModalPhoto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function flipCamera() {
     setFacingMode((f) => (f === "environment" ? "user" : "environment"));
@@ -703,49 +729,27 @@ function CapturePageInner() {
       updatePhoto(results[i].id, { status: "processing" });
       setJourneyProgress({ current: i + 1, total: results.length });
 
-      // Try AI sticker extraction
+      // ── Pause: show customize sticker modal ──────────────────────────────
+      const customizeResult = await new Promise<CustomizeResult>((resolve) => {
+        customizeResolverRef.current = resolve;
+        setCustomizeModalPhoto({ ...results[i] });
+      });
+      setCustomizeModalPhoto(null);
+      customizeResolverRef.current = null;
+
       let stickerDataUrl: string | null = null;
-      try {
-        const res = await fetch("/api/sticker", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ base64: results[i].base64, mimeType: results[i].mimeType }),
-        });
-        const json = await res.json();
-        if (res.ok) stickerDataUrl = json.sticker;
-      } catch { /* fall through to cut-out prompt */ }
+      if (customizeResult.type === "original") {
+        stickerDataUrl = `data:${results[i].mimeType};base64,${results[i].base64}`;
+      } else {
+        stickerDataUrl = customizeResult.dataUrl;
+      }
 
       if (stickerDataUrl) {
         results[i] = { ...results[i], stickerDataUrl, status: "done" };
         updatePhoto(results[i].id, { stickerDataUrl, status: "done" });
       } else {
-        // ── Pause: show cut-out popup and wait for user choice ──
-        results[i] = { ...results[i], status: "error" };
-        updatePhoto(results[i].id, { status: "error" });
-
-        const chosenShape = await new Promise<CutoutShape | null>((resolve) => {
-          cutoutResolverRef.current = resolve;
-          setCutoutModalPhoto({ ...results[i] });
-        });
-        setCutoutModalPhoto(null);
-        cutoutResolverRef.current = null;
-
-        if (chosenShape) {
-          // Generate cut-out client-side
-          updatePhoto(results[i].id, { status: "processing" });
-          try {
-            const dataUrl = await generateCutout(results[i].localUrl, chosenShape);
-            results[i] = { ...results[i], stickerDataUrl: dataUrl, status: "done" };
-            updatePhoto(results[i].id, { stickerDataUrl: dataUrl, status: "done" });
-          } catch {
-            results[i] = { ...results[i], status: "error", errorMsg: "Cut-out failed" };
-            updatePhoto(results[i].id, { status: "error", errorMsg: "Cut-out failed" });
-          }
-        } else {
-          // Skipped — keep as error/skipped
-          results[i] = { ...results[i], status: "error", errorMsg: "Skipped" };
-          updatePhoto(results[i].id, { status: "error", errorMsg: "Skipped" });
-        }
+        results[i] = { ...results[i], status: "error", errorMsg: "Skipped" };
+        updatePhoto(results[i].id, { status: "error", errorMsg: "Skipped" });
       }
 
       // ── Pause: ask for a caption if sticker was created ──────────────────
@@ -777,8 +781,56 @@ function CapturePageInner() {
     }
   }
 
-  function onPickCutout(shape: CutoutShape | null) {
-    cutoutResolverRef.current?.(shape);
+  // ── Customize sticker modal handlers ─────────────────────────────────────
+  function onCustomizeSelectOriginal() {
+    setCustomizeSelectedMode("original");
+    setCustomizeCurrentDataUrl(null);
+  }
+
+  async function onCustomizeSelectShape(shape: CutoutShape) {
+    setCustomizeSelectedMode(shape);
+    if (customizeShapePreviews[shape]) {
+      setCustomizeCurrentDataUrl(customizeShapePreviews[shape]!);
+    } else if (customizeModalPhoto) {
+      const dataUrl = await generateCutout(customizeModalPhoto.localUrl, shape);
+      setCustomizeShapePreviews((prev) => ({ ...prev, [shape]: dataUrl }));
+      setCustomizeCurrentDataUrl(dataUrl);
+    }
+  }
+
+  async function onCustomizeUseAI() {
+    if (!customizeModalPhoto) return;
+    setCustomizeAiLoading(true);
+    setCustomizeAiError("");
+    try {
+      const res = await fetch("/api/sticker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64: customizeModalPhoto.base64, mimeType: customizeModalPhoto.mimeType }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setCustomizeCurrentDataUrl(json.sticker);
+        setCustomizeSelectedMode("ai-done");
+      } else {
+        setCustomizeAiError("AI couldn't isolate a subject. Try a shape instead.");
+      }
+    } catch {
+      setCustomizeAiError("Sticker service unavailable.");
+    } finally {
+      setCustomizeAiLoading(false);
+    }
+  }
+
+  function onCustomizeConfirm() {
+    if (!customizeResolverRef.current) return;
+    if (customizeSelectedMode === "original") {
+      customizeResolverRef.current({ type: "original" });
+    } else if (customizeSelectedMode === "ai-done" && customizeCurrentDataUrl) {
+      customizeResolverRef.current({ type: "ai", dataUrl: customizeCurrentDataUrl });
+    } else if (customizeCurrentDataUrl) {
+      customizeResolverRef.current({ type: "cutout", shape: customizeSelectedMode as CutoutShape, dataUrl: customizeCurrentDataUrl });
+    }
   }
 
   // ── Journey caption voice helpers ─────────────────────────────────────────
@@ -1516,51 +1568,115 @@ function CapturePageInner() {
       )}
     </main>
 
-      {/* ── Cut-out popup modal (mid-processing) ── */}
-      {cutoutModalPhoto && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      {/* ── Customize Sticker modal (full-screen, per photo) ── */}
+      {customizeModalPhoto && (
+        <div className="fixed inset-0 z-[70] bg-neutral-950 flex flex-col">
+          {/* Header */}
+          <div className="shrink-0 flex items-center justify-between px-5 pt-12 pb-3">
+            <p className="text-white/50 text-sm">
+              Photo {journeyPhotos.findIndex((p) => p.id === customizeModalPhoto.id) + 1} of {journeyPhotos.length}
+            </p>
+            <p className="text-white font-semibold text-sm">Create a Sticker</p>
+            <div className="w-20" />
+          </div>
 
-          {/* Sheet */}
-          <div className="relative w-full max-w-lg bg-neutral-900 rounded-t-3xl p-6 space-y-5 pb-10">
-            {/* Handle */}
-            <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mb-1" />
-
-            {/* Header with photo */}
-            <div className="flex items-center gap-4">
-              <img
-                src={cutoutModalPhoto.localUrl}
-                alt=""
-                className="w-16 h-16 rounded-xl object-cover shrink-0 border-2 border-red-400/50"
-              />
-              <div>
-                <p className="text-white font-semibold">Couldn&apos;t create sticker</p>
-                <p className="text-neutral-400 text-sm mt-0.5">Pick a cut-out shape for this photo instead</p>
+          {/* Large sticker preview */}
+          <div className="flex-1 flex items-center justify-center px-10">
+            {customizeAiLoading ? (
+              <div className="w-64 h-64 rounded-3xl bg-neutral-800 flex flex-col items-center justify-center gap-3">
+                <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+                <p className="text-white/50 text-sm">Creating AI sticker…</p>
               </div>
-            </div>
+            ) : (
+              <img
+                src={customizeCurrentDataUrl ?? customizeModalPhoto.localUrl}
+                alt="Sticker preview"
+                className="max-w-64 max-h-64 w-full object-contain"
+                style={{ filter: "drop-shadow(0 8px 32px rgba(168,85,247,0.35))" }}
+              />
+            )}
+          </div>
 
-            {/* Shape options */}
-            <div className="grid grid-cols-4 gap-3">
-              {CUTOUT_SHAPES.map(({ id, label }) => (
+          {/* Bottom panel */}
+          <div className="shrink-0 bg-neutral-900 rounded-t-3xl px-5 pt-5 space-y-4"
+            style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}>
+            <p className="text-white font-bold text-lg text-center">Customize Sticker</p>
+
+            {/* Shape row + Use AI button */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <p className="text-neutral-400 text-sm font-medium">Choose Sticker Shape</p>
                 <button
-                  key={id}
-                  onClick={() => onPickCutout(id)}
-                  className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-neutral-800 hover:bg-neutral-700 active:scale-95 transition"
+                  onClick={onCustomizeUseAI}
+                  disabled={customizeAiLoading}
+                  className="flex items-center gap-1.5 text-[#a855f7] text-sm font-semibold disabled:opacity-40 active:scale-95 transition"
                 >
-                  <CutoutShapeIcon shape={id} />
-                  <span className="text-white text-xs font-medium">{label}</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                  </svg>
+                  Use AI
                 </button>
-              ))}
+              </div>
+
+              {/* Thumbnail row: original + 4 shapes */}
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {/* Original */}
+                <button
+                  onClick={onCustomizeSelectOriginal}
+                  className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition ${
+                    customizeSelectedMode === "original" ? "border-white" : "border-neutral-700"
+                  }`}
+                >
+                  <img src={customizeModalPhoto.localUrl} alt="Original" className="w-full h-full object-cover" />
+                </button>
+
+                {/* Shape previews */}
+                {CUTOUT_SHAPES.map(({ id, label }) => (
+                  <button
+                    key={id}
+                    onClick={() => onCustomizeSelectShape(id)}
+                    className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 bg-neutral-800 transition flex items-center justify-center ${
+                      customizeSelectedMode === id ? "border-white" : "border-neutral-700"
+                    }`}
+                  >
+                    {customizeShapePreviews[id] ? (
+                      <img src={customizeShapePreviews[id]} alt={label} className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="opacity-50"><CutoutShapeIcon shape={id} /></div>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {customizeAiError && (
+                <p className="text-red-400 text-xs">{customizeAiError}</p>
+              )}
             </div>
 
-            {/* Skip */}
-            <button
-              onClick={() => onPickCutout(null)}
-              className="w-full py-3 rounded-2xl border border-white/10 text-neutral-400 text-sm font-medium hover:text-white hover:border-white/20 transition"
-            >
-              Skip this photo
-            </button>
+            {/* Journey strip + Next button */}
+            <div className="flex items-center gap-3">
+              <div className="flex gap-1.5 flex-1 overflow-x-auto pb-1">
+                {journeyPhotos.map((p) => (
+                  <div
+                    key={p.id}
+                    className={`shrink-0 w-10 h-10 rounded-lg overflow-hidden border-2 ${
+                      p.id === customizeModalPhoto.id ? "border-white" : "border-neutral-700/50"
+                    }`}
+                  >
+                    <img src={p.localUrl} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={onCustomizeConfirm}
+                disabled={customizeAiLoading}
+                className="shrink-0 w-12 h-12 rounded-full bg-[#4ade80] flex items-center justify-center disabled:opacity-40 active:scale-95 transition"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       )}
