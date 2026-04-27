@@ -295,6 +295,7 @@ function CapturePageInner() {
   const [journeyStep, setJourneyStep] = useState<"details" | "processing" | "saving" | "done" | "rescue">("details");
   const [journeyProgress, setJourneyProgress] = useState({ current: 0, total: 0 });
   const [journeySaveError, setJourneySaveError] = useState("");
+  const [savedJourneyId, setSavedJourneyId] = useState("");
   // Customize sticker modal: shown per photo during journey creation
   const [customizeModalPhoto, setCustomizeModalPhoto] = useState<PhotoItem | null>(null);
   const customizeResolverRef = useRef<((r: CustomizeResult) => void) | null>(null);
@@ -988,6 +989,7 @@ function CapturePageInner() {
       });
       const json = await res.json();
       if (res.ok) {
+        setSavedJourneyId(json.journey?.id ?? "");
         setJourneyStep("done");
       } else {
         setJourneySaveError(json.error ?? "Failed to save journey");
@@ -1565,33 +1567,7 @@ function CapturePageInner() {
           )}
 
           {/* Done */}
-          {journeyStep === "done" && (
-            <div className="space-y-4 py-6 text-center">
-              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"><path d="M5 13l4 4L19 7"/></svg>
-              </div>
-              <div>
-                <p className="font-bold text-xl">Journey created!</p>
-                <p className="text-sm text-neutral-500 mt-1">
-                  {journeyPhotos.filter((p) => p.status === "done").length} stickers pinned privately on your map
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 pt-2">
-                <button
-                  onClick={() => router.push("/map")}
-                  className="w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold text-base"
-                >
-                  View on Map
-                </button>
-                <button
-                  onClick={resetJourney}
-                  className="w-full py-3 rounded-2xl border border-neutral-200 text-neutral-600 text-sm font-medium"
-                >
-                  Create another
-                </button>
-              </div>
-            </div>
-          )}
+          {/* done step renders as full-screen overlay below */}
         </>
       )}
     </main>
@@ -1750,11 +1726,6 @@ function CapturePageInner() {
                     : <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5"/><path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 19v3M9 22h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                   }
                 </button>
-                {username && (
-                  <div className="absolute right-2 top-2 w-8 h-8 rounded-full bg-[#a855f7] flex items-center justify-center text-white font-bold text-sm pointer-events-none">
-                    {username[0]?.toUpperCase()}
-                  </div>
-                )}
               </div>
               {isJourneyListening && (
                 <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-400">
@@ -1862,6 +1833,129 @@ function CapturePageInner() {
           </div>
         </div>
       )}
+
+      {/* ── Journey "done" success screen ── */}
+      {journeyStep === "done" && (() => {
+        const donePhotos = journeyPhotos.filter((p) => p.status === "done");
+        const withTime = donePhotos.filter((p) => p.photoTakenAt);
+        const times = withTime.map((p) => new Date(p.photoTakenAt!).getTime()).sort((a, b) => a - b);
+        const travelDays = times.length >= 2
+          ? Math.max(1, Math.ceil((times[times.length - 1] - times[0]) / 86400000))
+          : null;
+        const fmt = (ms: number) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+        const dateRange = times.length >= 2 ? `${fmt(times[0])} – ${fmt(times[times.length - 1])}` : null;
+        const locationSummary = donePhotos.find((p) => p.locationName)?.locationName ?? "";
+        const stickersWithLoc = donePhotos.filter((p) => p.lat != null && p.lng != null);
+        const markers = stickersWithLoc.map((p) => `pin-s+a855f7(${p.lng},${p.lat})`).join(",");
+        const mapUrl = stickersWithLoc.length > 0 && mapboxToken
+          ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${markers}/auto/600x300?padding=60&access_token=${mapboxToken}`
+          : null;
+        const journeyUrl = savedJourneyId
+          ? `${typeof window !== "undefined" ? window.location.origin : ""}/journey/${savedJourneyId}`
+          : null;
+
+        async function sendLink() {
+          if (!journeyUrl) return;
+          if (savedJourneyId) {
+            await fetch(`/api/journeys/${savedJourneyId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ is_public: true }),
+            }).catch(() => {});
+          }
+          if (navigator.share) {
+            navigator.share({ url: journeyUrl }).catch(() => {});
+          } else {
+            navigator.clipboard.writeText(journeyUrl);
+          }
+        }
+
+        return (
+          <div className="fixed inset-0 z-[80] flex flex-col" style={{ background: "#4ade80" }}>
+            {/* Title */}
+            <div className="shrink-0 pt-14 pb-4 px-5 text-center">
+              <p className="text-3xl font-black text-black">Story is created!</p>
+            </div>
+
+            {/* Card */}
+            <div className="flex-1 overflow-y-auto px-4 pb-4">
+              <div className="bg-white rounded-3xl overflow-hidden shadow-lg">
+                {/* User row */}
+                <div className="px-4 py-3 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#a855f7] flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    {username[0]?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{username} shared a story</p>
+                    <p className="text-xs text-neutral-400 truncate">
+                      {dateRange ?? ""}{locationSummary ? (dateRange ? ` · ${locationSummary}` : locationSummary) : ""}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Map */}
+                <div className="relative h-48 bg-neutral-100">
+                  {mapUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={mapUrl} alt="Journey map" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-neutral-400 text-sm">No location data</div>
+                  )}
+                </div>
+
+                {/* Journey title */}
+                {journeyCaption && (
+                  <div className="px-4 py-2 border-b border-neutral-100">
+                    <p className="font-semibold text-sm text-center">{journeyCaption}</p>
+                  </div>
+                )}
+
+                {/* Stats */}
+                <div className="flex divide-x divide-neutral-100">
+                  <div className="flex-1 px-4 py-3 text-center">
+                    <p className="text-xs text-neutral-400">Number of Entries</p>
+                    <p className="font-bold text-xl">{donePhotos.length}</p>
+                  </div>
+                  <div className="flex-1 px-4 py-3 text-center">
+                    <p className="text-xs text-neutral-400">Travel Time</p>
+                    <p className="font-bold text-xl">{travelDays != null ? `${travelDays} day${travelDays !== 1 ? "s" : ""}` : "—"}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="shrink-0 px-4 pt-2 space-y-3"
+              style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}>
+              <button
+                onClick={() => router.push("/map")}
+                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-black text-white font-bold text-base active:scale-[0.98] transition"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+                  <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
+                </svg>
+                View on Map
+              </button>
+              <button
+                onClick={sendLink}
+                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-black text-white font-bold text-base active:scale-[0.98] transition"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+                Send Link
+              </button>
+              <button
+                onClick={resetJourney}
+                className="w-full py-3 text-black/60 text-sm font-medium"
+              >
+                Create another
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }
