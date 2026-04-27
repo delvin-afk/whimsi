@@ -1,18 +1,146 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Journey } from "@/types";
+import type { Journey, StickerPost } from "@/types";
 import Link from "next/link";
 
 const COLOR = "#a855f7";
 
+function avatarColor(username: string) {
+  const colors = ["#f43f5e", "#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#06b6d4"];
+  let hash = 0;
+  for (const c of username) hash = (hash * 31 + c.charCodeAt(0)) & 0xffffffff;
+  return colors[Math.abs(hash) % colors.length];
+}
+
+// ── Stop detail bottom sheet ──────────────────────────────────────────────────
+function StopSheet({
+  stop,
+  stopIndex,
+  totalStops,
+  journeyTitle,
+  onClose,
+}: {
+  stop: StickerPost;
+  stopIndex: number;
+  totalStops: number;
+  journeyTitle: string;
+  onClose: () => void;
+}) {
+  const takenAt = stop.photo_taken_at
+    ? new Date(stop.photo_taken_at).toLocaleString(undefined, {
+        month: "numeric", day: "numeric", year: "numeric",
+        hour: "numeric", minute: "2-digit",
+      })
+    : null;
+
+  return (
+    <>
+      <div className="absolute inset-0 z-20" onClick={onClose} />
+      <div
+        className="absolute bottom-0 left-0 right-0 z-30 rounded-t-3xl overflow-hidden"
+        style={{ background: "#1c1c1e" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-white/20" />
+        </div>
+
+        {/* Stop counter */}
+        <div className="flex items-center justify-between px-4 pt-1 pb-2">
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: `${COLOR}22`, color: COLOR }}>
+            Stop {stopIndex} of {totalStops}
+          </span>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-neutral-500 hover:text-neutral-300" style={{ background: "#2c2c2e" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Sticker image */}
+        <div
+          className="mx-4 mb-3 rounded-2xl flex items-center justify-center overflow-hidden"
+          style={{ height: 190, background: "rgba(255,255,255,0.05)" }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={stop.image_url}
+            alt={stop.caption ?? "sticker"}
+            className="max-h-full max-w-full object-contain"
+            style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.6))" }}
+          />
+        </div>
+
+        {/* User info */}
+        <div className="flex items-center gap-3 px-4 mb-3">
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
+            style={{ background: avatarColor(stop.username) }}
+          >
+            {stop.username[0]?.toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-semibold text-sm leading-tight">{stop.username}</p>
+            <p className="text-neutral-500 text-xs truncate">
+              {takenAt ?? ""}
+              {stop.location_name ? (takenAt ? ` · ${stop.location_name}` : stop.location_name) : ""}
+            </p>
+          </div>
+        </div>
+
+        {/* Caption */}
+        {stop.caption ? (
+          <div className="px-4 mb-3">
+            <p className="text-white font-semibold text-base leading-snug">{stop.caption}</p>
+            <p className="text-neutral-500 text-xs mt-0.5">{journeyTitle}</p>
+          </div>
+        ) : (
+          <div className="px-4 mb-3">
+            <p className="text-neutral-400 text-sm italic">{journeyTitle}</p>
+          </div>
+        )}
+
+        {/* Audio */}
+        {stop.voice_url && (
+          <div className="mx-4 mb-3 rounded-2xl px-3 py-2.5 flex items-center gap-3" style={{ background: "rgba(255,255,255,0.06)" }}>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: COLOR }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="2" width="6" height="12" rx="3" stroke="white" strokeWidth="1.8"/>
+                <path d="M5 10a7 7 0 0 0 14 0" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <audio src={stop.voice_url} controls className="flex-1 h-8" />
+          </div>
+        )}
+
+        {/* Location */}
+        {stop.location_name && (
+          <div className="flex items-center gap-2 px-4 mb-4">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            <p className="text-neutral-500 text-xs">{stop.location_name}</p>
+          </div>
+        )}
+
+        <div style={{ height: "calc(0.75rem + env(safe-area-inset-bottom))" }} />
+      </div>
+    </>
+  );
+}
+
+// ── Journey share page ────────────────────────────────────────────────────────
 export default function JourneySharePage({ journey }: { journey: Journey }) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
   const [activeStop, setActiveStop] = useState(0);
+  const [selectedStop, setSelectedStop] = useState<{ stop: StickerPost; index: number } | null>(null);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const validStops = journey.stickers.filter((s) => s.lat != null && s.lng != null);
+  const journeyTitle = journey.caption ?? `${journey.username}'s Journey`;
 
   const dateRange = (() => {
     const withTime = journey.stickers.filter((s) => s.photo_taken_at);
@@ -38,7 +166,6 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
     if (!containerRef.current || mapRef.current || !token || validStops.length === 0) return;
 
     import("mapbox-gl").then(({ default: mapboxgl }) => {
-      // non-awaited side-effect — same as MapView.tsx
       import("mapbox-gl/dist/mapbox-gl.css");
       if (!containerRef.current) return;
 
@@ -52,7 +179,6 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
       mapRef.current = map;
 
       map.on("load", async () => {
-        // Fit to journey bounds
         if (validStops.length > 1) {
           const lngs = validStops.map((s) => s.lng!);
           const lats = validStops.map((s) => s.lat!);
@@ -96,7 +222,7 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
           map.addLayer({ id: "journey-line", type: "line", source: "journey", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": COLOR, "line-width": 3.5, "line-opacity": 0.9 } });
         }
 
-        // Sticker markers
+        // Sticker markers — click opens bottom sheet
         validStops.forEach((stop, i) => {
           const wrapper = document.createElement("div");
           wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer;";
@@ -115,19 +241,13 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
           wrapper.appendChild(stickerWrap);
           wrapper.appendChild(pin);
 
-          // Clicking a marker also highlights the pill
-          wrapper.addEventListener("click", () => setActiveStop(i));
+          wrapper.addEventListener("click", () => {
+            setActiveStop(i);
+            setSelectedStop({ stop, index: i + 1 });
+          });
 
-          const popup = new mapboxgl.Popup({ offset: [0, -56], closeButton: false }).setHTML(`
-            <div style="font-family:sans-serif;max-width:180px">
-              <p style="font-weight:700;margin:0 0 2px;color:${COLOR}">Stop ${i + 1}</p>
-              ${stop.caption ? `<p style="font-size:13px;margin:0 0 4px">${stop.caption}</p>` : ""}
-              ${stop.location_name ? `<p style="font-size:12px;color:#555;margin:0">📍 ${stop.location_name}</p>` : ""}
-            </div>
-          `);
           new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
             .setLngLat([stop.lng!, stop.lat!])
-            .setPopup(popup)
             .addTo(map);
         });
       });
@@ -166,6 +286,7 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
             <div className="flex gap-3 overflow-x-auto">
               {journey.stickers.map((s, i) => (
                 <div key={s.id} className="relative shrink-0 w-20 h-20">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={s.image_url} alt="" className="w-full h-full object-contain"
                     style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.2))" }} />
                   <span className="absolute -top-1 -left-1 w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center shadow"
@@ -179,11 +300,10 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
           <div ref={containerRef} className="w-full h-full" />
         )}
 
-        {/* Stop navigator */}
-        {validStops.length > 0 && (
+        {/* Stop navigator pills */}
+        {validStops.length > 0 && !selectedStop && (
           <div className="absolute bottom-3 left-3 right-3 z-10">
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg px-3 py-2.5 flex items-center gap-2">
-              {/* Prev */}
               <button
                 onClick={() => flyToStop(Math.max(0, activeStop - 1))}
                 disabled={activeStop === 0}
@@ -191,38 +311,22 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
               </button>
-
-              {/* Scrollable stop pills */}
               <div className="flex gap-2 overflow-x-auto flex-1 scrollbar-none">
                 {validStops.map((s, i) => (
                   <button
                     key={s.id}
                     onClick={() => flyToStop(i)}
                     className="flex items-center gap-1.5 rounded-full px-3 py-1.5 shrink-0 transition-all text-xs font-medium"
-                    style={
-                      activeStop === i
-                        ? { background: COLOR, color: "white" }
-                        : { background: "#f3f4f6", color: "#374151" }
-                    }
+                    style={activeStop === i ? { background: COLOR, color: "white" } : { background: "#f3f4f6", color: "#374151" }}
                   >
-                    <span
-                      className="w-4 h-4 rounded-full flex items-center justify-center font-bold shrink-0"
-                      style={{
-                        background: activeStop === i ? "rgba(255,255,255,0.3)" : COLOR,
-                        color: "white",
-                        fontSize: "10px",
-                      }}
-                    >
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center font-bold shrink-0"
+                      style={{ background: activeStop === i ? "rgba(255,255,255,0.3)" : COLOR, color: "white", fontSize: "10px" }}>
                       {i + 1}
                     </span>
-                    <span className="max-w-28 truncate">
-                      {s.location_name ?? s.caption ?? `Stop ${i + 1}`}
-                    </span>
+                    <span className="max-w-28 truncate">{s.location_name ?? s.caption ?? `Stop ${i + 1}`}</span>
                   </button>
                 ))}
               </div>
-
-              {/* Next */}
               <button
                 onClick={() => flyToStop(Math.min(validStops.length - 1, activeStop + 1))}
                 disabled={activeStop === validStops.length - 1}
@@ -232,6 +336,17 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
               </button>
             </div>
           </div>
+        )}
+
+        {/* Stop detail sheet */}
+        {selectedStop && (
+          <StopSheet
+            stop={selectedStop.stop}
+            stopIndex={selectedStop.index}
+            totalStops={validStops.length}
+            journeyTitle={journeyTitle}
+            onClose={() => setSelectedStop(null)}
+          />
         )}
       </div>
 
