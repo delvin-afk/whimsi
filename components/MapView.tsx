@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { StickerPost, Journey } from "@/types";
 
-// Journey line colours — cycles through these for multiple journeys
 const JOURNEY_COLORS = ["#a855f7", "#3b82f6", "#f97316", "#ec4899", "#14b8a6"];
 
 interface Props {
@@ -11,12 +10,158 @@ interface Props {
   journeys?: Journey[];
 }
 
+type SelectedStop = {
+  sticker: StickerPost;
+  color: string;
+  journeyTitle: string | null;
+  stopIndex: number | null;
+};
+
+function avatarColor(username: string) {
+  const colors = ["#f43f5e", "#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#06b6d4"];
+  let hash = 0;
+  for (const c of username) hash = (hash * 31 + c.charCodeAt(0)) & 0xffffffff;
+  return colors[Math.abs(hash) % colors.length];
+}
+
+// ── Sticker detail bottom sheet ───────────────────────────────────────────────
+function StickerSheet({ stop, onClose }: { stop: SelectedStop; onClose: () => void }) {
+  const { sticker, color, journeyTitle, stopIndex } = stop;
+
+  const takenAt = sticker.photo_taken_at
+    ? new Date(sticker.photo_taken_at).toLocaleString(undefined, {
+        month: "numeric", day: "numeric", year: "numeric",
+        hour: "numeric", minute: "2-digit",
+      })
+    : null;
+
+  return (
+    <>
+      {/* Backdrop — tap to close */}
+      <div
+        className="absolute inset-0 z-20"
+        onClick={onClose}
+      />
+
+      {/* Sheet */}
+      <div
+        className="absolute bottom-0 left-0 right-0 z-30 rounded-t-3xl overflow-hidden"
+        style={{ background: "#1c1c1e" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-white/20" />
+        </div>
+
+        {/* Sticker image */}
+        <div
+          className="mx-4 mt-2 mb-3 rounded-2xl overflow-hidden flex items-center justify-center"
+          style={{ height: 200, background: "rgba(255,255,255,0.05)" }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={sticker.image_url}
+            alt={sticker.caption ?? "sticker"}
+            className="max-h-full max-w-full object-contain"
+            style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.6))" }}
+          />
+          {stopIndex != null && (
+            <div
+              className="absolute top-4 left-8 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
+              style={{ background: color, border: "2px solid white" }}
+            >
+              {stopIndex}
+            </div>
+          )}
+        </div>
+
+        {/* User info row */}
+        <div className="flex items-center gap-3 px-4 mb-3">
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
+            style={{ background: avatarColor(sticker.username) }}
+          >
+            {sticker.username[0]?.toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-semibold text-sm leading-tight">{sticker.username}</p>
+            <p className="text-neutral-500 text-xs truncate">
+              {takenAt ?? ""}
+              {sticker.location_name ? (takenAt ? ` · ${sticker.location_name}` : sticker.location_name) : ""}
+            </p>
+          </div>
+          {/* Journey label */}
+          {journeyTitle && (
+            <span
+              className="shrink-0 text-xs px-2 py-1 rounded-full font-medium"
+              style={{ background: `${color}22`, color }}
+            >
+              {stopIndex != null ? `Stop ${stopIndex}` : journeyTitle}
+            </span>
+          )}
+        </div>
+
+        {/* Caption */}
+        {sticker.caption && (
+          <div className="px-4 mb-3">
+            <p className="text-white font-semibold text-base leading-snug">{sticker.caption}</p>
+            {journeyTitle && stopIndex != null && (
+              <p className="text-neutral-500 text-xs mt-0.5">{journeyTitle}</p>
+            )}
+          </div>
+        )}
+
+        {/* No caption fallback */}
+        {!sticker.caption && journeyTitle && (
+          <div className="px-4 mb-3">
+            <p className="text-neutral-400 text-sm italic">{journeyTitle}</p>
+          </div>
+        )}
+
+        {/* Audio player */}
+        {sticker.voice_url && (
+          <div className="mx-4 mb-3 rounded-2xl px-3 py-2.5 flex items-center gap-3" style={{ background: "rgba(255,255,255,0.06)" }}>
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+              style={{ background: color }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="2" width="6" height="12" rx="3" stroke="white" strokeWidth="1.8"/>
+                <path d="M5 10a7 7 0 0 0 14 0" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <audio src={sticker.voice_url} controls className="flex-1 h-8" />
+          </div>
+        )}
+
+        {/* Location row */}
+        {sticker.location_name && (
+          <div className="flex items-center gap-2 px-4 mb-4">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            <p className="text-neutral-500 text-xs">{sticker.location_name}</p>
+          </div>
+        )}
+
+        {/* Safe area spacing */}
+        <div style={{ height: "calc(0.75rem + env(safe-area-inset-bottom))" }} />
+      </div>
+    </>
+  );
+}
+
+// ── Main MapView ──────────────────────────────────────────────────────────────
 export default function MapView({ stickers, journeys = [] }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [selectedStop, setSelectedStop] = useState<SelectedStop | null>(null);
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -54,42 +199,22 @@ export default function MapView({ stickers, journeys = [] }: Props) {
         // ── Solo sticker markers ──────────────────────────────────────────────
         const located = stickers.filter((s) => s.lat != null && s.lng != null);
         located.forEach((sticker) => {
-          // Wrapper: sticker image on top, tiny pin dot at the bottom.
-          // anchor:'bottom' puts the dot tip exactly at the coordinate at every zoom.
           const wrapper = document.createElement("div");
-          wrapper.style.cssText = `
-            display: flex; flex-direction: column; align-items: center;
-            cursor: pointer;
-          `;
+          wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer;";
           const img = document.createElement("img");
           img.src = sticker.image_url;
-          img.style.cssText = `
-            width: 40px; height: 40px;
-            object-fit: contain;
-            display: block;
-            filter: drop-shadow(0 0 4px rgba(0,0,0,0.5));
-          `;
+          img.style.cssText = "width:40px;height:40px;object-fit:contain;display:block;filter:drop-shadow(0 0 4px rgba(0,0,0,0.5));";
           const pin = document.createElement("div");
-          pin.style.cssText = `
-            width: 8px; height: 8px; border-radius: 50%;
-            background: #f43f5e; border: 2px solid white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-            margin-top: 2px; flex-shrink: 0;
-          `;
+          pin.style.cssText = "width:8px;height:8px;border-radius:50%;background:#f43f5e;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.5);margin-top:2px;flex-shrink:0;";
           wrapper.appendChild(img);
           wrapper.appendChild(pin);
 
-          const popup = new mapboxgl.Popup({ offset: [0, -52], closeButton: false })
-            .setHTML(`
-              <div style="font-family:sans-serif;max-width:160px">
-                <p style="font-weight:600;margin:0 0 2px">${sticker.username}</p>
-                ${sticker.location_name ? `<p style="font-size:12px;color:#666;margin:0 0 4px">📍 ${sticker.location_name}</p>` : ""}
-                ${sticker.caption ? `<p style="font-size:13px;margin:0">${sticker.caption}</p>` : ""}
-              </div>
-            `);
+          wrapper.addEventListener("click", () => {
+            setSelectedStop({ sticker, color: "#f43f5e", journeyTitle: null, stopIndex: null });
+          });
+
           new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
             .setLngLat([sticker.lng!, sticker.lat!])
-            .setPopup(popup)
             .addTo(map);
         });
 
@@ -99,7 +224,6 @@ export default function MapView({ stickers, journeys = [] }: Props) {
           const validStops = journey.stickers.filter((s) => s.lat != null && s.lng != null);
           if (validStops.length < 2) return;
 
-          // Fetch road-following route between each consecutive pair of stops
           const straightCoords = validStops.map((s) => [s.lng!, s.lat!]);
           let routeCoordinates: number[][] = [];
 
@@ -113,151 +237,70 @@ export default function MapView({ stickers, journeys = [] }: Props) {
               const json = await res.json();
               const leg: number[][] | undefined = json.routes?.[0]?.geometry?.coordinates;
               if (leg && leg.length > 0) {
-                // Avoid duplicate point at segment join
                 if (routeCoordinates.length > 0) leg.shift();
                 routeCoordinates = routeCoordinates.concat(leg);
               } else {
-                // Fallback: straight line for this segment
                 if (routeCoordinates.length === 0) routeCoordinates.push(straightCoords[i]);
                 routeCoordinates.push(straightCoords[i + 1]);
               }
             } catch {
-              // Fallback: straight line for this segment
               if (routeCoordinates.length === 0) routeCoordinates.push(straightCoords[i]);
               routeCoordinates.push(straightCoords[i + 1]);
             }
           }
 
           const coordinates = routeCoordinates.length >= 2 ? routeCoordinates : straightCoords;
-
-          // Add GeoJSON line source + layer
           const sourceId = `journey-${journey.id}`;
           const layerId = `journey-line-${journey.id}`;
 
           map.addSource(sourceId, {
             type: "geojson",
-            data: {
-              type: "Feature",
-              properties: {},
-              geometry: { type: "LineString", coordinates },
-            },
+            data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates } },
           });
+          map.addLayer({ id: `${layerId}-glow`, type: "line", source: sourceId, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": color, "line-width": 8, "line-opacity": 0.25 } });
+          map.addLayer({ id: layerId, type: "line", source: sourceId, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": color, "line-width": 3.5, "line-opacity": 0.85 } });
 
-          // Outer glow
-          map.addLayer({
-            id: `${layerId}-glow`,
-            type: "line",
-            source: sourceId,
-            layout: { "line-join": "round", "line-cap": "round" },
-            paint: {
-              "line-color": color,
-              "line-width": 8,
-              "line-opacity": 0.25,
-            },
-          });
-
-          // Main line
-          map.addLayer({
-            id: layerId,
-            type: "line",
-            source: sourceId,
-            layout: { "line-join": "round", "line-cap": "round" },
-            paint: {
-              "line-color": color,
-              "line-width": 3.5,
-              "line-opacity": 0.85,
-              "line-dasharray": [1, 0], // solid; change to [2, 2] for dashed
-            },
-          });
-
-          // Numbered sticker markers along the route
+          // Numbered sticker markers
           validStops.forEach((stop, stopIndex) => {
-            // Wrapper: sticker+badge on top, journey-coloured pin dot at bottom.
-            // anchor:'bottom' keeps the dot exactly at the coordinate at every zoom level.
             const wrapper = document.createElement("div");
-            wrapper.style.cssText = `
-              display: flex; flex-direction: column; align-items: center;
-              cursor: pointer;
-            `;
+            wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer;";
 
             const stickerWrap = document.createElement("div");
-            stickerWrap.style.cssText = `position: relative; width: 40px; height: 40px;`;
+            stickerWrap.style.cssText = "position:relative;width:44px;height:44px;";
 
             const img = document.createElement("img");
             img.src = stop.image_url;
-            img.style.cssText = `
-              width: 40px; height: 40px;
-              object-fit: contain;
-              display: block;
-              filter: drop-shadow(0 0 3px rgba(0,0,0,0.45));
-            `;
+            img.style.cssText = "width:44px;height:44px;object-fit:contain;display:block;filter:drop-shadow(0 0 3px rgba(0,0,0,0.45));";
             stickerWrap.appendChild(img);
 
             const badge = document.createElement("div");
-            badge.style.cssText = `
-              position: absolute;
-              top: -5px; left: -5px;
-              width: 17px; height: 17px;
-              border-radius: 50%;
-              background: ${color};
-              color: white;
-              font-size: 10px;
-              font-weight: 700;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-family: sans-serif;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-              border: 1.5px solid white;
-            `;
+            badge.style.cssText = `position:absolute;top:-5px;left:-5px;width:18px;height:18px;border-radius:50%;background:${color};color:white;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.4);border:1.5px solid white;`;
             badge.textContent = String(stopIndex + 1);
             stickerWrap.appendChild(badge);
 
             const pin = document.createElement("div");
-            pin.style.cssText = `
-              width: 8px; height: 8px; border-radius: 50%;
-              background: ${color}; border: 2px solid white;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.45);
-              margin-top: 2px; flex-shrink: 0;
-            `;
+            pin.style.cssText = `width:8px;height:8px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.45);margin-top:2px;flex-shrink:0;`;
 
             wrapper.appendChild(stickerWrap);
             wrapper.appendChild(pin);
 
-            const takenAt = stop.photo_taken_at
-              ? new Date(stop.photo_taken_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
-              : null;
-
-            const popup = new mapboxgl.Popup({ offset: [0, -54], closeButton: false })
-              .setHTML(`
-                <div style="font-family:sans-serif;max-width:180px">
-                  <p style="font-weight:700;margin:0 0 2px;color:${color}">
-                    Stop ${stopIndex + 1} · ${journey.caption ?? journey.username + "'s Journey"}
-                  </p>
-                  ${stop.caption ? `<p style="font-size:13px;margin:0 0 4px">${stop.caption}</p>` : ""}
-                  ${stop.location_name ? `<p style="font-size:12px;color:#555;margin:0 0 3px">📍 ${stop.location_name}</p>` : ""}
-                  ${takenAt ? `<p style="font-size:11px;color:#888;margin:0">🕐 ${takenAt}</p>` : ""}
-                  ${!journey.is_public ? `<p style="font-size:11px;color:#a855f7;margin:4px 0 0">🔒 Private journey</p>` : ""}
-                </div>
-              `);
+            wrapper.addEventListener("click", () => {
+              setSelectedStop({
+                sticker: stop,
+                color,
+                journeyTitle: journey.caption ?? `${journey.username}'s Journey`,
+                stopIndex: stopIndex + 1,
+              });
+            });
 
             new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
               .setLngLat([stop.lng!, stop.lat!])
-              .setPopup(popup)
               .addTo(map);
           });
 
-          // Start flag marker
+          // Start flag
           const startEl = document.createElement("div");
-          startEl.style.cssText = `
-            width: 28px; height: 28px;
-            border-radius: 50%;
-            background: ${color};
-            border: 2.5px solid white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 13px;
-          `;
+          startEl.style.cssText = `width:28px;height:28px;border-radius:50%;background:${color};border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:13px;`;
           startEl.textContent = "🚩";
           new mapboxgl.Marker({ element: startEl, anchor: "center" })
             .setLngLat(coordinates[0] as [number, number])
@@ -266,7 +309,6 @@ export default function MapView({ stickers, journeys = [] }: Props) {
 
         await Promise.all(journeyPromises);
 
-        // Fly to user location
         geoPromise.then((center) => {
           map.flyTo({ center, zoom: 15, duration: 4500, curve: 1.8, essential: true });
         });
@@ -330,7 +372,7 @@ export default function MapView({ stickers, journeys = [] }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search city or place…"
-          className="flex-1 h-10 rounded-xl bg-white shadow-md border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-pink-300"
+          className="flex-1 h-10 rounded-xl bg-white shadow-md border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-purple-300"
         />
         <button type="submit" disabled={searching || !query.trim()}
           className="h-10 px-3 rounded-xl bg-white shadow-md border border-neutral-200 text-sm font-medium text-neutral-700 disabled:opacity-50 hover:bg-neutral-50">
@@ -342,13 +384,13 @@ export default function MapView({ stickers, journeys = [] }: Props) {
       <button onClick={locateMe} disabled={locating} title="Center on my location"
         className="absolute bottom-10 right-3 z-10 w-10 h-10 rounded-xl bg-white shadow-md border border-neutral-200 flex items-center justify-center text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">
         {locating
-          ? <div className="w-4 h-4 rounded-full border-2 border-neutral-300 border-t-pink-500 animate-spin" />
+          ? <div className="w-4 h-4 rounded-full border-2 border-neutral-300 border-t-purple-500 animate-spin" />
           : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
         }
       </button>
 
       {/* Journey legend */}
-      {journeys.length > 0 && (
+      {journeys.length > 0 && !selectedStop && (
         <div className="absolute bottom-10 left-3 z-10 space-y-1">
           {journeys.slice(0, 5).map((journey, i) => (
             <div key={journey.id}
@@ -364,6 +406,11 @@ export default function MapView({ stickers, journeys = [] }: Props) {
       )}
 
       <div ref={containerRef} className="w-full h-full rounded-2xl overflow-hidden" />
+
+      {/* Sticker detail sheet */}
+      {selectedStop && (
+        <StickerSheet stop={selectedStop} onClose={() => setSelectedStop(null)} />
+      )}
     </div>
   );
 }
