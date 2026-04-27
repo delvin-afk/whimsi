@@ -159,9 +159,9 @@ export async function GET(
       overlayParam = `geojson(${encodeURIComponent(geojson)})/`;
     }
     if (located.length > 0) {
-      mapUrl = `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/${overlayParam}${vp.centerLng},${vp.centerLat},${vp.zoom},0/${MAP_W}x${MAP_H}?access_token=${token}`;
+      mapUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${overlayParam}${vp.centerLng},${vp.centerLat},${vp.zoom},0/${MAP_W}x${MAP_H}?access_token=${token}`;
     } else {
-      mapUrl = `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/0,20,1,0/${MAP_W}x${MAP_H}?access_token=${token}`;
+      mapUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/0,20,1,0/${MAP_W}x${MAP_H}?access_token=${token}`;
     }
   }
 
@@ -181,7 +181,7 @@ export async function GET(
           flexDirection: "column",
           width: "100%",
           height: "100%",
-          background: "#0f0f1a",
+          background: "#1c1c1e",
           fontFamily: "system-ui, -apple-system, sans-serif",
         }}
       >
@@ -204,7 +204,7 @@ export async function GET(
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           ) : (
-            <div style={{ width: "100%", height: "100%", background: "#1a1a2e", display: "flex" }} />
+            <div style={{ width: "100%", height: "100%", background: "#2c2c2e", display: "flex" }} />
           )}
 
           {/* Sticker images overlaid at their GPS positions */}
@@ -278,7 +278,7 @@ export async function GET(
               left: 0,
               right: 0,
               height: 110,
-              background: "linear-gradient(to bottom, transparent, #0f0f1a)",
+              background: "linear-gradient(to bottom, transparent, #1c1c1e)",
               display: "flex",
             }}
           />
