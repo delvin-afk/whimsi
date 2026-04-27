@@ -24,8 +24,8 @@ export async function POST(req: Request) {
       stickers: StickerInput[];
     };
 
-    if (!userId || !username || !Array.isArray(stickers) || stickers.length < 2) {
-      return NextResponse.json({ error: "Missing required fields or fewer than 2 stickers" }, { status: 400 });
+    if (!userId || !username || !Array.isArray(stickers) || stickers.length < 1) {
+      return NextResponse.json({ error: "Missing required fields or no stickers provided" }, { status: 400 });
     }
 
     // 1) Upsert profile

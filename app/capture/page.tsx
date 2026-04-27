@@ -41,7 +41,9 @@ type CutoutShape = "circle" | "star" | "square" | "diamond";
 type CustomizeResult =
   | { type: "original" }
   | { type: "cutout"; shape: CutoutShape; dataUrl: string }
-  | { type: "ai"; dataUrl: string };
+  | { type: "ai"; dataUrl: string }
+  | { type: "back" }
+  | { type: "jump"; targetIndex: number };
 
 const CUTOUT_SHAPES: { id: CutoutShape; label: string }[] = [
   { id: "circle",  label: "Circle"  },
@@ -666,36 +668,25 @@ function CapturePageInner() {
     await onFilesSelected(dt.files);
 
     // Inject captured GPS + timestamp since canvas photos have no EXIF
-    if (photos.length === 1) {
-      const { lat, lng } = photos[0];
-      if (lat != null && lng != null) {
-        setExifLat(lat); setExifLng(lng);
-        setLat(lat); setLng(lng);
-        if (mapboxToken) reverseGeocode(lat, lng, mapboxToken).then(setLocationName);
+    setJourneyPhotos((prev) => prev.map((item, i) => {
+      const meta = photos[i];
+      if (!meta) return item;
+      return {
+        ...item,
+        photoTakenAt: meta.takenAt ?? item.photoTakenAt,
+        lat: meta.lat ?? item.lat,
+        lng: meta.lng ?? item.lng,
+      };
+    }));
+    photos.forEach((meta, i) => {
+      if (meta.lat != null && meta.lng != null && mapboxToken) {
+        reverseGeocode(meta.lat, meta.lng, mapboxToken).then((name) => {
+          setJourneyPhotos((prev) => prev.map((item, idx) =>
+            idx === i ? { ...item, locationName: name } : item
+          ));
+        });
       }
-    } else {
-      // Journey: patch each PhotoItem with captured metadata
-      setJourneyPhotos((prev) => prev.map((item, i) => {
-        const meta = photos[i];
-        if (!meta) return item;
-        return {
-          ...item,
-          photoTakenAt: meta.takenAt ?? item.photoTakenAt,
-          lat: meta.lat ?? item.lat,
-          lng: meta.lng ?? item.lng,
-        };
-      }));
-      // Trigger location name resolution for items that now have coords
-      photos.forEach((meta, i) => {
-        if (meta.lat != null && meta.lng != null && mapboxToken) {
-          reverseGeocode(meta.lat, meta.lng, mapboxToken).then((name) => {
-            setJourneyPhotos((prev) => prev.map((item, idx) =>
-              idx === i ? { ...item, locationName: name } : item
-            ));
-          });
-        }
-      });
-    }
+    });
 
     setCameraStep(null);
     setPendingPhotos([]);
@@ -726,77 +717,56 @@ function CapturePageInner() {
   async function onFilesSelected(files: FileList | null) {
     if (!files || files.length === 0) return;
 
-    if (files.length === 1) {
-      // Single photo — existing flow
-      setMode("single");
-      const file = files[0];
-      setError("");
-      setLocalImageUrl(URL.createObjectURL(file));
-      setBase64(await fileToBase64(file));
-      setMimeType(file.type);
-      setStickerDataUrl(null);
-      setSaved(false);
-      setExifLat(undefined);
-      setExifLng(undefined);
-      const exif = await extractExif(file);
-      if (exif.lat && exif.lng) {
-        setExifLat(exif.lat);
-        setExifLng(exif.lng);
-      }
-    } else {
-      // Multiple photos — journey mode
-      setMode("journey");
-      setJourneyStep("details");
-      setJourneyCaption("");
-      setJourneySaveError("");
+    // Both single and multi-photo go through journey mode
+    setMode("journey");
+    setJourneyStep("details");
+    setJourneyCaption("");
+    setJourneySaveError("");
 
-      const items: PhotoItem[] = await Promise.all(
-        Array.from(files).map(async (file, i) => {
-          const [localUrl, base64, exif] = await Promise.all([
-            Promise.resolve(URL.createObjectURL(file)),
-            fileToBase64(file),
-            extractExif(file),
-          ]);
+    const items: PhotoItem[] = await Promise.all(
+      Array.from(files).map(async (file, i) => {
+        const [localUrl, base64, exif] = await Promise.all([
+          Promise.resolve(URL.createObjectURL(file)),
+          fileToBase64(file),
+          extractExif(file),
+        ]);
 
-          // Reverse geocode if we have GPS
-          let locationName = "";
-          if (exif.lat && exif.lng && mapboxToken) {
-            locationName = await reverseGeocode(exif.lat, exif.lng, mapboxToken);
-          }
-
-          return {
-            id: `${file.name}-${i}`,
-            file,
-            localUrl,
-            base64,
-            mimeType: file.type,
-            stickerDataUrl: null,
-            exifLat: exif.lat,
-            exifLng: exif.lng,
-            photoTakenAt: exif.takenAt,
-            locationName,
-            lat: exif.lat ?? null,
-            lng: exif.lng ?? null,
-            status: "pending" as const,
-            errorMsg: "",
-            showLocationPicker: false,
-            caption: "",
-            voiceBlob: null,
-            voiceMimeType: null,
-          };
-        })
-      );
-
-      // Sort by timestamp if available, otherwise keep file order
-      items.sort((a, b) => {
-        if (a.photoTakenAt && b.photoTakenAt) {
-          return new Date(a.photoTakenAt).getTime() - new Date(b.photoTakenAt).getTime();
+        let locationName = "";
+        if (exif.lat && exif.lng && mapboxToken) {
+          locationName = await reverseGeocode(exif.lat, exif.lng, mapboxToken);
         }
-        return 0;
-      });
 
-      setJourneyPhotos(items);
-    }
+        return {
+          id: `${file.name}-${i}`,
+          file,
+          localUrl,
+          base64,
+          mimeType: file.type,
+          stickerDataUrl: null,
+          exifLat: exif.lat,
+          exifLng: exif.lng,
+          photoTakenAt: exif.takenAt,
+          locationName,
+          lat: exif.lat ?? null,
+          lng: exif.lng ?? null,
+          status: "pending" as const,
+          errorMsg: "",
+          showLocationPicker: false,
+          caption: "",
+          voiceBlob: null,
+          voiceMimeType: null,
+        };
+      })
+    );
+
+    items.sort((a, b) => {
+      if (a.photoTakenAt && b.photoTakenAt) {
+        return new Date(a.photoTakenAt).getTime() - new Date(b.photoTakenAt).getTime();
+      }
+      return 0;
+    });
+
+    setJourneyPhotos(items);
   }
 
   // ── Single mode functions ─────────────────────────────────────────────────
@@ -952,8 +922,9 @@ function CapturePageInner() {
 
     const results: PhotoItem[] = journeyPhotos.map((p) => ({ ...p }));
 
-    // ── Phase 1: Customize all stickers first ────────────────────────────────
-    for (let i = 0; i < results.length; i++) {
+    // ── Phase 1: Customize all stickers (supports going back) ───────────────
+    let i = 0;
+    while (i < results.length) {
       results[i] = { ...results[i], status: "processing" };
       updatePhoto(results[i].id, { status: "processing" });
       setJourneyProgress({ current: i + 1, total: results.length });
@@ -964,6 +935,28 @@ function CapturePageInner() {
       });
       setCustomizeModalPhoto(null);
       customizeResolverRef.current = null;
+
+      if (customizeResult.type === "back") {
+        // Revert current photo to pending
+        results[i] = { ...results[i], status: "pending", stickerDataUrl: null };
+        updatePhoto(results[i].id, { status: "pending", stickerDataUrl: null });
+        if (i > 0) {
+          i--;
+          results[i] = { ...results[i], status: "pending", stickerDataUrl: null };
+          updatePhoto(results[i].id, { status: "pending", stickerDataUrl: null });
+        }
+        continue;
+      }
+
+      if (customizeResult.type === "jump") {
+        // Revert all photos from targetIndex through current back to pending
+        for (let j = customizeResult.targetIndex; j <= i; j++) {
+          results[j] = { ...results[j], status: "pending", stickerDataUrl: null };
+          updatePhoto(results[j].id, { status: "pending", stickerDataUrl: null });
+        }
+        i = customizeResult.targetIndex;
+        continue;
+      }
 
       let stickerDataUrl: string | null = null;
       if (customizeResult.type === "original") {
@@ -979,6 +972,7 @@ function CapturePageInner() {
         results[i] = { ...results[i], status: "error", errorMsg: "Skipped" };
         updatePhoto(results[i].id, { status: "error", errorMsg: "Skipped" });
       }
+      i++;
     }
 
     // ── Phase 2: Caption all stickers ────────────────────────────────────────
@@ -1010,12 +1004,12 @@ function CapturePageInner() {
       updatePhoto(results[i].id, { caption: captionResult.caption, locationName: results[i].locationName });
     }
 
-    // All done — save if we have enough
+    // All done — save if we have at least 1
     const validCount = results.filter((p) => p.stickerDataUrl).length;
-    if (validCount >= 2) {
+    if (validCount >= 1) {
       void saveJourney(results);
     } else {
-      setJourneySaveError(`Only ${validCount} sticker${validCount === 1 ? "" : "s"} — need at least 2 to create a journey.`);
+      setJourneySaveError("No stickers could be created. Please try again.");
       setJourneyStep("details");
     }
   }
@@ -1059,6 +1053,14 @@ function CapturePageInner() {
     } finally {
       setCustomizeAiLoading(false);
     }
+  }
+
+  function onCustomizeBack() {
+    customizeResolverRef.current?.({ type: "back" });
+  }
+
+  function onCustomizeJump(targetIndex: number) {
+    customizeResolverRef.current?.({ type: "jump", targetIndex });
   }
 
   function onCustomizeConfirm() {
@@ -1160,8 +1162,8 @@ function CapturePageInner() {
 
   async function saveJourney(photos: PhotoItem[]) {
     const validPhotos = photos.filter((p) => p.stickerDataUrl);
-    if (validPhotos.length < 2) {
-      setJourneySaveError("Need at least 2 stickers to save a journey.");
+    if (validPhotos.length < 1) {
+      setJourneySaveError("No stickers to save.");
       return;
     }
     setJourneyStep("saving");
@@ -1398,8 +1400,8 @@ function CapturePageInner() {
   return (
     <>
     <main className="max-w-lg mx-auto p-5 space-y-4 pb-36">
-      <h1 className="text-2xl font-bold pt-2">
-        {mode === "journey" ? "Create a Journey" : flow === "journey" ? "Create a New Story" : "Create a Sticker"}
+      <h1 className="text-2xl font-bold pt-2" suppressHydrationWarning>
+        {flow === "journey" ? "Create a Journey" : "Create a New Story"}
       </h1>
 
       {/* ── SINGLE MODE ── */}
@@ -1629,13 +1631,13 @@ function CapturePageInner() {
       {/* ── JOURNEY MODE ── */}
       {mode === "journey" && (
         <>
-          {/* Hidden file input — shared with single mode */}
+          {/* Hidden file input */}
           <input
             ref={fileRef}
             className="sr-only"
             type="file"
             accept="image/*"
-            multiple
+            multiple={flow !== "sticker"}
             onChange={(e) => onFilesSelected(e.target.files)}
           />
 
@@ -1644,19 +1646,19 @@ function CapturePageInner() {
               {/* Journey header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-neutral-600">{journeyPhotos.length} photos</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Journey</span>
+                  <span className="text-sm font-medium text-neutral-600">{journeyPhotos.length} {journeyPhotos.length === 1 ? "photo" : "photos"}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">{journeyPhotos.length === 1 ? "Story" : "Journey"}</span>
                 </div>
                 <button onClick={resetJourney} className="text-xs text-neutral-400 hover:text-neutral-700">Start over</button>
               </div>
 
-              {/* Journey caption */}
+              {/* Caption */}
               <div>
-                <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">Journey Title / Caption</label>
+                <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">{journeyPhotos.length === 1 ? "Story Caption" : "Journey Title / Caption"}</label>
                 <input
                   value={journeyCaption}
                   onChange={(e) => setJourneyCaption(e.target.value)}
-                  placeholder="e.g. Weekend in Tokyo"
+                  placeholder={journeyPhotos.length === 1 ? "e.g. A day in the city" : "e.g. Weekend in Tokyo"}
                   className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
                 />
               </div>
@@ -1732,7 +1734,7 @@ function CapturePageInner() {
                 onClick={createJourney}
                 className="w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold text-base"
               >
-                Create Journey ({journeyPhotos.length} stickers)
+                {journeyPhotos.length === 1 ? "Create Story" : `Create Journey (${journeyPhotos.length} stickers)`}
               </button>
             </div>
           )}
@@ -1741,7 +1743,7 @@ function CapturePageInner() {
           {journeyStep === "processing" && (
             <div className="space-y-6 py-8 text-center">
               <div className="space-y-2">
-                <p className="font-semibold text-lg">Creating your journey…</p>
+                <p className="font-semibold text-lg">{journeyPhotos.length === 1 ? "Creating your story…" : "Creating your journey…"}</p>
                 <p className="text-sm text-neutral-500">
                   Processing photo {journeyProgress.current} of {journeyProgress.total}
                 </p>
@@ -1871,19 +1873,44 @@ function CapturePageInner() {
               )}
             </div>
 
-            {/* Journey strip + Next button */}
+            {/* Journey strip + Back/Next buttons */}
             <div className="flex items-center gap-3">
+              {journeyPhotos.findIndex((p) => p.id === customizeModalPhoto.id) > 0 ? (
+                <button
+                  onClick={onCustomizeBack}
+                  className="shrink-0 w-12 h-12 rounded-full bg-neutral-700 flex items-center justify-center active:scale-95 transition"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                  </svg>
+                </button>
+              ) : (
+                <div className="shrink-0 w-12 h-12" />
+              )}
               <div className="flex gap-1.5 flex-1 overflow-x-auto pb-1">
-                {journeyPhotos.map((p) => (
-                  <div
-                    key={p.id}
-                    className={`shrink-0 w-10 h-10 rounded-lg overflow-hidden border-2 ${
-                      p.id === customizeModalPhoto.id ? "border-white" : "border-neutral-700/50"
-                    }`}
-                  >
-                    <img src={p.localUrl} alt="" className="w-full h-full object-cover" />
-                  </div>
-                ))}
+                {(() => {
+                  const currentIdx = journeyPhotos.findIndex((p) => p.id === customizeModalPhoto.id);
+                  return journeyPhotos.map((p, idx) => {
+                    const isCurrent = idx === currentIdx;
+                    const isPrev = idx < currentIdx;
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => isPrev ? onCustomizeJump(idx) : undefined}
+                        disabled={!isPrev && !isCurrent}
+                        className={`shrink-0 w-10 h-10 rounded-lg overflow-hidden border-2 transition ${
+                          isCurrent
+                            ? "border-white"
+                            : isPrev
+                            ? "border-neutral-500 hover:border-white active:scale-95 cursor-pointer"
+                            : "border-neutral-700/50 opacity-40 cursor-default"
+                        }`}
+                      >
+                        <img src={p.localUrl} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    );
+                  });
+                })()}
               </div>
               <button
                 onClick={onCustomizeConfirm}
