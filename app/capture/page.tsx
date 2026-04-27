@@ -1004,7 +1004,13 @@ function CapturePageInner() {
               className="sr-only"
               onChange={(e) => {
                 if (!e.target.files?.length) return;
-                const files = Array.from(e.target.files);
+                const gps = capturedGpsRef.current;
+                const files: PendingPhoto[] = Array.from(e.target.files).map((f) => ({
+                  file: f,
+                  takenAt: new Date().toISOString(),
+                  lat: gps?.lat,
+                  lng: gps?.lng,
+                }));
                 setPendingPhotos((prev) => [...prev, ...files]);
                 setCameraStep("preview");
               }}
