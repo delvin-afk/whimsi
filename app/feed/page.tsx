@@ -6,7 +6,8 @@ import Link from "next/link";
 import JourneyShareCardModal from "@/components/JourneyShareCardModal";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
-const ACCENT = "#4ade80";
+const ACCENT = "#4ade80";   // UI color: buttons, badges
+const MAP_LINE = "#a855f7"; // Map route line color — purple for visibility on streets map
 const STICKER_SIZE = 48;
 
 function formatDateRange(stickers: Journey["stickers"], createdAt: string) {
@@ -92,8 +93,8 @@ function JourneyMapView({ journey, mapboxToken }: { journey: Journey; mapboxToke
             type: "geojson",
             data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } },
           });
-          map.addLayer({ id: "route-glow", type: "line", source: "route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": ACCENT, "line-width": 10, "line-opacity": 0.2 } });
-          map.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": ACCENT, "line-width": 4, "line-opacity": 0.9 } });
+          map.addLayer({ id: "route-glow", type: "line", source: "route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": MAP_LINE, "line-width": 10, "line-opacity": 0.2 } });
+          map.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": MAP_LINE, "line-width": 4, "line-opacity": 0.9 } });
         }
 
         // Sticker markers
@@ -106,12 +107,12 @@ function JourneyMapView({ journey, mapboxToken }: { journey: Journey; mapboxToke
           img.src = stop.image_url;
           img.style.cssText = `width:${STICKER_SIZE}px;height:${STICKER_SIZE}px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5));`;
           const badge = document.createElement("div");
-          badge.style.cssText = `position:absolute;top:-5px;left:-5px;width:18px;height:18px;border-radius:50%;background:${ACCENT};color:#000;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:sans-serif;border:1.5px solid white;`;
+          badge.style.cssText = `position:absolute;top:-5px;left:-5px;width:18px;height:18px;border-radius:50%;background:${MAP_LINE};color:white;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:sans-serif;border:1.5px solid white;`;
           badge.textContent = String(i + 1);
           stickerWrap.appendChild(img);
           stickerWrap.appendChild(badge);
           const pin = document.createElement("div");
-          pin.style.cssText = `width:7px;height:7px;border-radius:50%;background:${ACCENT};border:2px solid white;margin-top:2px;flex-shrink:0;`;
+          pin.style.cssText = `width:7px;height:7px;border-radius:50%;background:${MAP_LINE};border:2px solid white;margin-top:2px;flex-shrink:0;`;
           wrapper.appendChild(stickerWrap);
           wrapper.appendChild(pin);
 
