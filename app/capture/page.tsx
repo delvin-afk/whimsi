@@ -295,7 +295,7 @@ function JourneyDoneScreen({
       });
       mapRef.current = map;
 
-      map.on("load", () => {
+      map.on("load", async () => {
         // Route line — fetch driving directions, fall back to straight line
         if (stickersWithLoc.length >= 2) {
           const straight = stickersWithLoc.map((s) => [s.lng!, s.lat!]);
