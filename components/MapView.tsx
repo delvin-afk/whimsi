@@ -134,7 +134,7 @@ export default function MapView({ stickers, journeys = [] }: Props) {
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
 
   // Refs for imperative map updates when selectedJourneyId changes
-  const markersByJourney = useRef<Map<string, HTMLElement[]>>(new Map());
+  // data-journey-id is stamped on each wrapper element so we can query them directly
   const clickedJourneyRef = useRef(false); // prevents map-click from immediately deselecting
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -157,12 +157,13 @@ export default function MapView({ stickers, journeys = [] }: Props) {
         map.setPaintProperty(glowId, "line-opacity", active ? 0.25 : 0.04);
         map.setPaintProperty(glowId, "line-width", active ? 10 : 6);
       }
+    });
 
-      const els = markersByJourney.current.get(journey.id) ?? [];
-      els.forEach((el) => {
-        el.style.opacity = active ? "1" : "0.15";
-        el.style.transition = "opacity 0.25s";
-      });
+    // Dim/show sticker markers via data attribute stamped on each wrapper
+    containerRef.current?.querySelectorAll<HTMLElement>("[data-journey-id]").forEach((el) => {
+      const active = selectedJourneyId === null || el.dataset.journeyId === selectedJourneyId;
+      el.style.opacity = active ? "1" : "0.15";
+      el.style.transition = "opacity 0.25s";
     });
   }, [selectedJourneyId, journeys]);
 
@@ -274,9 +275,9 @@ export default function MapView({ stickers, journeys = [] }: Props) {
           map.on("mouseleave", `${lineId}-hit`, () => { map.getCanvas().style.cursor = ""; });
 
           // Sticker markers
-          const journeyMarkers: HTMLElement[] = [];
           validStops.forEach((stop, stopIndex) => {
             const wrapper = document.createElement("div");
+            wrapper.dataset.journeyId = journey.id;
             wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:opacity 0.25s;";
             const stickerWrap = document.createElement("div");
             stickerWrap.style.cssText = "position:relative;width:44px;height:44px;";
@@ -300,13 +301,10 @@ export default function MapView({ stickers, journeys = [] }: Props) {
               setSelectedStop({ sticker: stop, color, journeyTitle: journey.caption ?? `${journey.username}'s Journey`, stopIndex: stopIndex + 1 });
             });
 
-            journeyMarkers.push(wrapper);
             new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
               .setLngLat([stop.lng!, stop.lat!])
               .addTo(map);
           });
-
-          markersByJourney.current.set(journey.id, journeyMarkers);
 
           // Start flag
           const startEl = document.createElement("div");
