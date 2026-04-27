@@ -265,7 +265,7 @@ function JourneyCard({
           {shared && (
             <div className="flex gap-2">
               <Link
-                href={`/journey/${journey.id}`}
+                href={`/map?journey=${journey.id}`}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-white text-sm font-semibold"
                 style={{ background: "#2c2c2e" }}
               >

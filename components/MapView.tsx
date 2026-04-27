@@ -8,6 +8,7 @@ const JOURNEY_COLORS = ["#a855f7", "#3b82f6", "#f97316", "#ec4899", "#14b8a6"];
 interface Props {
   stickers: StickerPost[];
   journeys?: Journey[];
+  initialJourneyId?: string | null;
 }
 
 type SelectedStop = {
@@ -123,7 +124,7 @@ function StickerSheet({ stop, onClose }: { stop: SelectedStop; onClose: () => vo
 }
 
 // ── Main MapView ──────────────────────────────────────────────────────────────
-export default function MapView({ stickers, journeys = [] }: Props) {
+export default function MapView({ stickers, journeys = [], initialJourneyId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
@@ -317,9 +318,27 @@ export default function MapView({ stickers, journeys = [] }: Props) {
 
         await Promise.all(journeyPromises);
 
-        geoPromise.then((center) => {
-          map.flyTo({ center, zoom: 15, duration: 4500, curve: 1.8, essential: true });
-        });
+        if (initialJourneyId) {
+          const target = journeys.find((j) => j.id === initialJourneyId);
+          if (target) {
+            setSelectedJourneyId(initialJourneyId);
+            const locs = target.stickers.filter((s) => s.lat != null && s.lng != null);
+            if (locs.length === 1) {
+              map.flyTo({ center: [locs[0].lng!, locs[0].lat!], zoom: 14, duration: 1500 });
+            } else if (locs.length >= 2) {
+              const lngs = locs.map((s) => s.lng!);
+              const lats = locs.map((s) => s.lat!);
+              map.fitBounds(
+                [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+                { padding: 80, duration: 1500, maxZoom: 15 }
+              );
+            }
+          }
+        } else {
+          geoPromise.then((center) => {
+            map.flyTo({ center, zoom: 15, duration: 4500, curve: 1.8, essential: true });
+          });
+        }
       });
     });
 

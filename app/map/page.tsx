@@ -11,6 +11,12 @@ export default function MapPage() {
   const [stickers, setStickers] = useState<StickerPost[]>([]);
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialJourneyId, setInitialJourneyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setInitialJourneyId(params.get("journey"));
+  }, []);
 
   useEffect(() => {
     getSupabaseBrowser().auth.getUser().then(async ({ data }) => {
@@ -45,7 +51,7 @@ export default function MapPage() {
             <div className="h-8 w-8 rounded-full border-2 border-neutral-300 border-t-neutral-700 animate-spin" />
           </div>
         ) : (
-          <MapView stickers={stickers} journeys={journeys} />
+          <MapView stickers={stickers} journeys={journeys} initialJourneyId={initialJourneyId} />
         )}
       </div>
     </div>
