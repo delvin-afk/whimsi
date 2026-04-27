@@ -3,7 +3,9 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "edge";
 
-// Fetch a remote image and return it as a base64 data URL
+// Mapbox uses 512px tiles (GL convention)
+const TILE_SIZE = 512;
+
 async function toDataUrl(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
@@ -17,30 +19,70 @@ async function toDataUrl(url: string): Promise<string | null> {
   }
 }
 
-function buildMapUrl(stickers: Array<{ lat: number | null; lng: number | null }>, token: string) {
-  const located = stickers.filter((s) => s.lat != null && s.lng != null);
-  if (located.length === 0) {
-    // Generic world map — dark style, no overlay
-    return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/0,20,1/900x420@2x?access_token=${token}`;
+function lngToWorld(lng: number): number {
+  return ((lng + 180) / 360) * TILE_SIZE;
+}
+
+function latToWorld(lat: number): number {
+  const latRad = (lat * Math.PI) / 180;
+  return ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * TILE_SIZE;
+}
+
+interface Viewport {
+  centerLng: number;
+  centerLat: number;
+  zoom: number;
+}
+
+function computeMapViewport(
+  located: Array<{ lat: number; lng: number }>,
+  mapW: number,
+  mapH: number,
+  padding: number
+): Viewport {
+  if (located.length === 0) return { centerLng: 0, centerLat: 20, zoom: 1 };
+  if (located.length === 1) return { centerLng: located[0].lng, centerLat: located[0].lat, zoom: 13 };
+
+  const lngs = located.map((s) => s.lng);
+  const lats = located.map((s) => s.lat);
+  const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+  const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+
+  const usableW = mapW - 2 * padding;
+  const usableH = mapH - 2 * padding;
+
+  let zoom = 0;
+  for (let z = 16; z >= 0; z--) {
+    const scale = Math.pow(2, z);
+    const x1 = lngToWorld(Math.min(...lngs)) * scale;
+    const x2 = lngToWorld(Math.max(...lngs)) * scale;
+    const y1 = latToWorld(Math.max(...lats)) * scale;
+    const y2 = latToWorld(Math.min(...lats)) * scale;
+    if (x2 - x1 <= usableW && y2 - y1 <= usableH) {
+      zoom = z;
+      break;
+    }
   }
 
-  // Pin markers: pin-s-{number}+{color}({lng},{lat})
-  const pinColor = "a855f7";
-  const markers = located
-    .slice(0, 9) // Mapbox has URL length limits
-    .map((s, i) => `pin-s-${i + 1}+${pinColor}(${s.lng},${s.lat})`)
-    .join(",");
+  return { centerLng, centerLat, zoom };
+}
 
-  // Connecting path via GeoJSON overlay (straight lines between stops)
-  const coords = located.map((s) => [s.lng, s.lat]);
-  const geojson = JSON.stringify({
-    type: "Feature",
-    properties: { stroke: "#a855f7", "stroke-width": 3, "stroke-opacity": 0.9 },
-    geometry: { type: "LineString", coordinates: coords },
-  });
-  const path = `geojson(${encodeURIComponent(geojson)})`;
-
-  return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/${path},${markers}/auto/900x420@2x?access_token=${token}&padding=60,60,60,60`;
+function lngLatToPixel(
+  lng: number,
+  lat: number,
+  vp: Viewport,
+  mapW: number,
+  mapH: number
+): { x: number; y: number } {
+  const scale = Math.pow(2, vp.zoom);
+  const cx = lngToWorld(vp.centerLng) * scale;
+  const cy = latToWorld(vp.centerLat) * scale;
+  const px = lngToWorld(lng) * scale;
+  const py = latToWorld(lat) * scale;
+  return {
+    x: mapW / 2 + (px - cx),
+    y: mapH / 2 + (py - cy),
+  };
 }
 
 export async function GET(
@@ -48,21 +90,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
-  // Fetch journey
   const { data: journey } = await supabaseAdmin
     .from("journeys")
     .select("*")
     .eq("id", id)
     .single();
 
-  if (!journey) {
-    return new Response("Not found", { status: 404 });
-  }
+  if (!journey) return new Response("Not found", { status: 404 });
 
-  // Fetch stickers
   const { data: stickers } = await supabaseAdmin
     .from("stickers")
     .select("*")
@@ -90,14 +127,50 @@ export async function GET(
     ...new Set(stops.map((s) => s.location_name).filter(Boolean)),
   ].slice(0, 3) as string[];
 
-  // Fetch map + sticker images in parallel
-  const mapUrl = token ? buildMapUrl(stops, token) : null;
+  type LocatedStop = { lat: number; lng: number; image_url: string };
+  const located = stops.filter((s) => s.lat != null && s.lng != null) as LocatedStop[];
+
+  // Card dimensions
+  const CARD_W = 1080;
+  const CARD_H = 1080;
+  const MAP_W = CARD_W;
+  const MAP_H = 600;
+  const STICKER_SIZE = 68;
+  const STICKER_PADDING = STICKER_SIZE + 24;
+
+  const vp = computeMapViewport(located, MAP_W, MAP_H, STICKER_PADDING);
+
+  // Compute pixel positions
+  const stickerPositions = located.map((s) =>
+    lngLatToPixel(s.lng, s.lat, vp, MAP_W, MAP_H)
+  );
+
+  // Build static map URL (base map + route line, no pin markers)
+  let mapUrl: string | null = null;
+  if (token) {
+    let overlayParam = "";
+    if (located.length >= 2) {
+      const coords = located.map((s) => [s.lng, s.lat]);
+      const geojson = JSON.stringify({
+        type: "Feature",
+        properties: { stroke: "#a855f7", "stroke-width": 4, "stroke-opacity": 0.9 },
+        geometry: { type: "LineString", coordinates: coords },
+      });
+      overlayParam = `geojson(${encodeURIComponent(geojson)})/`;
+    }
+    if (located.length > 0) {
+      mapUrl = `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/${overlayParam}${vp.centerLng},${vp.centerLat},${vp.zoom},0/${MAP_W}x${MAP_H}?access_token=${token}`;
+    } else {
+      mapUrl = `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/0,20,1,0/${MAP_W}x${MAP_H}?access_token=${token}`;
+    }
+  }
+
+  // Fetch all images in parallel
   const [mapDataUrl, ...stickerDataUrls] = await Promise.all([
     mapUrl ? toDataUrl(mapUrl) : Promise.resolve(null),
-    ...stops.slice(0, 5).map((s) => toDataUrl(s.image_url)),
+    ...located.map((s) => toDataUrl(s.image_url)),
   ]);
 
-  const avatarLetter = (journey.username as string)[0]?.toUpperCase() ?? "?";
   const title = (journey.caption as string | null) ?? `${journey.username}'s Journey`;
 
   return new ImageResponse(
@@ -110,11 +183,19 @@ export async function GET(
           height: "100%",
           background: "#0f0f1a",
           fontFamily: "system-ui, -apple-system, sans-serif",
-          position: "relative",
         }}
       >
-        {/* Map area */}
-        <div style={{ display: "flex", width: "100%", height: "420px", position: "relative" }}>
+        {/* Map section with sticker overlays */}
+        <div
+          style={{
+            display: "flex",
+            width: `${MAP_W}px`,
+            height: `${MAP_H}px`,
+            position: "relative",
+            overflow: "hidden",
+            flexShrink: 0,
+          }}
+        >
           {mapDataUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -125,142 +206,144 @@ export async function GET(
           ) : (
             <div style={{ width: "100%", height: "100%", background: "#1a1a2e", display: "flex" }} />
           )}
-          {/* Bottom fade from map into dark bg */}
+
+          {/* Sticker images overlaid at their GPS positions */}
+          {stickerDataUrls.map((src, i) => {
+            if (!src) return null;
+            const pos = stickerPositions[i];
+            return (
+              <div
+                key={i}
+                style={{
+                  position: "absolute",
+                  left: pos.x - STICKER_SIZE / 2,
+                  top: pos.y - STICKER_SIZE - 6,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt=""
+                  style={{
+                    width: STICKER_SIZE,
+                    height: STICKER_SIZE,
+                    objectFit: "contain",
+                  }}
+                />
+                {/* Number badge */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: -8,
+                    left: -8,
+                    width: 24,
+                    height: 24,
+                    borderRadius: "50%",
+                    background: "#a855f7",
+                    color: "white",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    border: "2px solid white",
+                  }}
+                >
+                  {i + 1}
+                </div>
+                {/* Dot pin */}
+                <div
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: "#a855f7",
+                    border: "2.5px solid white",
+                    marginTop: 2,
+                    flexShrink: 0,
+                  }}
+                />
+              </div>
+            );
+          })}
+
+          {/* Bottom fade into card background */}
           <div
             style={{
               position: "absolute",
               bottom: 0,
               left: 0,
               right: 0,
-              height: "120px",
+              height: 110,
               background: "linear-gradient(to bottom, transparent, #0f0f1a)",
               display: "flex",
             }}
           />
         </div>
 
-        {/* Content */}
+        {/* Info section */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             flex: 1,
-            padding: "28px 40px 40px",
-            gap: "0px",
+            padding: "28px 44px 40px",
           }}
         >
-          {/* Username row */}
-          <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "16px" }}>
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: "50%",
-                background: "#a855f7",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                fontWeight: 700,
-                fontSize: 22,
-              }}
-            >
-              {avatarLetter}
-            </div>
-            <span style={{ color: "#9ca3af", fontSize: 20 }}>{journey.username}</span>
-          </div>
-
           {/* Journey title */}
           <div
             style={{
               color: "white",
-              fontSize: 44,
+              fontSize: 46,
               fontWeight: 800,
               lineHeight: 1.15,
-              marginBottom: "28px",
-              maxWidth: "860px",
+              marginBottom: "24px",
+              maxWidth: "900px",
             }}
           >
             {title}
           </div>
 
           {/* Stats row */}
-          <div style={{ display: "flex", gap: "48px", marginBottom: "28px" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          <div style={{ display: "flex", gap: "48px", marginBottom: "20px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
               <span style={{ color: "#6b7280", fontSize: 16 }}>Stops</span>
-              <span style={{ color: "white", fontSize: 36, fontWeight: 800 }}>{stops.length}</span>
+              <span style={{ color: "white", fontSize: 34, fontWeight: 800 }}>{stops.length}</span>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
               <span style={{ color: "#6b7280", fontSize: 16 }}>Date</span>
-              <span style={{ color: "white", fontSize: 28, fontWeight: 700 }}>{dateRange}</span>
+              <span style={{ color: "white", fontSize: 26, fontWeight: 700 }}>{dateRange}</span>
             </div>
             {uniqueLocations.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
                 <span style={{ color: "#6b7280", fontSize: 16 }}>Route</span>
-                <span style={{ color: "white", fontSize: 22, fontWeight: 600, maxWidth: "500px" }}>
+                <span style={{ color: "white", fontSize: 22, fontWeight: 600, maxWidth: "520px" }}>
                   {uniqueLocations.join(" → ")}
                 </span>
               </div>
             )}
           </div>
 
-          {/* Sticker thumbnails */}
-          {stickerDataUrls.filter(Boolean).length > 0 && (
-            <div style={{ display: "flex", gap: "16px", marginBottom: "28px" }}>
-              {stickerDataUrls.filter(Boolean).map((src, i) => (
-                <div
-                  key={i}
-                  style={{
-                    width: 100,
-                    height: 100,
-                    borderRadius: 16,
-                    background: "rgba(255,255,255,0.06)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    position: "relative",
-                    overflow: "hidden",
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src!} alt="" style={{ width: "88px", height: "88px", objectFit: "contain" }} />
-                  {/* Stop number badge */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 4,
-                      left: 4,
-                      width: 22,
-                      height: 22,
-                      borderRadius: "50%",
-                      background: "#a855f7",
-                      color: "white",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {i + 1}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Branding */}
-          <div style={{ display: "flex", marginTop: "auto", justifyContent: "flex-end" }}>
-            <span style={{ color: "#a855f7", fontSize: 32, fontWeight: 900, letterSpacing: "-0.5px" }}>
+          {/* Username + branding */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: "auto",
+            }}
+          >
+            <span style={{ color: "#9ca3af", fontSize: 20 }}>{journey.username}</span>
+            <span style={{ color: "#a855f7", fontSize: 34, fontWeight: 900, letterSpacing: "-0.5px" }}>
               whimsi
             </span>
           </div>
         </div>
       </div>
     ),
-    {
-      width: 1080,
-      height: 1080,
-    }
+    { width: CARD_W, height: CARD_H }
   );
 }

@@ -1,24 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { StickerPost, Journey } from "@/types";
+import { useEffect, useRef, useState } from "react";
+import type { Journey } from "@/types";
 import Link from "next/link";
-import StickerOptionsSheet from "@/components/StickerOptionsSheet";
-import ShareButton from "@/components/ShareButton";
 import JourneyShareCardModal from "@/components/JourneyShareCardModal";
-import JourneySharedModal from "@/components/JourneySharedModal";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
-const JOURNEY_COLORS = ["#a855f7", "#3b82f6", "#f97316", "#ec4899", "#14b8a6"];
+const ACCENT = "#a855f7";
+const STICKER_SIZE = 48;
 
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+function formatDateRange(stickers: Journey["stickers"], createdAt: string) {
+  const withTime = stickers.filter((s) => s.photo_taken_at);
+  if (withTime.length < 2) return new Date(createdAt).toLocaleDateString(undefined, { dateStyle: "medium" });
+  const sorted = [...withTime].sort(
+    (a, b) => new Date(a.photo_taken_at!).getTime() - new Date(b.photo_taken_at!).getTime()
+  );
+  const first = new Date(sorted[0].photo_taken_at!);
+  const last = new Date(sorted[sorted.length - 1].photo_taken_at!);
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "numeric", day: "numeric", year: "numeric" });
+  return first.toDateString() === last.toDateString() ? fmt(first) : `${fmt(first)} – ${fmt(last)}`;
+}
+
+function travelDays(stickers: Journey["stickers"]): number | null {
+  const times = stickers
+    .filter((s) => s.photo_taken_at)
+    .map((s) => new Date(s.photo_taken_at!).getTime())
+    .sort((a, b) => a - b);
+  if (times.length < 2) return null;
+  return Math.max(1, Math.ceil((times[times.length - 1] - times[0]) / 86400000));
 }
 
 function avatarColor(username: string) {
@@ -28,117 +37,144 @@ function avatarColor(username: string) {
   return colors[Math.abs(hash) % colors.length];
 }
 
-function Avatar({ username }: { username: string }) {
-  return (
-    <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-      style={{ background: avatarColor(username) }}>
-      {username[0]?.toUpperCase()}
-    </div>
-  );
-}
+// ── Mapbox map embedded in each journey card ──────────────────────────────────
+function JourneyMapView({ journey, mapboxToken }: { journey: Journey; mapboxToken: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapRef = useRef<any>(null);
+  const stickersWithLoc = journey.stickers.filter((s) => s.lat != null && s.lng != null);
 
-// ── Solo sticker card ─────────────────────────────────────────────────────────
-function PostCard({ post, currentUserId, onDeleted, onCaptionUpdated }: {
-  post: StickerPost;
-  currentUserId: string | null;
-  onDeleted: (id: string) => void;
-  onCaptionUpdated: (id: string, caption: string) => void;
-}) {
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const isOwner = currentUserId === post.user_id;
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current || !mapboxToken || stickersWithLoc.length === 0) return;
 
-  async function handleDelete() {
-    const res = await fetch(`/api/stickers/${post.id}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: currentUserId }),
+    import("mapbox-gl").then(({ default: mapboxgl }) => {
+      import("mapbox-gl/dist/mapbox-gl.css");
+      if (!containerRef.current) return;
+
+      mapboxgl.accessToken = mapboxToken;
+      const map = new mapboxgl.Map({
+        container: containerRef.current,
+        style: "mapbox://styles/mapbox/streets-v12",
+        center: [stickersWithLoc[0].lng!, stickersWithLoc[0].lat!],
+        zoom: 12,
+        interactive: false,
+      });
+      mapRef.current = map;
+
+      map.on("load", async () => {
+        // Route — driving directions with straight-line fallback
+        if (stickersWithLoc.length >= 2) {
+          const straight = stickersWithLoc.map((s) => [s.lng!, s.lat!]);
+          let routeCoords: number[][] = [];
+          for (let i = 0; i < straight.length - 1; i++) {
+            const [lng1, lat1] = straight[i];
+            const [lng2, lat2] = straight[i + 1];
+            try {
+              const res = await fetch(
+                `https://api.mapbox.com/directions/v5/mapbox/driving/${lng1},${lat1};${lng2},${lat2}?geometries=geojson&overview=full&access_token=${mapboxToken}`
+              );
+              const json = await res.json();
+              const leg: number[][] | undefined = json.routes?.[0]?.geometry?.coordinates;
+              if (leg?.length) {
+                if (routeCoords.length > 0) leg.shift();
+                routeCoords = routeCoords.concat(leg);
+              } else {
+                if (routeCoords.length === 0) routeCoords.push(straight[i]);
+                routeCoords.push(straight[i + 1]);
+              }
+            } catch {
+              if (routeCoords.length === 0) routeCoords.push(straight[i]);
+              routeCoords.push(straight[i + 1]);
+            }
+          }
+          const coords = routeCoords.length >= 2 ? routeCoords : straight;
+          map.addSource("route", {
+            type: "geojson",
+            data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } },
+          });
+          map.addLayer({ id: "route-glow", type: "line", source: "route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": ACCENT, "line-width": 10, "line-opacity": 0.2 } });
+          map.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": ACCENT, "line-width": 4, "line-opacity": 0.9 } });
+        }
+
+        // Sticker markers
+        stickersWithLoc.forEach((stop, i) => {
+          const wrapper = document.createElement("div");
+          wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;";
+          const stickerWrap = document.createElement("div");
+          stickerWrap.style.cssText = `position:relative;width:${STICKER_SIZE}px;height:${STICKER_SIZE}px;`;
+          const img = document.createElement("img");
+          img.src = stop.image_url;
+          img.style.cssText = `width:${STICKER_SIZE}px;height:${STICKER_SIZE}px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5));`;
+          const badge = document.createElement("div");
+          badge.style.cssText = `position:absolute;top:-5px;left:-5px;width:18px;height:18px;border-radius:50%;background:${ACCENT};color:white;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:sans-serif;border:1.5px solid white;`;
+          badge.textContent = String(i + 1);
+          stickerWrap.appendChild(img);
+          stickerWrap.appendChild(badge);
+          const pin = document.createElement("div");
+          pin.style.cssText = `width:7px;height:7px;border-radius:50%;background:${ACCENT};border:2px solid white;margin-top:2px;flex-shrink:0;`;
+          wrapper.appendChild(stickerWrap);
+          wrapper.appendChild(pin);
+
+          new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
+            .setLngLat([stop.lng!, stop.lat!])
+            .addTo(map);
+        });
+
+        // Fit bounds
+        if (stickersWithLoc.length > 1) {
+          const lngs = stickersWithLoc.map((s) => s.lng!);
+          const lats = stickersWithLoc.map((s) => s.lat!);
+          map.fitBounds(
+            [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+            { padding: { top: STICKER_SIZE + 20, bottom: 20, left: 44, right: 44 }, duration: 0, maxZoom: 16 }
+          );
+        }
+      });
     });
-    if (res.ok) onDeleted(post.id);
-  }
 
-  async function handleEditCaption(newCaption: string) {
-    const res = await fetch(`/api/stickers/${post.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: currentUserId, caption: newCaption || null }),
-    });
-    if (res.ok) onCaptionUpdated(post.id, newCaption);
-  }
+    return () => { mapRef.current?.remove(); mapRef.current = null; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return (
-    <>
-      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <Avatar username={post.username} />
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm">{post.username}</p>
-            {post.location_name && <p className="text-xs text-neutral-400 truncate">📍 {post.location_name}</p>}
-          </div>
-          <span className="text-xs text-neutral-300 shrink-0">{timeAgo(post.created_at)}</span>
-          {isOwner && (
-            <button onClick={() => setSheetOpen(true)}
-              className="ml-1 w-8 h-8 flex items-center justify-center rounded-full hover:bg-neutral-100 text-neutral-400 font-bold text-lg shrink-0">
-              ···
-            </button>
-          )}
-        </div>
-        <div className="flex items-center justify-center py-6 px-4"
-          style={{ background: "linear-gradient(135deg, #667eea22, #764ba222)" }}>
-          <img src={post.image_url} alt={post.caption ?? "sticker"}
-            className="max-h-64 max-w-full object-contain rounded-xl"
-            style={{ filter: "drop-shadow(0 0 6px rgba(0,0,0,0.4)) drop-shadow(0 4px 12px rgba(0,0,0,0.2))" }} />
-        </div>
-        {post.caption && (
-          <div className="px-4 py-3 border-t border-neutral-50">
-            <p className="text-sm text-neutral-700">{post.caption}</p>
-          </div>
-        )}
-
-        {post.voice_url && (
-          <div className="px-4 py-3 border-t border-neutral-50 flex items-center gap-3">
-            <span className="w-7 h-7 rounded-full bg-[#4ade80] flex items-center justify-center shrink-0">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                <rect x="9" y="2" width="6" height="12" rx="3" stroke="black" strokeWidth="1.5"/>
-                <path d="M5 10a7 7 0 0 0 14 0" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            </span>
-            <audio src={post.voice_url} controls className="flex-1 h-9" />
-          </div>
-        )}
-        <div className="px-4 pb-4 pt-2">
-          <ShareButton
-            title={post.caption ?? `${post.username}'s sticker`}
-            text={[post.caption, post.location_name ? `📍 ${post.location_name}` : null].filter(Boolean).join(" · ") || "Check out this sticker on whimsi!"}
-            url={`${typeof window !== "undefined" ? window.location.origin : ""}/s/${post.id}`}
-            imageUrl={post.image_url}
-          />
-        </div>
-      </div>
-      {isOwner && (
-        <StickerOptionsSheet open={sheetOpen} onClose={() => setSheetOpen(false)}
-          initialCaption={post.caption} onEditCaption={handleEditCaption} onDelete={handleDelete} />
-      )}
-    </>
-  );
+  return <div ref={containerRef} className="w-full h-full" />;
 }
 
 // ── Journey card ──────────────────────────────────────────────────────────────
-function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic, onDeleted }: {
+function JourneyCard({
+  journey, currentUserId, mapboxToken, onMadePublic, onDeleted,
+}: {
   journey: Journey;
   currentUserId: string | null;
-  colorIndex: number;
+  mapboxToken: string;
   onMadePublic: (id: string) => void;
   onDeleted: (id: string) => void;
 }) {
   const isOwner = currentUserId === journey.user_id;
-  const color = JOURNEY_COLORS[colorIndex % JOURNEY_COLORS.length];
-  const stops = journey.stickers.filter((s) => s.lat != null);
-  const [sharing, setSharing] = useState(false);
   const [shared, setShared] = useState(journey.is_public);
+  const [sharing, setSharing] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [showSharedModal, setShowSharedModal] = useState(false);
+
+  const dateRange = formatDateRange(journey.stickers, journey.created_at);
+  const days = travelDays(journey.stickers);
+  const uniqueLocations = [...new Set(journey.stickers.map((s) => s.location_name).filter(Boolean))].slice(0, 2);
+  const locationStr = uniqueLocations.join(", ");
+
+  const actionLabel = shared ? "shared a story" : "created a story";
+
+  async function handleShare() {
+    setSharing(true);
+    try {
+      const res = await fetch(`/api/journeys/${journey.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: currentUserId, is_public: true }),
+      });
+      if (res.ok) { setShared(true); onMadePublic(journey.id); }
+    } finally {
+      setSharing(false);
+    }
+  }
 
   async function handleDelete() {
     setDeleting(true);
@@ -151,158 +187,107 @@ function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic, onDelet
     else setDeleting(false);
   }
 
-  const dateRange = (() => {
-    const withTime = journey.stickers.filter((s) => s.photo_taken_at);
-    if (withTime.length < 2) return timeAgo(journey.created_at);
-    const sorted = [...withTime].sort((a, b) =>
-      new Date(a.photo_taken_at!).getTime() - new Date(b.photo_taken_at!).getTime()
-    );
-    const first = new Date(sorted[0].photo_taken_at!);
-    const last = new Date(sorted[sorted.length - 1].photo_taken_at!);
-    const sameDay = first.toDateString() === last.toDateString();
-    return sameDay
-      ? first.toLocaleDateString(undefined, { dateStyle: "medium" })
-      : `${first.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${last.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
-  })();
-
-  const uniqueLocations = [...new Set(
-    journey.stickers.map((s) => s.location_name).filter(Boolean)
-  )].slice(0, 3);
-
-  async function shareToFeed() {
-    setSharing(true);
-    try {
-      const res = await fetch(`/api/journeys/${journey.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUserId, is_public: true }),
-      });
-      if (res.ok) { setShared(true); onMadePublic(journey.id); setShowSharedModal(true); }
-    } finally {
-      setSharing(false);
-    }
-  }
-
   return (
     <>
-    <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
-      {/* Coloured top bar */}
-      <div className="h-1.5 w-full" style={{ background: color }} />
-
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3">
-        <Avatar username={journey.username} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <p className="font-semibold text-sm">{journey.username}</p>
-            {!shared && isOwner && (
-              <span className="text-xs px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-600 font-medium">Private</span>
-            )}
+      <div className="rounded-3xl overflow-hidden" style={{ background: "#1c1c1e" }}>
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
+            style={{ background: avatarColor(journey.username) }}
+          >
+            {journey.username[0]?.toUpperCase()}
           </div>
-          <p className="text-xs text-neutral-400">{dateRange}</p>
-        </div>
-        <span className="text-xs text-neutral-300 shrink-0">{timeAgo(journey.created_at)}</span>
-        {isOwner && (
-          <button onClick={() => setSheetOpen(true)}
-            className="ml-1 w-8 h-8 flex items-center justify-center rounded-full hover:bg-neutral-100 text-neutral-400 font-bold text-lg shrink-0">
-            ···
-          </button>
-        )}
-      </div>
-
-      {/* Caption */}
-      {journey.caption && (
-        <div className="px-4 pb-2">
-          <p className="font-semibold text-base">{journey.caption}</p>
-        </div>
-      )}
-
-      {/* Sticker strip */}
-      <div className="px-4 pb-3">
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {journey.stickers.map((s, i) => (
-            <div key={s.id} className="relative shrink-0">
-              <div className="w-20 h-20 rounded-xl overflow-hidden border border-neutral-100 bg-neutral-50 flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg, #667eea18, #764ba218)" }}>
-                <img src={s.image_url} alt="" className="max-w-full max-h-full object-contain p-1"
-                  style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.25))" }} />
-              </div>
-              {/* Stop number badge */}
-              <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center shadow"
-                style={{ background: color }}>
-                {i + 1}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Stats row */}
-      <div className="px-4 pb-3 flex items-center gap-3 flex-wrap">
-        <span className="flex items-center gap-1 text-xs text-neutral-500">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-          {journey.stickers.length} stops
-        </span>
-        {stops.length > 0 && (
-          <span className="flex items-center gap-1 text-xs text-neutral-500">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            {stops.length} pinned
-          </span>
-        )}
-        {uniqueLocations.length > 0 && (
-          <span className="text-xs text-neutral-400 truncate">
-            {uniqueLocations.join(" → ")}
-          </span>
-        )}
-      </div>
-
-      {/* Share to feed button — only owner sees it when still private */}
-      {isOwner && !shared && (
-        <div className="px-4 pb-4">
-          <button onClick={shareToFeed} disabled={sharing}
-            className="w-full py-2.5 rounded-xl border-2 text-sm font-semibold transition disabled:opacity-50"
-            style={{ borderColor: color, color }}>
-            {sharing ? "Sharing…" : "Share Journey to Feed"}
-          </button>
-        </div>
-      )}
-
-      {shared && !isOwner && (
-        <div className="px-4 pb-4 space-y-2">
-          <Link href="/map" className="block text-center py-2.5 rounded-xl text-sm font-semibold text-white"
-            style={{ background: color }}>
-            View on Map
-          </Link>
-          <button
-            onClick={() => setShowShareCard(true)}
-            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white transition active:scale-95"
-            style={{ background: color }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-            Share Card
-          </button>
-        </div>
-      )}
-
-      {shared && isOwner && (
-        <div className="px-4 pb-4 space-y-2">
-          <div className="flex gap-2">
-            <span className="flex-1 text-center py-2 rounded-xl text-xs font-medium text-neutral-400 border border-neutral-100">
-              Shared publicly
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-semibold text-sm leading-tight">
+              {journey.username} <span className="font-normal text-neutral-400">{actionLabel}</span>
+            </p>
+            <p className="text-xs text-neutral-500 truncate">
+              {dateRange}{locationStr ? ` · ${locationStr}` : ""}
+            </p>
+          </div>
+          {!shared && isOwner && (
+            <span className="shrink-0 text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#2a1a3e", color: ACCENT }}>
+              Private
             </span>
-            <Link href="/map" className="flex-1 block text-center py-2 rounded-xl text-xs font-semibold text-white"
-              style={{ background: color }}>
-              View on Map
-            </Link>
-          </div>
-          <button
-            onClick={() => setShowShareCard(true)}
-            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold text-white transition active:scale-95"
-            style={{ background: color }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-            Share Card
-          </button>
+          )}
+          {isOwner && (
+            <button
+              onClick={() => setSheetOpen(true)}
+              className="w-8 h-8 flex items-center justify-center rounded-full text-neutral-500 hover:text-neutral-300 shrink-0"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+              </svg>
+            </button>
+          )}
         </div>
-      )}
+
+        {/* Journey title */}
+        {journey.caption && (
+          <div className="px-4 pb-2">
+            <p className="text-white font-bold text-base">{journey.caption}</p>
+          </div>
+        )}
+
+        {/* Map */}
+        <div className="h-64 w-full bg-neutral-800">
+          <JourneyMapView journey={journey} mapboxToken={mapboxToken} />
+        </div>
+
+        {/* Stats */}
+        <div className="flex divide-x" style={{ borderColor: "#2c2c2e" }}>
+          <div className="flex-1 px-4 py-4 text-center">
+            <p className="text-xs text-neutral-500 mb-1">Number of Entries</p>
+            <p className="text-white font-bold text-2xl">{journey.stickers.length}</p>
+          </div>
+          <div className="flex-1 px-4 py-4 text-center" style={{ borderColor: "#2c2c2e" }}>
+            <p className="text-xs text-neutral-500 mb-1">Travel Time</p>
+            <p className="text-white font-bold text-2xl">
+              {days != null ? `${days} day${days !== 1 ? "s" : ""}` : "—"}
+            </p>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="px-4 pb-4 pt-1 space-y-2">
+          {isOwner && !shared && (
+            <button
+              onClick={handleShare}
+              disabled={sharing}
+              className="w-full py-3 rounded-2xl text-white text-sm font-semibold disabled:opacity-50 transition active:scale-[0.98]"
+              style={{ background: ACCENT }}
+            >
+              {sharing ? "Sharing…" : "Share to Feed"}
+            </button>
+          )}
+          {shared && (
+            <div className="flex gap-2">
+              <Link
+                href={`/journey/${journey.id}`}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-white text-sm font-semibold"
+                style={{ background: "#2c2c2e" }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+                  <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
+                </svg>
+                View
+              </Link>
+              <button
+                onClick={() => setShowShareCard(true)}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-white text-sm font-semibold transition active:scale-[0.98]"
+                style={{ background: ACCENT }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+                </svg>
+                Share Card
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {showShareCard && (
         <JourneyShareCardModal
@@ -311,134 +296,112 @@ function JourneyCard({ journey, currentUserId, colorIndex, onMadePublic, onDelet
           onClose={() => setShowShareCard(false)}
         />
       )}
-    </div>
 
-    {showSharedModal && (
-      <JourneySharedModal journey={journey} onClose={() => setShowSharedModal(false)} />
-    )}
-
-    {/* Options sheet — owner only */}
-    {isOwner && sheetOpen && (
-      <>
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" onClick={() => setSheetOpen(false)} />
-        <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center">
-          <div className="w-full max-w-lg bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden mb-20">
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-white/20" />
-            </div>
-            <div className="px-4 pb-8 pt-2 space-y-1">
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl hover:bg-white/10 text-left disabled:opacity-40 transition-colors"
-              >
-                <span className="text-xl">🗑️</span>
-                <div>
-                  <p className="font-semibold text-sm text-red-400">
-                    {deleting ? "Deleting…" : "Delete story"}
-                  </p>
-                  <p className="text-xs text-neutral-500">Permanently remove this journey and all its stickers</p>
-                </div>
-              </button>
-              <button
-                onClick={() => setSheetOpen(false)}
-                className="w-full py-3 mt-2 rounded-2xl border border-white/10 text-sm font-medium text-neutral-400 hover:bg-white/10 transition-colors"
-              >
-                Cancel
-              </button>
+      {isOwner && sheetOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" onClick={() => setSheetOpen(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center">
+            <div className="w-full max-w-lg rounded-t-3xl shadow-2xl overflow-hidden mb-0" style={{ background: "#1c1c1e" }}>
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-white/20" />
+              </div>
+              <div className="px-4 pb-8 pt-2 space-y-1">
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl hover:bg-white/10 text-left disabled:opacity-40 transition-colors"
+                >
+                  <span className="text-xl">🗑️</span>
+                  <div>
+                    <p className="font-semibold text-sm text-red-400">
+                      {deleting ? "Deleting…" : "Delete story"}
+                    </p>
+                    <p className="text-xs text-neutral-500">Permanently remove this journey</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setSheetOpen(false)}
+                  className="w-full py-3 mt-2 rounded-2xl border border-white/10 text-sm font-medium text-neutral-400 hover:bg-white/10 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </>
-    )}
+        </>
+      )}
     </>
   );
 }
 
 // ── Feed page ─────────────────────────────────────────────────────────────────
 export default function FeedPage() {
-  const [posts, setPosts] = useState<StickerPost[]>([]);
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [username, setUsername] = useState("");
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
   useEffect(() => {
     getSupabaseBrowser().auth.getUser().then(async ({ data }) => {
       const uid = data.user?.id ?? null;
       setCurrentUserId(uid);
+      if (data.user?.user_metadata?.username) setUsername(data.user.user_metadata.username);
+
       const params = uid ? `?user_id=${uid}` : "";
-
-      const [postsRes, journeysRes] = await Promise.all([
-        fetch("/api/stickers?exclude_journey=true").then((r) => r.json()).catch(() => ({ stickers: [] })),
-        fetch(`/api/journeys${params}`).then((r) => r.json()).catch(() => ({ journeys: [] })),
-      ]);
-
-      setPosts(postsRes.stickers ?? []);
-      setJourneys(journeysRes.journeys ?? []);
+      const res = await fetch(`/api/journeys${params}`).then((r) => r.json()).catch(() => ({ journeys: [] }));
+      setJourneys(res.journeys ?? []);
       setLoading(false);
     });
   }, []);
 
-  // Merge posts + journeys into a single time-sorted list
-  type FeedItem =
-    | { type: "post"; data: StickerPost; time: number }
-    | { type: "journey"; data: Journey; time: number };
-
-  const feedItems: FeedItem[] = [
-    ...posts.map((p) => ({ type: "post" as const, data: p, time: new Date(p.created_at).getTime() })),
-    ...journeys.map((j) => ({ type: "journey" as const, data: j, time: new Date(j.created_at).getTime() })),
-  ].sort((a, b) => b.time - a.time);
-
-  const isEmpty = !loading && feedItems.length === 0;
-
   return (
-    <main className="max-w-lg mx-auto px-4 pt-5 pb-6 space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Feed</h1>
-        <Link href="/map" className="text-sm text-pink-500 font-medium">View map →</Link>
+    <main className="min-h-screen pb-24" style={{ background: "#0f0f0f" }}>
+      {/* Header */}
+      <div className="px-5 pt-14 pb-4 flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-black text-white tracking-tight">Bonjour</h1>
+          <p className="text-neutral-500 text-sm mt-0.5">Your Feed</p>
+        </div>
+        <Link href="/map" className="w-9 h-9 flex items-center justify-center rounded-xl mt-1" style={{ background: "#1c1c1e" }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+            <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
+          </svg>
+        </Link>
       </div>
 
-      {loading && (
-        <div className="flex justify-center py-16">
-          <div className="h-8 w-8 rounded-full border-2 border-neutral-200 border-t-pink-500 animate-spin" />
-        </div>
-      )}
+      <div className="px-4 space-y-4">
+        {loading && (
+          <div className="flex justify-center py-20">
+            <div className="h-8 w-8 rounded-full border-2 border-neutral-800 animate-spin" style={{ borderTopColor: ACCENT }} />
+          </div>
+        )}
 
-      {isEmpty && (
-        <div className="text-center py-20 space-y-3">
-          <p className="text-4xl">🎨</p>
-          <p className="font-semibold text-neutral-700">No stickers yet</p>
-          <p className="text-sm text-neutral-400">Be the first — make a sticker and share it!</p>
-          <Link href="/capture"
-            className="inline-block mt-2 px-5 py-2.5 rounded-xl bg-[#4ade80] text-black text-sm font-bold">
-            Make a Sticker
-          </Link>
-        </div>
-      )}
+        {!loading && journeys.length === 0 && (
+          <div className="text-center py-24 space-y-3">
+            <p className="text-4xl">🗺️</p>
+            <p className="font-semibold text-white">No stories yet</p>
+            <p className="text-sm text-neutral-500">Create your first journey to see it here</p>
+            <Link href="/capture?flow=journey"
+              className="inline-block mt-2 px-6 py-3 rounded-2xl text-white text-sm font-bold"
+              style={{ background: ACCENT }}>
+              Create a Story
+            </Link>
+          </div>
+        )}
 
-      {!loading && feedItems.map((item, i) => {
-        if (item.type === "post") {
-          return (
-            <PostCard key={item.data.id} post={item.data} currentUserId={currentUserId}
-              onDeleted={(id) => setPosts((prev) => prev.filter((x) => x.id !== id))}
-              onCaptionUpdated={(id, cap) =>
-                setPosts((prev) => prev.map((x) => x.id === id ? { ...x, caption: cap || null } : x))
-              }
-            />
-          );
-        }
-        return (
-          <JourneyCard key={item.data.id} journey={item.data} currentUserId={currentUserId}
-            colorIndex={i}
-            onMadePublic={(id) =>
-              setJourneys((prev) => prev.map((j) => j.id === id ? { ...j, is_public: true } : j))
-            }
-            onDeleted={(id) =>
-              setJourneys((prev) => prev.filter((j) => j.id !== id))
-            }
+        {!loading && journeys.map((journey) => (
+          <JourneyCard
+            key={journey.id}
+            journey={journey}
+            currentUserId={currentUserId}
+            mapboxToken={mapboxToken}
+            onMadePublic={(id) => setJourneys((prev) => prev.map((j) => j.id === id ? { ...j, is_public: true } : j))}
+            onDeleted={(id) => setJourneys((prev) => prev.filter((j) => j.id !== id))}
           />
-        );
-      })}
+        ))}
+      </div>
     </main>
   );
 }
