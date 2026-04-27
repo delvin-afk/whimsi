@@ -6,7 +6,7 @@ import Link from "next/link";
 import JourneyShareCardModal from "@/components/JourneyShareCardModal";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
-const ACCENT = "#a855f7";
+const ACCENT = "#4ade80";
 const STICKER_SIZE = 48;
 
 function formatDateRange(stickers: Journey["stickers"], createdAt: string) {
@@ -106,7 +106,7 @@ function JourneyMapView({ journey, mapboxToken }: { journey: Journey; mapboxToke
           img.src = stop.image_url;
           img.style.cssText = `width:${STICKER_SIZE}px;height:${STICKER_SIZE}px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5));`;
           const badge = document.createElement("div");
-          badge.style.cssText = `position:absolute;top:-5px;left:-5px;width:18px;height:18px;border-radius:50%;background:${ACCENT};color:white;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:sans-serif;border:1.5px solid white;`;
+          badge.style.cssText = `position:absolute;top:-5px;left:-5px;width:18px;height:18px;border-radius:50%;background:${ACCENT};color:#000;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:sans-serif;border:1.5px solid white;`;
           badge.textContent = String(i + 1);
           stickerWrap.appendChild(img);
           stickerWrap.appendChild(badge);
@@ -207,7 +207,7 @@ function JourneyCard({
             </p>
           </div>
           {!shared && isOwner && (
-            <span className="shrink-0 text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#2a1a3e", color: ACCENT }}>
+            <span className="shrink-0 text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(74,222,128,0.15)", color: ACCENT }}>
               Private
             </span>
           )}
@@ -255,7 +255,7 @@ function JourneyCard({
             <button
               onClick={handleShare}
               disabled={sharing}
-              className="w-full py-3 rounded-2xl text-white text-sm font-semibold disabled:opacity-50 transition active:scale-[0.98]"
+              className="w-full py-3 rounded-2xl text-black text-sm font-semibold disabled:opacity-50 transition active:scale-[0.98]"
               style={{ background: ACCENT }}
             >
               {sharing ? "Sharing…" : "Share to Feed"}
@@ -276,7 +276,7 @@ function JourneyCard({
               </Link>
               <button
                 onClick={() => setShowShareCard(true)}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-white text-sm font-semibold transition active:scale-[0.98]"
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-black text-sm font-semibold transition active:scale-[0.98]"
                 style={{ background: ACCENT }}
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -384,7 +384,7 @@ export default function FeedPage() {
             <p className="font-semibold text-white">No stories yet</p>
             <p className="text-sm text-neutral-500">Create your first journey to see it here</p>
             <Link href="/capture?flow=journey"
-              className="inline-block mt-2 px-6 py-3 rounded-2xl text-white text-sm font-bold"
+              className="inline-block mt-2 px-6 py-3 rounded-2xl text-black text-sm font-bold"
               style={{ background: ACCENT }}>
               Create a Story
             </Link>
