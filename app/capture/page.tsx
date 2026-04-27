@@ -296,15 +296,38 @@ function JourneyDoneScreen({
       mapRef.current = map;
 
       map.on("load", () => {
-        // Straight route line
+        // Route line — fetch driving directions, fall back to straight line
         if (stickersWithLoc.length >= 2) {
-          const coords = stickersWithLoc.map((s) => [s.lng!, s.lat!]);
+          const straight = stickersWithLoc.map((s) => [s.lng!, s.lat!]);
+          let routeCoords: number[][] = [];
+          for (let i = 0; i < straight.length - 1; i++) {
+            const [lng1, lat1] = straight[i];
+            const [lng2, lat2] = straight[i + 1];
+            try {
+              const res = await fetch(
+                `https://api.mapbox.com/directions/v5/mapbox/driving/${lng1},${lat1};${lng2},${lat2}?geometries=geojson&overview=full&access_token=${mapboxToken}`
+              );
+              const json = await res.json();
+              const leg: number[][] | undefined = json.routes?.[0]?.geometry?.coordinates;
+              if (leg?.length) {
+                if (routeCoords.length > 0) leg.shift();
+                routeCoords = routeCoords.concat(leg);
+              } else {
+                if (routeCoords.length === 0) routeCoords.push(straight[i]);
+                routeCoords.push(straight[i + 1]);
+              }
+            } catch {
+              if (routeCoords.length === 0) routeCoords.push(straight[i]);
+              routeCoords.push(straight[i + 1]);
+            }
+          }
+          const coords = routeCoords.length >= 2 ? routeCoords : straight;
           map.addSource("done-route", {
             type: "geojson",
             data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } },
           });
-          map.addLayer({ id: "done-glow", type: "line", source: "done-route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": DONE_COLOR, "line-width": 10, "line-opacity": 0.2 } });
-          map.addLayer({ id: "done-line", type: "line", source: "done-route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": DONE_COLOR, "line-width": 4, "line-opacity": 0.9 } });
+          map.addLayer({ id: "done-glow", type: "line", source: "done-route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": DONE_COLOR, "line-width": 12, "line-opacity": 0.2 } });
+          map.addLayer({ id: "done-line", type: "line", source: "done-route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": DONE_COLOR, "line-width": 5, "line-opacity": 0.95 } });
         }
 
         // Sticker markers
@@ -330,13 +353,13 @@ function JourneyDoneScreen({
             .addTo(map);
         });
 
-        // Fit to bounds
+        // Fit to bounds — top needs room for sticker images (anchor bottom), sides minimal
         if (stickersWithLoc.length > 1) {
           const lngs = stickersWithLoc.map((s) => s.lng!);
           const lats = stickersWithLoc.map((s) => s.lat!);
           map.fitBounds(
             [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-            { padding: 70, duration: 0 },
+            { padding: { top: DONE_STICKER_SIZE + 20, bottom: 24, left: 48, right: 48 }, duration: 0, maxZoom: 16 },
           );
         }
       });
@@ -386,7 +409,7 @@ function JourneyDoneScreen({
           ) : null}
 
           {/* Interactive Mapbox GL map with sticker images */}
-          <div className="h-52">
+          <div className="h-72">
             {stickersWithLoc.length > 0 && mapboxToken ? (
               <div ref={mapContainerRef} className="w-full h-full" />
             ) : (
@@ -929,12 +952,12 @@ function CapturePageInner() {
 
     const results: PhotoItem[] = journeyPhotos.map((p) => ({ ...p }));
 
+    // ── Phase 1: Customize all stickers first ────────────────────────────────
     for (let i = 0; i < results.length; i++) {
       results[i] = { ...results[i], status: "processing" };
       updatePhoto(results[i].id, { status: "processing" });
       setJourneyProgress({ current: i + 1, total: results.length });
 
-      // ── Pause: show customize sticker modal ──────────────────────────────
       const customizeResult = await new Promise<CustomizeResult>((resolve) => {
         customizeResolverRef.current = resolve;
         setCustomizeModalPhoto({ ...results[i] });
@@ -956,33 +979,35 @@ function CapturePageInner() {
         results[i] = { ...results[i], status: "error", errorMsg: "Skipped" };
         updatePhoto(results[i].id, { status: "error", errorMsg: "Skipped" });
       }
+    }
 
-      // ── Pause: ask for a caption if sticker was created ──────────────────
-      if (results[i].stickerDataUrl) {
-        setJourneyCaptionInput("");
-        journeyCommittedRef.current = "";
-        setJourneyCaptionIsRecording(false);
-        setJourneyCaptionVoiceBlob(null);
-        setJourneyCaptionVoicePreviewUrl(null);
-        setJourneyCaptionRecordingSeconds(0);
-        const captionResult = await new Promise<CaptionResult>((resolve) => {
-          captionResolverRef.current = resolve;
-          setCaptionModalPhoto({ ...results[i] });
-        });
-        setCaptionModalPhoto(null);
-        captionResolverRef.current = null;
-        results[i] = {
-          ...results[i],
-          caption: captionResult.caption,
-          voiceBlob: captionResult.voiceBlob,
-          voiceMimeType: captionResult.voiceMimeType,
-          photoTakenAt: captionResult.photoTakenAt ?? results[i].photoTakenAt,
-          locationName: captionResult.locationName ?? results[i].locationName,
-          lat: captionResult.lat ?? results[i].lat,
-          lng: captionResult.lng ?? results[i].lng,
-        };
-        updatePhoto(results[i].id, { caption: captionResult.caption, locationName: results[i].locationName });
-      }
+    // ── Phase 2: Caption all stickers ────────────────────────────────────────
+    for (let i = 0; i < results.length; i++) {
+      if (!results[i].stickerDataUrl) continue;
+
+      setJourneyCaptionInput("");
+      journeyCommittedRef.current = "";
+      setJourneyCaptionIsRecording(false);
+      setJourneyCaptionVoiceBlob(null);
+      setJourneyCaptionVoicePreviewUrl(null);
+      setJourneyCaptionRecordingSeconds(0);
+      const captionResult = await new Promise<CaptionResult>((resolve) => {
+        captionResolverRef.current = resolve;
+        setCaptionModalPhoto({ ...results[i] });
+      });
+      setCaptionModalPhoto(null);
+      captionResolverRef.current = null;
+      results[i] = {
+        ...results[i],
+        caption: captionResult.caption,
+        voiceBlob: captionResult.voiceBlob,
+        voiceMimeType: captionResult.voiceMimeType,
+        photoTakenAt: captionResult.photoTakenAt ?? results[i].photoTakenAt,
+        locationName: captionResult.locationName ?? results[i].locationName,
+        lat: captionResult.lat ?? results[i].lat,
+        lng: captionResult.lng ?? results[i].lng,
+      };
+      updatePhoto(results[i].id, { caption: captionResult.caption, locationName: results[i].locationName });
     }
 
     // All done — save if we have enough
@@ -1325,7 +1350,7 @@ function CapturePageInner() {
             className="max-w-full max-h-full object-contain rounded-2xl"
           />
           {/* Thumbnail strip if multiple */}
-          {pendingPhotos.length > 1 && (
+          {pendingPhotos.length > 0 && (
             <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 px-4">
               {pendingPhotos.map((f, i) => {
                 const url = URL.createObjectURL(f.file);
