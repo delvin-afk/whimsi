@@ -248,6 +248,195 @@ function formatTimestamp(iso?: string) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
+// ── Journey done / success screen ────────────────────────────────────────────
+const DONE_COLOR = "#a855f7";
+const DONE_STICKER_SIZE = 60;
+
+function JourneyDoneScreen({
+  journeyPhotos, username, journeyCaption, savedJourneyId, mapboxToken, onViewMap, onReset,
+}: {
+  journeyPhotos: PhotoItem[];
+  username: string;
+  journeyCaption: string;
+  savedJourneyId: string;
+  mapboxToken: string;
+  onViewMap: () => void;
+  onReset: () => void;
+}) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapRef = useRef<any>(null);
+
+  const donePhotos = journeyPhotos.filter((p) => p.status === "done");
+  const stickersWithLoc = donePhotos.filter((p) => p.lat != null && p.lng != null);
+
+  const withTime = donePhotos.filter((p) => p.photoTakenAt);
+  const times = withTime.map((p) => new Date(p.photoTakenAt!).getTime()).sort((a, b) => a - b);
+  const travelDays = times.length >= 2
+    ? Math.max(1, Math.ceil((times[times.length - 1] - times[0]) / 86400000))
+    : null;
+  const fmt = (ms: number) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  const dateRange = times.length >= 2 ? `${fmt(times[0])} – ${fmt(times[times.length - 1])}` : null;
+  const locationSummary = donePhotos.find((p) => p.locationName)?.locationName ?? "";
+
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current || stickersWithLoc.length === 0 || !mapboxToken) return;
+
+    import("mapbox-gl").then(({ default: mapboxgl }) => {
+      import("mapbox-gl/dist/mapbox-gl.css");
+      if (!mapContainerRef.current) return;
+      mapboxgl.accessToken = mapboxToken;
+      const map = new mapboxgl.Map({
+        container: mapContainerRef.current,
+        style: "mapbox://styles/mapbox/streets-v12",
+        center: [stickersWithLoc[0].lng!, stickersWithLoc[0].lat!],
+        zoom: 13,
+        interactive: false,
+      });
+      mapRef.current = map;
+
+      map.on("load", () => {
+        // Straight route line
+        if (stickersWithLoc.length >= 2) {
+          const coords = stickersWithLoc.map((s) => [s.lng!, s.lat!]);
+          map.addSource("done-route", {
+            type: "geojson",
+            data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: coords } },
+          });
+          map.addLayer({ id: "done-glow", type: "line", source: "done-route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": DONE_COLOR, "line-width": 10, "line-opacity": 0.2 } });
+          map.addLayer({ id: "done-line", type: "line", source: "done-route", layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": DONE_COLOR, "line-width": 4, "line-opacity": 0.9 } });
+        }
+
+        // Sticker markers
+        stickersWithLoc.forEach((stop, i) => {
+          const wrapper = document.createElement("div");
+          wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;";
+          const stickerWrap = document.createElement("div");
+          stickerWrap.style.cssText = `position:relative;width:${DONE_STICKER_SIZE}px;height:${DONE_STICKER_SIZE}px;`;
+          const img = document.createElement("img");
+          img.src = stop.stickerDataUrl ?? stop.localUrl;
+          img.style.cssText = `width:${DONE_STICKER_SIZE}px;height:${DONE_STICKER_SIZE}px;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.55));`;
+          const badge = document.createElement("div");
+          badge.style.cssText = `position:absolute;top:-6px;left:-6px;width:20px;height:20px;border-radius:50%;background:${DONE_COLOR};color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:sans-serif;box-shadow:0 1px 4px rgba(0,0,0,0.4);border:2px solid white;`;
+          badge.textContent = String(i + 1);
+          stickerWrap.appendChild(img);
+          stickerWrap.appendChild(badge);
+          const pin = document.createElement("div");
+          pin.style.cssText = `width:8px;height:8px;border-radius:50%;background:${DONE_COLOR};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.45);margin-top:2px;flex-shrink:0;`;
+          wrapper.appendChild(stickerWrap);
+          wrapper.appendChild(pin);
+          new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
+            .setLngLat([stop.lng!, stop.lat!])
+            .addTo(map);
+        });
+
+        // Fit to bounds
+        if (stickersWithLoc.length > 1) {
+          const lngs = stickersWithLoc.map((s) => s.lng!);
+          const lats = stickersWithLoc.map((s) => s.lat!);
+          map.fitBounds(
+            [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+            { padding: 70, duration: 0 },
+          );
+        }
+      });
+    });
+
+    return () => { mapRef.current?.remove(); mapRef.current = null; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function sendLink() {
+    if (!savedJourneyId) return;
+    const journeyUrl = `${window.location.origin}/journey/${savedJourneyId}`;
+    await fetch(`/api/journeys/${savedJourneyId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_public: true }),
+    }).catch(() => {});
+    if (navigator.share) { navigator.share({ url: journeyUrl }).catch(() => {}); }
+    else { navigator.clipboard.writeText(journeyUrl); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[80] flex flex-col" style={{ background: "#4ade80" }}>
+      <div className="shrink-0 pt-14 pb-5 px-5 text-center">
+        <p className="text-3xl font-black text-black">Story is created! 🤩</p>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
+        <div className="bg-neutral-900 rounded-3xl overflow-hidden shadow-xl">
+          {/* User row */}
+          <div className="px-4 py-3 flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full bg-[#a855f7] flex items-center justify-center text-white font-bold text-base shrink-0">
+              {username[0]?.toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm text-white truncate">{username} shared a story</p>
+              <p className="text-xs text-neutral-400 truncate">
+                {dateRange}{locationSummary ? (dateRange ? ` · ${locationSummary}` : locationSummary) : ""}
+              </p>
+            </div>
+          </div>
+
+          {/* Journey title */}
+          {journeyCaption ? (
+            <div className="px-4 pb-2">
+              <p className="font-semibold text-white text-sm">{journeyCaption}</p>
+            </div>
+          ) : null}
+
+          {/* Interactive Mapbox GL map with sticker images */}
+          <div className="h-52">
+            {stickersWithLoc.length > 0 && mapboxToken ? (
+              <div ref={mapContainerRef} className="w-full h-full" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-neutral-500 text-sm bg-neutral-800">
+                No location data
+              </div>
+            )}
+          </div>
+
+          {/* Stats */}
+          <div className="flex divide-x divide-neutral-800">
+            <div className="flex-1 px-4 py-4 text-center">
+              <p className="text-xs text-neutral-500">Number of Entries</p>
+              <p className="font-bold text-2xl text-white">{donePhotos.length}</p>
+            </div>
+            <div className="flex-1 px-4 py-4 text-center">
+              <p className="text-xs text-neutral-500">Travel Time</p>
+              <p className="font-bold text-2xl text-white">
+                {travelDays != null ? `${travelDays} day${travelDays !== 1 ? "s" : ""}` : "—"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="shrink-0 px-4 pt-2 space-y-3"
+        style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}>
+        <button onClick={onViewMap}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-white/25 text-black font-bold text-base active:scale-[0.98] transition">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+            <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
+          </svg>
+          View on Map
+        </button>
+        <button onClick={sendLink}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-black text-white font-bold text-base active:scale-[0.98] transition">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          Send Link
+        </button>
+        <button onClick={onReset} className="w-full py-3 text-black/60 text-sm font-medium">
+          Create another
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CapturePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1835,127 +2024,17 @@ function CapturePageInner() {
       )}
 
       {/* ── Journey "done" success screen ── */}
-      {journeyStep === "done" && (() => {
-        const donePhotos = journeyPhotos.filter((p) => p.status === "done");
-        const withTime = donePhotos.filter((p) => p.photoTakenAt);
-        const times = withTime.map((p) => new Date(p.photoTakenAt!).getTime()).sort((a, b) => a - b);
-        const travelDays = times.length >= 2
-          ? Math.max(1, Math.ceil((times[times.length - 1] - times[0]) / 86400000))
-          : null;
-        const fmt = (ms: number) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-        const dateRange = times.length >= 2 ? `${fmt(times[0])} – ${fmt(times[times.length - 1])}` : null;
-        const locationSummary = donePhotos.find((p) => p.locationName)?.locationName ?? "";
-        const stickersWithLoc = donePhotos.filter((p) => p.lat != null && p.lng != null);
-        const markers = stickersWithLoc.map((p) => `pin-s+a855f7(${p.lng},${p.lat})`).join(",");
-        const mapUrl = stickersWithLoc.length > 0 && mapboxToken
-          ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${markers}/auto/600x300?padding=60&access_token=${mapboxToken}`
-          : null;
-        const journeyUrl = savedJourneyId
-          ? `${typeof window !== "undefined" ? window.location.origin : ""}/journey/${savedJourneyId}`
-          : null;
-
-        async function sendLink() {
-          if (!journeyUrl) return;
-          if (savedJourneyId) {
-            await fetch(`/api/journeys/${savedJourneyId}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ is_public: true }),
-            }).catch(() => {});
-          }
-          if (navigator.share) {
-            navigator.share({ url: journeyUrl }).catch(() => {});
-          } else {
-            navigator.clipboard.writeText(journeyUrl);
-          }
-        }
-
-        return (
-          <div className="fixed inset-0 z-[80] flex flex-col" style={{ background: "#4ade80" }}>
-            {/* Title */}
-            <div className="shrink-0 pt-14 pb-4 px-5 text-center">
-              <p className="text-3xl font-black text-black">Story is created!</p>
-            </div>
-
-            {/* Card */}
-            <div className="flex-1 overflow-y-auto px-4 pb-4">
-              <div className="bg-white rounded-3xl overflow-hidden shadow-lg">
-                {/* User row */}
-                <div className="px-4 py-3 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#a855f7] flex items-center justify-center text-white font-bold text-sm shrink-0">
-                    {username[0]?.toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">{username} shared a story</p>
-                    <p className="text-xs text-neutral-400 truncate">
-                      {dateRange ?? ""}{locationSummary ? (dateRange ? ` · ${locationSummary}` : locationSummary) : ""}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Map */}
-                <div className="relative h-48 bg-neutral-100">
-                  {mapUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={mapUrl} alt="Journey map" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-neutral-400 text-sm">No location data</div>
-                  )}
-                </div>
-
-                {/* Journey title */}
-                {journeyCaption && (
-                  <div className="px-4 py-2 border-b border-neutral-100">
-                    <p className="font-semibold text-sm text-center">{journeyCaption}</p>
-                  </div>
-                )}
-
-                {/* Stats */}
-                <div className="flex divide-x divide-neutral-100">
-                  <div className="flex-1 px-4 py-3 text-center">
-                    <p className="text-xs text-neutral-400">Number of Entries</p>
-                    <p className="font-bold text-xl">{donePhotos.length}</p>
-                  </div>
-                  <div className="flex-1 px-4 py-3 text-center">
-                    <p className="text-xs text-neutral-400">Travel Time</p>
-                    <p className="font-bold text-xl">{travelDays != null ? `${travelDays} day${travelDays !== 1 ? "s" : ""}` : "—"}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <div className="shrink-0 px-4 pt-2 space-y-3"
-              style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}>
-              <button
-                onClick={() => router.push("/map")}
-                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-black text-white font-bold text-base active:scale-[0.98] transition"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
-                  <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
-                </svg>
-                View on Map
-              </button>
-              <button
-                onClick={sendLink}
-                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-black text-white font-bold text-base active:scale-[0.98] transition"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
-                Send Link
-              </button>
-              <button
-                onClick={resetJourney}
-                className="w-full py-3 text-black/60 text-sm font-medium"
-              >
-                Create another
-              </button>
-            </div>
-          </div>
-        );
-      })()}
+      {journeyStep === "done" && (
+        <JourneyDoneScreen
+          journeyPhotos={journeyPhotos}
+          username={username}
+          journeyCaption={journeyCaption}
+          savedJourneyId={savedJourneyId}
+          mapboxToken={mapboxToken}
+          onViewMap={() => router.push("/map")}
+          onReset={resetJourney}
+        />
+      )}
     </>
   );
 }
