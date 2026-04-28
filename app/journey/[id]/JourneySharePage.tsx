@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Journey, StickerPost } from "@/types";
 import Link from "next/link";
+import { createBrowserClient } from "@supabase/ssr";
 
 const COLOR = "#a855f7";
 
@@ -177,7 +178,16 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
   const mapRef = useRef<any>(null);
   const [activeStop, setActiveStop] = useState(0);
   const [selectedStop, setSelectedStop] = useState<{ stop: StickerPost; index: number } | null>(null);
+  const [isAuthed, setIsAuthed] = useState(false);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+  useEffect(() => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    supabase.auth.getSession().then(({ data }) => setIsAuthed(!!data.session));
+  }, []);
   const validStops = journey.stickers.filter((s) => s.lat != null && s.lng != null);
   const journeyTitle = journey.caption ?? `${journey.username}'s Journey`;
 
@@ -194,11 +204,18 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
       : `${first.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${last.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
   })();
 
-  function flyToStop(index: number) {
+  function flyToStop(index: number, sheetOpen = false) {
     const stop = validStops[index];
     if (!stop || !mapRef.current) return;
     setActiveStop(index);
-    mapRef.current.flyTo({ center: [stop.lng!, stop.lat!], zoom: 15, duration: 900 });
+    const mapH = containerRef.current?.clientHeight ?? 600;
+    const bottomPad = sheetOpen ? Math.round(mapH * 0.62) : 80;
+    mapRef.current.flyTo({
+      center: [stop.lng!, stop.lat!],
+      zoom: 15,
+      duration: 900,
+      padding: { top: 60, bottom: bottomPad, left: 60, right: 60 },
+    });
   }
 
   useEffect(() => {
@@ -281,7 +298,7 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
           wrapper.appendChild(pin);
 
           wrapper.addEventListener("click", () => {
-            setActiveStop(i);
+            flyToStop(i, true);
             setSelectedStop({ stop, index: i + 1 });
           });
 
@@ -349,26 +366,28 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
             onClose={() => setSelectedStop(null)}
             onPrev={selectedStop.index > 1 ? () => {
               const newIdx = selectedStop.index - 2;
-              flyToStop(newIdx);
+              flyToStop(newIdx, true);
               setSelectedStop({ stop: validStops[newIdx], index: newIdx + 1 });
             } : null}
             onNext={selectedStop.index < validStops.length ? () => {
               const newIdx = selectedStop.index;
-              flyToStop(newIdx);
+              flyToStop(newIdx, true);
               setSelectedStop({ stop: validStops[newIdx], index: newIdx + 1 });
             } : null}
           />
         )}
       </div>
 
-      {/* Bottom CTA */}
-      <div className="shrink-0 bg-white border-t border-neutral-100 px-4 py-3 flex items-center gap-3">
-        <p className="flex-1 text-xs text-neutral-500">Want to create your own journey?</p>
-        <Link href="/auth" className="shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-white"
-          style={{ background: COLOR }}>
-          Join whimsi
-        </Link>
-      </div>
+      {/* Bottom CTA — only for unauthenticated viewers */}
+      {!isAuthed && (
+        <div className="shrink-0 bg-white border-t border-neutral-100 px-4 py-3 flex items-center gap-3">
+          <p className="flex-1 text-xs text-neutral-500">Want to create your own journey?</p>
+          <Link href="/auth" className="shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-white"
+            style={{ background: COLOR }}>
+            Join whimsi
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
