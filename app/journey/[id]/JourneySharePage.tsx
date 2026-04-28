@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Journey, StickerPost } from "@/types";
 import Link from "next/link";
-import { createBrowserClient } from "@supabase/ssr";
+import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 const COLOR = "#a855f7";
 
@@ -182,11 +182,7 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    supabase.auth.getSession().then(({ data }) => setIsAuthed(!!data.session));
+    getSupabaseBrowser().auth.getSession().then(({ data }) => setIsAuthed(!!data.session));
   }, []);
   const validStops = journey.stickers.filter((s) => s.lat != null && s.lng != null);
   const journeyTitle = journey.caption ?? `${journey.username}'s Journey`;
