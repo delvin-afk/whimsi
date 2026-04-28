@@ -335,12 +335,63 @@ function JourneyCard({
   );
 }
 
+// Country code → greeting in the dominant local language
+const GREETINGS: Record<string, string> = {
+  FR: "Bonjour", BE: "Bonjour", CH: "Grüezi", LU: "Moien",
+  ES: "Hola", MX: "Hola", AR: "Hola", CO: "Hola", CL: "Hola", PE: "Hola",
+  PT: "Olá", BR: "Olá",
+  DE: "Hallo", AT: "Servus",
+  IT: "Ciao",
+  NL: "Hoi",
+  SE: "Hej", NO: "Hei", DK: "Hej", FI: "Hei",
+  PL: "Cześć",
+  RU: "Привет", UA: "Привіт",
+  GR: "Γεια",
+  TR: "Merhaba",
+  JP: "こんにちは",
+  CN: "你好", TW: "你好", HK: "你好",
+  KR: "안녕하세요",
+  TH: "สวัสดี",
+  VN: "Xin chào",
+  ID: "Halo", MY: "Helo",
+  IN: "नमस्ते", PK: "آداب",
+  SA: "مرحبا", AE: "مرحبا", EG: "أهلاً", MA: "مرحبا",
+  IL: "שלום",
+  NG: "Hello", KE: "Habari", ZA: "Sawubona",
+  US: "Hey", CA: "Hey",
+  GB: "Hello", IE: "Hello",
+  AU: "G'day", NZ: "Kia ora",
+};
+
+async function getLocationGreeting(token: string): Promise<string> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve("Bonjour"); return; }
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const res = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${coords.longitude},${coords.latitude}.json?types=country&access_token=${token}`
+          );
+          const json = await res.json();
+          const code: string | undefined = json.features?.[0]?.properties?.short_code?.toUpperCase();
+          resolve(code && GREETINGS[code] ? GREETINGS[code] : "Bonjour");
+        } catch {
+          resolve("Bonjour");
+        }
+      },
+      () => resolve("Bonjour"),
+      { timeout: 6000 }
+    );
+  });
+}
+
 // ── Feed page ─────────────────────────────────────────────────────────────────
 export default function FeedPage() {
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [username, setUsername] = useState("");
+  const [greeting, setGreeting] = useState("Bonjour");
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
   useEffect(() => {
@@ -354,7 +405,11 @@ export default function FeedPage() {
       setJourneys(res.journeys ?? []);
       setLoading(false);
     });
-  }, []);
+
+    if (mapboxToken) {
+      getLocationGreeting(mapboxToken).then(setGreeting);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <main className="min-h-screen pb-24" style={{ background: "#0f0f0f" }}>
@@ -362,7 +417,7 @@ export default function FeedPage() {
       {/* Header */}
       <div className="pt-14 pb-4 flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Bonjour</h1>
+          <h1 className="text-3xl font-black text-white tracking-tight">{greeting}</h1>
           <p className="text-neutral-500 text-sm mt-0.5">Your Feed</p>
         </div>
         <Link href="/map" className="w-9 h-9 flex items-center justify-center rounded-xl mt-1" style={{ background: "#1c1c1e" }}>
