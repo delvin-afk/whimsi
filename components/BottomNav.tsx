@@ -53,7 +53,6 @@ export default function BottomNav() {
   const [showCreate, setShowCreate] = useState(false);
 
   if (pathname.startsWith("/auth")) return null;
-  if (pathname.startsWith("/journey/")) return null;
 
   const isCreateActive = pathname.startsWith("/capture") || pathname.startsWith("/scrapbook/create");
   const feedActive = pathname === "/feed";
