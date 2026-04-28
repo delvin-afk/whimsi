@@ -16,6 +16,7 @@ type SelectedStop = {
   color: string;
   journeyTitle: string | null;
   stopIndex: number | null;
+  journeyStops?: StickerPost[];
 };
 
 function avatarColor(username: string) {
@@ -26,14 +27,37 @@ function avatarColor(username: string) {
 }
 
 // ── Sticker detail bottom sheet ───────────────────────────────────────────────
-function StickerSheet({ stop, onClose }: { stop: SelectedStop; onClose: () => void }) {
-  const { sticker, color, journeyTitle, stopIndex } = stop;
+function StickerSheet({
+  stop, onClose, onPrev, onNext,
+}: {
+  stop: SelectedStop;
+  onClose: () => void;
+  onPrev: (() => void) | null;
+  onNext: (() => void) | null;
+}) {
+  const { sticker, color, journeyTitle, stopIndex, journeyStops } = stop;
+  const totalStops = journeyStops?.length ?? null;
+  const touchStartX = useRef<number | null>(null);
+
   const takenAt = sticker.photo_taken_at
     ? new Date(sticker.photo_taken_at).toLocaleString(undefined, {
         month: "numeric", day: "numeric", year: "numeric",
         hour: "numeric", minute: "2-digit",
       })
     : null;
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) < 50) return;
+    if (dx > 0 && onPrev) onPrev();
+    else if (dx < 0 && onNext) onNext();
+  }
 
   return (
     <>
@@ -42,20 +66,53 @@ function StickerSheet({ stop, onClose }: { stop: SelectedStop; onClose: () => vo
         className="absolute bottom-0 left-0 right-0 z-30 rounded-t-3xl overflow-hidden"
         style={{ background: "#1c1c1e" }}
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
-        <div className="flex justify-center pt-3 pb-1">
+        <div className="flex items-center justify-center pt-3 pb-1 relative">
           <div className="w-10 h-1 rounded-full bg-white/20" />
+          {stopIndex == null && (
+            <button onClick={onClose} className="absolute right-4 w-7 h-7 flex items-center justify-center rounded-full text-neutral-500 hover:text-neutral-300" style={{ background: "#2c2c2e" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          )}
         </div>
 
+        {/* Stop counter row */}
+        {stopIndex != null && totalStops != null && (
+          <div className="flex items-center justify-between px-4 pt-1 pb-2">
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: `${color}22`, color }}>
+              Stop {stopIndex} of {totalStops}
+            </span>
+            <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-neutral-500 hover:text-neutral-300" style={{ background: "#2c2c2e" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        )}
+
         <div
-          className="mx-4 mt-2 mb-3 rounded-2xl overflow-hidden flex items-center justify-center"
+          className="mx-4 mt-2 mb-3 rounded-2xl overflow-hidden flex items-center justify-center relative"
           style={{ height: 200, background: "rgba(255,255,255,0.05)" }}
         >
+          {onPrev && (
+            <button onClick={onPrev} className="absolute left-2 z-10 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+          )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={sticker.image_url} alt={sticker.caption ?? "sticker"}
             className="max-h-full max-w-full object-contain"
             style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.6))" }} />
-          {stopIndex != null && (
+          {onNext && (
+            <button onClick={onNext} className="absolute right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.4)" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          )}
+          {stopIndex != null && !(onPrev || onNext) && (
             <div className="absolute top-4 left-8 w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
               style={{ background: color, border: "2px solid white" }}>
               {stopIndex}
@@ -299,7 +356,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
               e.stopPropagation();
               clickedJourneyRef.current = true;
               setSelectedJourneyId(journey.id);
-              setSelectedStop({ sticker: stop, color, journeyTitle: journey.caption ?? `${journey.username}'s Journey`, stopIndex: stopIndex + 1 });
+              setSelectedStop({ sticker: stop, color, journeyTitle: journey.caption ?? `${journey.username}'s Journey`, stopIndex: stopIndex + 1, journeyStops: validStops });
             });
 
             new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
@@ -449,9 +506,34 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
 
       <div ref={containerRef} className="w-full h-full rounded-2xl overflow-hidden" />
 
-      {selectedStop && (
-        <StickerSheet stop={selectedStop} onClose={() => setSelectedStop(null)} />
-      )}
+      {selectedStop && (() => {
+        const { journeyStops, stopIndex } = selectedStop;
+        const mapH = containerRef.current?.clientHeight ?? 600;
+        const bottomPad = Math.round(mapH * 0.6);
+
+        function navTo(idx: number) {
+          const next = journeyStops![idx];
+          mapRef.current?.flyTo({
+            center: [next.lng!, next.lat!],
+            zoom: 15,
+            duration: 700,
+            padding: { top: 60, bottom: bottomPad, left: 60, right: 60 },
+          });
+          setSelectedStop({ ...selectedStop, sticker: next, stopIndex: idx + 1 });
+        }
+
+        const hasPrev = journeyStops && stopIndex != null && stopIndex > 1;
+        const hasNext = journeyStops && stopIndex != null && stopIndex < journeyStops.length;
+
+        return (
+          <StickerSheet
+            stop={selectedStop}
+            onClose={() => setSelectedStop(null)}
+            onPrev={hasPrev ? () => navTo(stopIndex! - 2) : null}
+            onNext={hasNext ? () => navTo(stopIndex!) : null}
+          />
+        );
+      })()}
     </div>
   );
 }
