@@ -467,42 +467,6 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
         }
       </button>
 
-      {/* Journey legend */}
-      {journeys.length > 0 && !selectedStop && (
-        <div className="absolute bottom-10 left-3 z-10 space-y-1">
-          {journeys.slice(0, 5).map((journey, i) => {
-            const color = JOURNEY_COLORS[i % JOURNEY_COLORS.length];
-            const isSelected = selectedJourneyId === journey.id;
-            const isDimmed = selectedJourneyId !== null && !isSelected;
-            return (
-              <button
-                key={journey.id}
-                onClick={() => setSelectedJourneyId((prev) => prev === journey.id ? null : journey.id)}
-                className="flex items-center gap-1.5 backdrop-blur-sm rounded-lg px-2 py-1 shadow-sm border transition-all"
-                style={{
-                  background: isSelected ? `${color}22` : "rgba(255,255,255,0.9)",
-                  borderColor: isSelected ? color : "#e5e7eb",
-                  opacity: isDimmed ? 0.4 : 1,
-                }}
-              >
-                <div className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
-                <span className="text-xs font-medium text-neutral-700 max-w-30 truncate">
-                  {journey.caption ?? `${journey.username}'s Journey`}
-                </span>
-                {!journey.is_public && <span className="text-xs">🔒</span>}
-              </button>
-            );
-          })}
-          {selectedJourneyId && (
-            <button
-              onClick={() => setSelectedJourneyId(null)}
-              className="w-full text-xs text-neutral-500 text-center py-1"
-            >
-              Show all
-            </button>
-          )}
-        </div>
-      )}
 
       <div ref={containerRef} className="w-full h-full rounded-2xl overflow-hidden" />
 
