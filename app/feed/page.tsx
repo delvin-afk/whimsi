@@ -358,8 +358,9 @@ export default function FeedPage() {
 
   return (
     <main className="min-h-screen pb-24" style={{ background: "#0f0f0f" }}>
+      <div className="mx-auto w-full max-w-xl px-4">
       {/* Header */}
-      <div className="px-5 pt-14 pb-4 flex items-start justify-between">
+      <div className="pt-14 pb-4 flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-black text-white tracking-tight">Bonjour</h1>
           <p className="text-neutral-500 text-sm mt-0.5">Your Feed</p>
@@ -372,7 +373,7 @@ export default function FeedPage() {
         </Link>
       </div>
 
-      <div className="px-4 space-y-4">
+      <div className="space-y-4">
         {loading && (
           <div className="flex justify-center py-20">
             <div className="h-8 w-8 rounded-full border-2 border-neutral-800 animate-spin" style={{ borderTopColor: ACCENT }} />
@@ -402,6 +403,7 @@ export default function FeedPage() {
             onDeleted={(id) => setJourneys((prev) => prev.filter((j) => j.id !== id))}
           />
         ))}
+      </div>
       </div>
     </main>
   );
