@@ -43,7 +43,8 @@ type CustomizeResult =
   | { type: "cutout"; shape: CutoutShape; dataUrl: string }
   | { type: "ai"; dataUrl: string }
   | { type: "back" }
-  | { type: "jump"; targetIndex: number };
+  | { type: "jump"; targetIndex: number }
+  | { type: "jumpForward"; targetIndex: number; currentStickerDataUrl: string | null };
 
 const CUTOUT_SHAPES: { id: CutoutShape; label: string }[] = [
   { id: "circle",  label: "Circle"  },
@@ -958,6 +959,22 @@ function CapturePageInner() {
         continue;
       }
 
+      if (customizeResult.type === "jumpForward") {
+        // Save current photo with selected sticker (or original if none)
+        const curUrl = customizeResult.currentStickerDataUrl
+          ?? `data:${results[i].mimeType};base64,${results[i].base64}`;
+        results[i] = { ...results[i], stickerDataUrl: curUrl, status: "done" };
+        updatePhoto(results[i].id, { stickerDataUrl: curUrl, status: "done" });
+        // Auto-accept any intermediate photos with their original image
+        for (let j = i + 1; j < customizeResult.targetIndex; j++) {
+          const origUrl = `data:${results[j].mimeType};base64,${results[j].base64}`;
+          results[j] = { ...results[j], stickerDataUrl: origUrl, status: "done" };
+          updatePhoto(results[j].id, { stickerDataUrl: origUrl, status: "done" });
+        }
+        i = customizeResult.targetIndex;
+        continue;
+      }
+
       let stickerDataUrl: string | null = null;
       if (customizeResult.type === "original") {
         stickerDataUrl = `data:${results[i].mimeType};base64,${results[i].base64}`;
@@ -1061,6 +1078,12 @@ function CapturePageInner() {
 
   function onCustomizeJump(targetIndex: number) {
     customizeResolverRef.current?.({ type: "jump", targetIndex });
+  }
+
+  function onCustomizeJumpForward(targetIndex: number) {
+    if (!customizeResolverRef.current) return;
+    const currentStickerDataUrl = customizeSelectedMode === "original" ? null : customizeCurrentDataUrl;
+    customizeResolverRef.current({ type: "jumpForward", targetIndex, currentStickerDataUrl });
   }
 
   function onCustomizeConfirm() {
@@ -1896,14 +1919,17 @@ function CapturePageInner() {
                     return (
                       <button
                         key={p.id}
-                        onClick={() => isPrev ? onCustomizeJump(idx) : undefined}
-                        disabled={!isPrev && !isCurrent}
+                        onClick={() => {
+                          if (isPrev) onCustomizeJump(idx);
+                          else if (!isCurrent) onCustomizeJumpForward(idx);
+                        }}
+                        disabled={isCurrent}
                         className={`shrink-0 w-10 h-10 rounded-lg overflow-hidden border-2 transition ${
                           isCurrent
                             ? "border-white"
                             : isPrev
                             ? "border-neutral-500 hover:border-white active:scale-95 cursor-pointer"
-                            : "border-neutral-700/50 opacity-40 cursor-default"
+                            : "border-neutral-700/40 hover:border-neutral-400 active:scale-95 cursor-pointer opacity-60"
                         }`}
                       >
                         <img src={p.localUrl} alt="" className="w-full h-full object-cover" />
