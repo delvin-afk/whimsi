@@ -48,9 +48,11 @@ function JourneyMapView({ journey, mapboxToken }: { journey: Journey; mapboxToke
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !mapboxToken || stickersWithLoc.length === 0) return;
 
+    let destroyed = false;
+
     import("mapbox-gl").then(({ default: mapboxgl }) => {
       import("mapbox-gl/dist/mapbox-gl.css");
-      if (!containerRef.current) return;
+      if (destroyed || !containerRef.current) return;
 
       mapboxgl.accessToken = mapboxToken;
       const map = new mapboxgl.Map({
@@ -63,6 +65,7 @@ function JourneyMapView({ journey, mapboxToken }: { journey: Journey; mapboxToke
       mapRef.current = map;
 
       map.on("load", async () => {
+        if (destroyed) return;
         // Route — driving directions with straight-line fallback
         if (stickersWithLoc.length >= 2) {
           const straight = stickersWithLoc.map((s) => [s.lng!, s.lat!]);
@@ -88,6 +91,7 @@ function JourneyMapView({ journey, mapboxToken }: { journey: Journey; mapboxToke
               routeCoords.push(straight[i + 1]);
             }
           }
+          if (destroyed) return;
           const coords = routeCoords.length >= 2 ? routeCoords : straight;
           map.addSource("route", {
             type: "geojson",
@@ -133,7 +137,7 @@ function JourneyMapView({ journey, mapboxToken }: { journey: Journey; mapboxToke
       });
     });
 
-    return () => { mapRef.current?.remove(); mapRef.current = null; };
+    return () => { destroyed = true; mapRef.current?.remove(); mapRef.current = null; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={containerRef} className="w-full h-full" />;
