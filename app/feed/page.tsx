@@ -335,54 +335,16 @@ function JourneyCard({
   );
 }
 
-// Country code → greeting in the dominant local language
-const GREETINGS: Record<string, string> = {
-  FR: "Bonjour", BE: "Bonjour", CH: "Grüezi", LU: "Moien",
-  ES: "Hola", MX: "Hola", AR: "Hola", CO: "Hola", CL: "Hola", PE: "Hola",
-  PT: "Olá", BR: "Olá",
-  DE: "Hallo", AT: "Servus",
-  IT: "Ciao",
-  NL: "Hoi",
-  SE: "Hej", NO: "Hei", DK: "Hej", FI: "Hei",
-  PL: "Cześć",
-  RU: "Привет", UA: "Привіт",
-  GR: "Γεια",
-  TR: "Merhaba",
-  JP: "こんにちは",
-  CN: "你好", TW: "你好", HK: "你好",
-  KR: "안녕하세요",
-  TH: "สวัสดี",
-  VN: "Xin chào",
-  ID: "Halo", MY: "Helo",
-  IN: "नमस्ते", PK: "آداب",
-  SA: "مرحبا", AE: "مرحبا", EG: "أهلاً", MA: "مرحبا",
-  IL: "שלום",
-  NG: "Hello", KE: "Habari", ZA: "Sawubona",
-  US: "Hey", CA: "Hey",
-  GB: "Hello", IE: "Hello",
-  AU: "G'day", NZ: "Kia ora",
-};
-
-async function getLocationGreeting(token: string): Promise<string> {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) { resolve("Bonjour"); return; }
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        try {
-          const res = await fetch(
-            `https://api.mapbox.com/geocoding/v5/mapbox.places/${coords.longitude},${coords.latitude}.json?types=country&access_token=${token}`
-          );
-          const json = await res.json();
-          const code: string | undefined = json.features?.[0]?.properties?.short_code?.toUpperCase();
-          resolve(code && GREETINGS[code] ? GREETINGS[code] : "Bonjour");
-        } catch {
-          resolve("Bonjour");
-        }
-      },
-      () => resolve("Bonjour"),
-      { timeout: 6000 }
-    );
-  });
+function journeyMatchesSearch(journey: Journey, query: string): boolean {
+  if (!query.trim()) return true;
+  const q = query.toLowerCase();
+  if (journey.caption?.toLowerCase().includes(q)) return true;
+  if (journey.username.toLowerCase().includes(q)) return true;
+  for (const s of journey.stickers) {
+    if (s.caption?.toLowerCase().includes(q)) return true;
+    if (s.location_name?.toLowerCase().includes(q)) return true;
+  }
+  return false;
 }
 
 // ── Feed page ─────────────────────────────────────────────────────────────────
@@ -390,43 +352,76 @@ export default function FeedPage() {
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [username, setUsername] = useState("");
-  const [greeting, setGreeting] = useState("Bonjour");
+  const [searchQuery, setSearchQuery] = useState("");
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
   useEffect(() => {
     getSupabaseBrowser().auth.getUser().then(async ({ data }) => {
       const uid = data.user?.id ?? null;
       setCurrentUserId(uid);
-      if (data.user?.user_metadata?.username) setUsername(data.user.user_metadata.username);
 
       const params = uid ? `?user_id=${uid}` : "";
       const res = await fetch(`/api/journeys${params}`).then((r) => r.json()).catch(() => ({ journeys: [] }));
       setJourneys(res.journeys ?? []);
       setLoading(false);
     });
-
-    if (mapboxToken) {
-      getLocationGreeting(mapboxToken).then(setGreeting);
-    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filteredJourneys = journeys.filter((j) => journeyMatchesSearch(j, searchQuery));
 
   return (
     <main className="min-h-screen pb-24" style={{ background: "#0f0f0f" }}>
       <div className="mx-auto w-full max-w-xl px-4">
-      {/* Header */}
-      <div className="pt-14 pb-4 flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">{greeting}</h1>
-          <p className="text-neutral-500 text-sm mt-0.5">Your Feed</p>
+
+        {/* Header */}
+        <div className="pt-14 pb-3 flex items-center justify-between">
+          <span className="text-2xl font-black text-white tracking-tight">whimsi</span>
+          <div className="flex items-center gap-3">
+            <Link href="/map" className="text-white/70 hover:text-white transition">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+                <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
+              </svg>
+            </Link>
+            <button className="text-white/70 hover:text-white transition">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+            </button>
+            <button className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "#2c2c2e" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+              </svg>
+            </button>
+          </div>
         </div>
-        <Link href="/map" className="w-9 h-9 flex items-center justify-center rounded-xl mt-1" style={{ background: "#1c1c1e" }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
-            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
-            <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
-          </svg>
-        </Link>
-      </div>
+
+        {/* Search bar */}
+        <div className="mb-4 relative">
+          <div className="flex items-center gap-2 px-4 py-3 rounded-2xl" style={{ background: "#1c1c1e" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2.5" strokeLinecap="round" className="shrink-0">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search for location, interests, etc."
+              className="flex-1 bg-transparent text-white placeholder-[#8e8e93] text-sm outline-none"
+            />
+            {searchQuery ? (
+              <button onClick={() => setSearchQuery("")} className="text-[#8e8e93] hover:text-white shrink-0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+            )}
+          </div>
+        </div>
 
       <div className="space-y-4">
         {loading && (
@@ -448,7 +443,15 @@ export default function FeedPage() {
           </div>
         )}
 
-        {!loading && journeys.map((journey) => (
+        {!loading && journeys.length > 0 && filteredJourneys.length === 0 && (
+          <div className="text-center py-20 space-y-2">
+            <p className="text-3xl">🔍</p>
+            <p className="font-semibold text-white">No results for &ldquo;{searchQuery}&rdquo;</p>
+            <p className="text-sm text-neutral-500">Try a different location or caption</p>
+          </div>
+        )}
+
+        {!loading && filteredJourneys.map((journey) => (
           <JourneyCard
             key={journey.id}
             journey={journey}
