@@ -6,6 +6,29 @@ import Link from "next/link";
 import JourneyShareCardModal from "@/components/JourneyShareCardModal";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
+interface ISpeechRecognitionResult {
+  readonly isFinal: boolean;
+  [index: number]: { transcript: string };
+}
+interface ISpeechRecognitionEvent extends Event {
+  readonly resultIndex: number;
+  readonly results: { length: number; [i: number]: ISpeechRecognitionResult };
+}
+interface ISpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: ((e: ISpeechRecognitionEvent) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+}
+type SpeechRecognitionWindow = Window & {
+  SpeechRecognition?: new () => ISpeechRecognition;
+  webkitSpeechRecognition?: new () => ISpeechRecognition;
+};
+
 const ACCENT = "#4ade80";   // UI color: buttons, badges
 const MAP_LINE = "#a855f7"; // Map route line color — purple for visibility on streets map
 const STICKER_SIZE = 48;
@@ -357,6 +380,10 @@ export default function FeedPage() {
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [interimText, setInterimText] = useState("");
+  const recognitionRef = useRef<ISpeechRecognition | null>(null);
+  const committedRef = useRef("");
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
   useEffect(() => {
@@ -370,6 +397,45 @@ export default function FeedPage() {
       setLoading(false);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function startListening() {
+    const win = window as SpeechRecognitionWindow;
+    const SR = win.SpeechRecognition ?? win.webkitSpeechRecognition;
+    if (!SR) { alert("Speech recognition isn't supported in this browser."); return; }
+    const recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    committedRef.current = searchQuery;
+    recognition.onresult = (e: ISpeechRecognitionEvent) => {
+      let interim = "";
+      let newCommitted = committedRef.current;
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const text = e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+          newCommitted += (newCommitted ? " " : "") + text.trim();
+          committedRef.current = newCommitted;
+        } else {
+          interim += text;
+        }
+      }
+      setSearchQuery(newCommitted + (interim ? " " + interim : ""));
+      setInterimText(interim);
+    };
+    recognition.onerror = () => stopListening();
+    recognition.onend = () => { setIsListening(false); setInterimText(""); };
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }
+
+  function stopListening() {
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
+    setIsListening(false);
+    setInterimText("");
+    setSearchQuery(committedRef.current);
+  }
 
   const filteredJourneys = journeys.filter((j) => journeyMatchesSearch(j, searchQuery));
 
@@ -401,30 +467,48 @@ export default function FeedPage() {
         </div>
 
         {/* Search bar */}
-        <div className="mb-4 relative">
-          <div className="flex items-center gap-2 px-4 py-3 rounded-2xl" style={{ background: "#1c1c1e" }}>
+        <div className="mb-4">
+          <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl transition-colors ${isListening ? "ring-2 ring-red-500" : ""}`} style={{ background: "#1c1c1e" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2.5" strokeLinecap="round" className="shrink-0">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search for location, interests, etc."
+              onChange={(e) => { committedRef.current = e.target.value; setSearchQuery(e.target.value); }}
+              placeholder={isListening ? (interimText ? `"${interimText}"` : "Listening…") : "Search for location, interests, etc."}
               className="flex-1 bg-transparent text-white placeholder-[#8e8e93] text-sm outline-none"
             />
-            {searchQuery ? (
-              <button onClick={() => setSearchQuery("")} className="text-[#8e8e93] hover:text-white shrink-0">
+            {searchQuery && !isListening ? (
+              <button onClick={() => { committedRef.current = ""; setSearchQuery(""); }} className="text-[#8e8e93] hover:text-white shrink-0">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <path d="M18 6 6 18M6 6l12 12"/>
                 </svg>
               </button>
             ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" className="shrink-0">
-                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/>
-              </svg>
+              <button
+                onClick={isListening ? stopListening : startListening}
+                className={`shrink-0 transition-colors ${isListening ? "text-red-500" : "text-[#8e8e93] hover:text-white"}`}
+              >
+                {isListening ? (
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                  </span>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/>
+                  </svg>
+                )}
+              </button>
             )}
           </div>
+          {isListening && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-400 px-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+              Listening{interimText ? `… "${interimText}"` : "…"} — tap to stop
+            </p>
+          )}
         </div>
 
       <div className="space-y-4">
