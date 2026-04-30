@@ -216,12 +216,11 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
       }
     });
 
-    // Hide other journeys' sticker markers; keep selected journey's markers visible
-    markersByJourneyRef.current.forEach((wrappers, journeyId) => {
-      const hide = selectedJourneyId !== null && journeyId !== selectedJourneyId;
-      wrappers.forEach((el) => {
-        el.style.opacity = hide ? "0" : "1";
-        el.style.pointerEvents = hide ? "none" : "";
+    // Show/hide journey markers based on selection
+    markersByJourneyRef.current.forEach((elements, jId) => {
+      const hide = selectedJourneyId !== null && jId !== selectedJourneyId;
+      elements.forEach((el) => {
+        el.style.display = hide ? "none" : "flex";
       });
     });
   }, [selectedJourneyId, journeys]);
