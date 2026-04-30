@@ -367,13 +367,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
               .addTo(map);
           });
 
-          // Start flag
-          const startEl = document.createElement("div");
-          startEl.style.cssText = `width:28px;height:28px;border-radius:50%;background:${color};border:2.5px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:13px;`;
-          startEl.textContent = "🚩";
-          new mapboxgl.Marker({ element: startEl, anchor: "center" })
-            .setLngLat(coordinates[0] as [number, number])
-            .addTo(map);
+
         });
 
         await Promise.all(journeyPromises);
