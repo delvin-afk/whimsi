@@ -217,11 +217,11 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
       }
     });
 
-    // Dim/show sticker markers via data attribute stamped on each wrapper
+    // Hide all sticker markers when any journey is selected, show when nothing selected
     containerRef.current?.querySelectorAll<HTMLElement>("[data-journey-id]").forEach((el) => {
-      const active = selectedJourneyId === null || el.dataset.journeyId === selectedJourneyId;
-      el.style.opacity = active ? "1" : "0.15";
-      el.style.transition = "opacity 0.25s";
+      const hidden = selectedJourneyId !== null;
+      el.style.opacity = hidden ? "0" : "1";
+      el.style.pointerEvents = hidden ? "none" : "";
     });
   }, [selectedJourneyId, journeys]);
 
@@ -490,7 +490,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
         return (
           <StickerSheet
             stop={selectedStop}
-            onClose={() => setSelectedStop(null)}
+            onClose={() => { setSelectedStop(null); setSelectedJourneyId(null); }}
             onPrev={hasPrev ? () => navTo(stopIndex! - 2) : null}
             onNext={hasNext ? () => navTo(stopIndex!) : null}
           />
