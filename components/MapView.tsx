@@ -191,9 +191,8 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
   const [selectedStop, setSelectedStop] = useState<SelectedStop | null>(null);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
 
-  // Refs for imperative map updates when selectedJourneyId changes
-  // data-journey-id is stamped on each wrapper element so we can query them directly
   const clickedJourneyRef = useRef(false); // prevents map-click from immediately deselecting
+  const markersByJourneyRef = useRef<Map<string, HTMLElement[]>>(new Map());
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -217,11 +216,13 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
       }
     });
 
-    // Hide all sticker markers when any journey is selected, show when nothing selected
-    containerRef.current?.querySelectorAll<HTMLElement>("[data-journey-id]").forEach((el) => {
-      const hidden = selectedJourneyId !== null;
-      el.style.opacity = hidden ? "0" : "1";
-      el.style.pointerEvents = hidden ? "none" : "";
+    // Hide other journeys' sticker markers; keep selected journey's markers visible
+    markersByJourneyRef.current.forEach((wrappers, journeyId) => {
+      const hide = selectedJourneyId !== null && journeyId !== selectedJourneyId;
+      wrappers.forEach((el) => {
+        el.style.opacity = hide ? "0" : "1";
+        el.style.pointerEvents = hide ? "none" : "";
+      });
     });
   }, [selectedJourneyId, journeys]);
 
@@ -361,6 +362,11 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
               setSelectedJourneyId(journey.id);
               setSelectedStop({ sticker: stop, color, journeyTitle: journey.caption ?? `${journey.username}'s Journey`, stopIndex: stopIndex + 1, journeyStops: validStops });
             });
+
+            if (!markersByJourneyRef.current.has(journey.id)) {
+              markersByJourneyRef.current.set(journey.id, []);
+            }
+            markersByJourneyRef.current.get(journey.id)!.push(wrapper);
 
             new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
               .setLngLat([stop.lng!, stop.lat!])
