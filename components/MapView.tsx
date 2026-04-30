@@ -238,9 +238,11 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
       );
     });
 
+    let destroyed = false;
+
     import("mapbox-gl").then(async ({ default: mapboxgl }) => {
       import("mapbox-gl/dist/mapbox-gl.css");
-      if (!containerRef.current) return;
+      if (destroyed || !containerRef.current) return;
 
       mapboxgl.accessToken = token;
       const map = new mapboxgl.Map({
@@ -259,6 +261,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
       });
 
       map.on("load", async () => {
+        if (destroyed) return;
         // ── Solo sticker markers ────────────────────────────────────────────
         const located = stickers.filter((s) => s.lat != null && s.lng != null);
         located.forEach((sticker) => {
@@ -374,6 +377,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
         });
 
         await Promise.all(journeyPromises);
+        if (destroyed) return;
 
         if (initialJourneyId) {
           const target = journeys.find((j) => j.id === initialJourneyId);
@@ -399,7 +403,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
       });
     });
 
-    return () => { mapRef.current?.remove(); mapRef.current = null; };
+    return () => { destroyed = true; mapRef.current?.remove(); mapRef.current = null; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function searchCity(e: React.SyntheticEvent<HTMLFormElement>) {
