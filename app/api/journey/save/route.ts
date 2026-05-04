@@ -45,15 +45,16 @@ export async function POST(req: Request) {
     // 3) Upload each sticker image and insert sticker rows
     const insertedStickers = [];
     for (const s of stickers) {
-      const buffer = Buffer.from(
-        s.stickerBase64.replace(/^data:image\/png;base64,/, ""),
-        "base64"
-      );
-      const filename = `${userId}/${Date.now()}-${s.orderIndex}.png`;
+      const mimeMatch = s.stickerBase64.match(/^data:([^;]+);base64,/);
+      const mimeType = mimeMatch?.[1] ?? "image/png";
+      const ext = mimeType === "image/jpeg" ? "jpg" : mimeType.split("/")[1] ?? "png";
+      const base64Data = s.stickerBase64.replace(/^data:[^;]+;base64,/, "");
+      const buffer = Buffer.from(base64Data, "base64");
+      const filename = `${userId}/${Date.now()}-${s.orderIndex}.${ext}`;
 
       const { error: uploadError } = await supabaseAdmin.storage
         .from("Stickers")
-        .upload(filename, buffer, { contentType: "image/png", upsert: false });
+        .upload(filename, buffer, { contentType: mimeType, upsert: false });
 
       if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`);
 
