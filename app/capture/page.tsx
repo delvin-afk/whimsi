@@ -716,7 +716,11 @@ function CapturePageInner() {
   }
 
   function removePendingPhoto(index: number) {
-    setPendingPhotos((prev) => prev.filter((_, i) => i !== index));
+    setPendingPhotos((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length === 0) setCameraStep("camera");
+      return next;
+    });
   }
 
   useEffect(() => {
