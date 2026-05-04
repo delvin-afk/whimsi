@@ -12,7 +12,6 @@ export async function generateMetadata(
     .from("journeys")
     .select("caption, username")
     .eq("id", id)
-    .eq("is_public", true)
     .single();
 
   if (!journey) return { title: "whimsi" };
@@ -50,7 +49,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     .from("journeys")
     .select("*")
     .eq("id", id)
-    .eq("is_public", true)
     .single();
 
   if (!journey) notFound();
