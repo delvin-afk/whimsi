@@ -228,7 +228,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !token) return;
 
-    const FALLBACK: [number, number] = [-122.4783, 37.8199];
+    const FALLBACK: [number, number] = [-122.2596, 37.8724]; // 102 South Hall, UC Berkeley
     const geoPromise = new Promise<[number, number]>((resolve) => {
       if (!navigator.geolocation) { resolve(FALLBACK); return; }
       navigator.geolocation.getCurrentPosition(
