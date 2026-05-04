@@ -544,7 +544,9 @@ function CapturePageInner() {
 
   // Caption popup: shown mid-processing after each sticker is ready
   const [captionModalPhoto, setCaptionModalPhoto] = useState<PhotoItem | null>(null);
-  type CaptionResult = { caption: string; voiceBlob: Blob | null; voiceMimeType: string | null; photoTakenAt?: string; locationName?: string; lat?: number | null; lng?: number | null };
+  const [captionModalIndex, setCaptionModalIndex] = useState(0); // 0-based index within valid photos
+  const [captionModalTotal, setCaptionModalTotal] = useState(0);
+  type CaptionResult = { caption: string; voiceBlob: Blob | null; voiceMimeType: string | null; photoTakenAt?: string; locationName?: string; lat?: number | null; lng?: number | null } | { type: "back" };
   const captionResolverRef = useRef<((result: CaptionResult) => void) | null>(null);
   const [journeyCaptionInput, setJourneyCaptionInput] = useState("");
   const [isJourneyListening, setIsJourneyListening] = useState(false);
@@ -949,102 +951,130 @@ function CapturePageInner() {
 
     const results: PhotoItem[] = journeyPhotos.map((p) => ({ ...p }));
 
-    // ── Phase 1: Customize all stickers (supports going back) ───────────────
-    let i = 0;
-    while (i < results.length) {
-      results[i] = { ...results[i], status: "processing" };
-      updatePhoto(results[i].id, { status: "processing" });
-      setJourneyProgress({ current: i + 1, total: results.length });
+    // ── Phases loop (caption back can return to customize) ──────────────────
+    let customizeStart = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      // ── Phase 1: Customize all stickers ──────────────────────────────────
+      let i = customizeStart;
+      while (i < results.length) {
+        results[i] = { ...results[i], status: "processing" };
+        updatePhoto(results[i].id, { status: "processing" });
+        setJourneyProgress({ current: i + 1, total: results.length });
 
-      const customizeResult = await new Promise<CustomizeResult>((resolve) => {
-        customizeResolverRef.current = resolve;
-        setCustomizeModalPhoto({ ...results[i] });
-      });
-      setCustomizeModalPhoto(null);
-      customizeResolverRef.current = null;
+        const customizeResult = await new Promise<CustomizeResult>((resolve) => {
+          customizeResolverRef.current = resolve;
+          setCustomizeModalPhoto({ ...results[i] });
+        });
+        setCustomizeModalPhoto(null);
+        customizeResolverRef.current = null;
 
-      if (customizeResult.type === "back") {
-        // Revert current photo to pending
-        results[i] = { ...results[i], status: "pending", stickerDataUrl: null };
-        updatePhoto(results[i].id, { status: "pending", stickerDataUrl: null });
-        if (i > 0) {
-          i--;
+        if (customizeResult.type === "back") {
           results[i] = { ...results[i], status: "pending", stickerDataUrl: null };
           updatePhoto(results[i].id, { status: "pending", stickerDataUrl: null });
+          if (i > 0) {
+            i--;
+            results[i] = { ...results[i], status: "pending", stickerDataUrl: null };
+            updatePhoto(results[i].id, { status: "pending", stickerDataUrl: null });
+          }
+          continue;
         }
-        continue;
-      }
 
-      if (customizeResult.type === "jump") {
-        // Revert all photos from targetIndex through current back to pending
-        for (let j = customizeResult.targetIndex; j <= i; j++) {
-          results[j] = { ...results[j], status: "pending", stickerDataUrl: null };
-          updatePhoto(results[j].id, { status: "pending", stickerDataUrl: null });
+        if (customizeResult.type === "jump") {
+          for (let j = customizeResult.targetIndex; j <= i; j++) {
+            results[j] = { ...results[j], status: "pending", stickerDataUrl: null };
+            updatePhoto(results[j].id, { status: "pending", stickerDataUrl: null });
+          }
+          i = customizeResult.targetIndex;
+          continue;
         }
-        i = customizeResult.targetIndex;
-        continue;
-      }
 
-      if (customizeResult.type === "jumpForward") {
-        // Save current photo with selected sticker (or original if none)
-        const curUrl = customizeResult.currentStickerDataUrl
-          ?? `data:${results[i].mimeType};base64,${results[i].base64}`;
-        results[i] = { ...results[i], stickerDataUrl: curUrl, status: "done" };
-        updatePhoto(results[i].id, { stickerDataUrl: curUrl, status: "done" });
-        // Auto-accept any intermediate photos with their original image
-        for (let j = i + 1; j < customizeResult.targetIndex; j++) {
-          const origUrl = `data:${results[j].mimeType};base64,${results[j].base64}`;
-          results[j] = { ...results[j], stickerDataUrl: origUrl, status: "done" };
-          updatePhoto(results[j].id, { stickerDataUrl: origUrl, status: "done" });
+        if (customizeResult.type === "jumpForward") {
+          const curUrl = customizeResult.currentStickerDataUrl
+            ?? `data:${results[i].mimeType};base64,${results[i].base64}`;
+          results[i] = { ...results[i], stickerDataUrl: curUrl, status: "done" };
+          updatePhoto(results[i].id, { stickerDataUrl: curUrl, status: "done" });
+          for (let j = i + 1; j < customizeResult.targetIndex; j++) {
+            const origUrl = `data:${results[j].mimeType};base64,${results[j].base64}`;
+            results[j] = { ...results[j], stickerDataUrl: origUrl, status: "done" };
+            updatePhoto(results[j].id, { stickerDataUrl: origUrl, status: "done" });
+          }
+          i = customizeResult.targetIndex;
+          continue;
         }
-        i = customizeResult.targetIndex;
-        continue;
+
+        let stickerDataUrl: string | null = null;
+        if (customizeResult.type === "original") {
+          stickerDataUrl = `data:${results[i].mimeType};base64,${results[i].base64}`;
+        } else {
+          stickerDataUrl = customizeResult.dataUrl;
+        }
+
+        if (stickerDataUrl) {
+          results[i] = { ...results[i], stickerDataUrl, status: "done" };
+          updatePhoto(results[i].id, { stickerDataUrl, status: "done" });
+        } else {
+          results[i] = { ...results[i], status: "error", errorMsg: "Skipped" };
+          updatePhoto(results[i].id, { status: "error", errorMsg: "Skipped" });
+        }
+        i++;
       }
 
-      let stickerDataUrl: string | null = null;
-      if (customizeResult.type === "original") {
-        stickerDataUrl = `data:${results[i].mimeType};base64,${results[i].base64}`;
-      } else {
-        stickerDataUrl = customizeResult.dataUrl;
+      // ── Phase 2: Caption all stickers ──────────────────────────────────────
+      const validForCaption = results.filter((r) => r.stickerDataUrl);
+      let ci = 0;
+      let backToCustomize = false;
+
+      while (ci < validForCaption.length) {
+        const photo = validForCaption[ci];
+        setJourneyCaptionInput(photo.caption ?? "");
+        journeyCommittedRef.current = photo.caption ?? "";
+        setJourneyCaptionIsRecording(false);
+        setJourneyCaptionVoiceBlob(null);
+        setJourneyCaptionVoicePreviewUrl(null);
+        setJourneyCaptionRecordingSeconds(0);
+        setCaptionModalIndex(ci);
+        setCaptionModalTotal(validForCaption.length);
+
+        const captionResult = await new Promise<CaptionResult>((resolve) => {
+          captionResolverRef.current = resolve;
+          setCaptionModalPhoto({ ...photo });
+        });
+        setCaptionModalPhoto(null);
+        captionResolverRef.current = null;
+
+        if ("type" in captionResult && captionResult.type === "back") {
+          if (ci > 0) {
+            ci--;
+          } else {
+            // Back from first caption → return to last customize
+            backToCustomize = true;
+            const lastIdx = results.length - 1;
+            results[lastIdx] = { ...results[lastIdx], status: "pending", stickerDataUrl: null };
+            updatePhoto(results[lastIdx].id, { status: "pending", stickerDataUrl: null });
+            customizeStart = lastIdx;
+          }
+          continue;
+        }
+
+        const cr = captionResult as Exclude<CaptionResult, { type: "back" }>;
+        const resultIdx = results.findIndex((r) => r.id === photo.id);
+        results[resultIdx] = {
+          ...results[resultIdx],
+          caption: cr.caption,
+          voiceBlob: cr.voiceBlob,
+          voiceMimeType: cr.voiceMimeType,
+          photoTakenAt: cr.photoTakenAt ?? results[resultIdx].photoTakenAt,
+          locationName: cr.locationName ?? results[resultIdx].locationName,
+          lat: cr.lat ?? results[resultIdx].lat,
+          lng: cr.lng ?? results[resultIdx].lng,
+        };
+        updatePhoto(results[resultIdx].id, { caption: cr.caption, locationName: results[resultIdx].locationName });
+        ci++;
       }
 
-      if (stickerDataUrl) {
-        results[i] = { ...results[i], stickerDataUrl, status: "done" };
-        updatePhoto(results[i].id, { stickerDataUrl, status: "done" });
-      } else {
-        results[i] = { ...results[i], status: "error", errorMsg: "Skipped" };
-        updatePhoto(results[i].id, { status: "error", errorMsg: "Skipped" });
-      }
-      i++;
-    }
-
-    // ── Phase 2: Caption all stickers ────────────────────────────────────────
-    for (let i = 0; i < results.length; i++) {
-      if (!results[i].stickerDataUrl) continue;
-
-      setJourneyCaptionInput("");
-      journeyCommittedRef.current = "";
-      setJourneyCaptionIsRecording(false);
-      setJourneyCaptionVoiceBlob(null);
-      setJourneyCaptionVoicePreviewUrl(null);
-      setJourneyCaptionRecordingSeconds(0);
-      const captionResult = await new Promise<CaptionResult>((resolve) => {
-        captionResolverRef.current = resolve;
-        setCaptionModalPhoto({ ...results[i] });
-      });
-      setCaptionModalPhoto(null);
-      captionResolverRef.current = null;
-      results[i] = {
-        ...results[i],
-        caption: captionResult.caption,
-        voiceBlob: captionResult.voiceBlob,
-        voiceMimeType: captionResult.voiceMimeType,
-        photoTakenAt: captionResult.photoTakenAt ?? results[i].photoTakenAt,
-        locationName: captionResult.locationName ?? results[i].locationName,
-        lat: captionResult.lat ?? results[i].lat,
-        lng: captionResult.lng ?? results[i].lng,
-      };
-      updatePhoto(results[i].id, { caption: captionResult.caption, locationName: results[i].locationName });
+      if (!backToCustomize) break; // both phases complete — exit outer loop
+      // else loop back: re-run Phase 1 from customizeStart
     }
 
     // All done — save if we have at least 1
@@ -1189,6 +1219,14 @@ function CapturePageInner() {
     setJourneyCaptionVoiceBlob(null);
     setJourneyCaptionVoicePreviewUrl(null);
     setJourneyCaptionRecordingSeconds(0);
+  }
+
+  function onCaptionBack() {
+    stopJourneyListening();
+    if (journeyCaptionIsRecording) stopJourneyCaptionRecording();
+    setJourneyCaptionInput("");
+    captionResolverRef.current?.({ type: "back" });
+    clearJourneyCaptionVoice();
   }
 
   function onSubmitJourneyCaption(skip: boolean) {
@@ -1983,14 +2021,20 @@ function CapturePageInner() {
         <div className="fixed inset-0 z-[75] bg-neutral-950 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="shrink-0 flex items-center gap-3 px-5 pt-12 pb-4">
+            <button
+              onClick={onCaptionBack}
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-neutral-800 text-neutral-400 hover:text-white shrink-0 transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
             {captionModalPhoto.stickerDataUrl && (
               <img src={captionModalPhoto.stickerDataUrl} alt=""
-                className="w-14 h-14 object-contain rounded-xl shrink-0 bg-neutral-800" />
+                className="w-12 h-12 object-contain rounded-xl shrink-0 bg-neutral-800" />
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-white font-bold text-lg">Customize Sticker</p>
+              <p className="text-white font-bold text-lg">Add Details</p>
               <p className="text-neutral-400 text-sm">
-                Photo {journeyPhotos.findIndex((p) => p.id === captionModalPhoto.id) + 1} of {journeyPhotos.length}
+                {captionModalIndex + 1} of {captionModalTotal}
               </p>
             </div>
           </div>
