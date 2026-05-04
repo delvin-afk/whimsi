@@ -251,6 +251,13 @@ function formatTimestamp(iso?: string) {
   return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+// Convert a UTC ISO string to a value suitable for <input type="datetime-local">
+// The input expects local time, not UTC, so we shift by the timezone offset.
+function toLocalInputValue(iso: string): string {
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 // ── Journey done / success screen ────────────────────────────────────────────
 const DONE_COLOR = "#a855f7";
@@ -605,7 +612,7 @@ function CapturePageInner() {
   useEffect(() => {
     if (!captionModalPhoto) return;
     const iso = captionModalPhoto.photoTakenAt;
-    setJourneyCaptionTimestamp(iso ? new Date(iso).toISOString().slice(0, 16) : "");
+    setJourneyCaptionTimestamp(iso ? toLocalInputValue(iso) : "");
     setJourneyCaptionLocationName(captionModalPhoto.locationName ?? "");
     setJourneyCaptionLat(captionModalPhoto.lat ?? null);
     setJourneyCaptionLng(captionModalPhoto.lng ?? null);
