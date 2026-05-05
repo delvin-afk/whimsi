@@ -193,6 +193,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
   const [searching, setSearching] = useState(false);
   const [locating, setLocating] = useState(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userLocationRef = useRef<[number, number] | null>(null);
   const [selectedStop, setSelectedStop] = useState<SelectedStop | null>(null);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
 
@@ -207,6 +208,15 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
 
   // Keep ref in sync with state so cluster callbacks can read latest value
   useEffect(() => { selectedJourneyIdRef.current = selectedJourneyId; }, [selectedJourneyId]);
+
+  // Grab user location eagerly so search can bias results toward it
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { userLocationRef.current = [pos.coords.longitude, pos.coords.latitude]; },
+      () => {}
+    );
+  }, []);
 
   function selectMarker(el: HTMLElement) {
     if (selectedMarkerElRef.current && selectedMarkerElRef.current !== el) {
@@ -558,8 +568,9 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
     }
     searchDebounceRef.current = setTimeout(async () => {
       try {
+        const prox = userLocationRef.current ? `&proximity=${userLocationRef.current[0]},${userLocationRef.current[1]}` : "";
         const res = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(value.trim())}.json?access_token=${token}&types=poi,address,place,region,country&limit=5&language=en`
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(value.trim())}.json?access_token=${token}&types=poi,address,place,region,country&limit=5&language=en${prox}`
         );
         const json = await res.json();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -596,8 +607,9 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
     if (suggestions.length > 0) { selectSuggestion(suggestions[0]); return; }
     setSearching(true);
     try {
+      const prox = userLocationRef.current ? `&proximity=${userLocationRef.current[0]},${userLocationRef.current[1]}` : "";
       const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query.trim())}.json?access_token=${token}&types=poi,address,place,region,country&limit=1&language=en`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query.trim())}.json?access_token=${token}&types=poi,address,place,region,country&limit=1&language=en${prox}`
       );
       const json = await res.json();
       const feature = json.features?.[0];
