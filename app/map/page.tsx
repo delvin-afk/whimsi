@@ -4,14 +4,27 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import type { StickerPost, Journey } from "@/types";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
+import ExploreSheet from "@/components/map/ExploreSheet";
+import MemoryView from "@/components/map/MemoryView";
+import type { StickerClickPayload } from "@/components/MapView";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
+
+type MemoryState = {
+  stop: StickerPost;
+  stopIndex: number | null;
+  journeyStops: StickerPost[] | null;
+  journeyTitle: string | null;
+  color: string;
+};
 
 export default function MapPage() {
   const [stickers, setStickers] = useState<StickerPost[]>([]);
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [loading, setLoading] = useState(true);
   const [initialJourneyId, setInitialJourneyId] = useState<string | null>(null);
+  const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
+  const [memory, setMemory] = useState<MemoryState | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -37,23 +50,59 @@ export default function MapPage() {
     });
   }, []);
 
+  function handleStickerClick(payload: StickerClickPayload) {
+    setMemory({
+      stop: payload.stop,
+      stopIndex: payload.stopIndex,
+      journeyStops: payload.journeyStops,
+      journeyTitle: payload.journeyTitle,
+      color: payload.color,
+    });
+  }
+
+  function handleMemoryNavigate(stop: StickerPost, index: number) {
+    setMemory((prev) => prev ? { ...prev, stop, stopIndex: index } : prev);
+  }
+
+  function handleMemoryClose() {
+    setMemory(null);
+  }
+
   return (
-    <div className="flex flex-col h-[calc(100dvh-4rem)]">
-      <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Sticker Map</h1>
-        <span className="text-sm text-neutral-400">
-          {stickers.filter((s) => s.lat).length} stickers · {journeys.length} journeys
-        </span>
-      </div>
-      <div className="flex-1 px-4 pb-4 min-h-0">
-        {loading ? (
-          <div className="w-full h-full rounded-2xl bg-neutral-100 flex items-center justify-center">
-            <div className="h-8 w-8 rounded-full border-2 border-neutral-300 border-t-neutral-700 animate-spin" />
-          </div>
-        ) : (
-          <MapView stickers={stickers} journeys={journeys} initialJourneyId={initialJourneyId} />
-        )}
-      </div>
+    <div className="fixed inset-0" style={{ zIndex: 0 }}>
+      {loading ? (
+        <div className="w-full h-full flex items-center justify-center bg-neutral-100">
+          <div className="h-8 w-8 rounded-full border-2 border-neutral-300 border-t-neutral-700 animate-spin" />
+        </div>
+      ) : (
+        <MapView
+          stickers={stickers}
+          journeys={journeys}
+          initialJourneyId={initialJourneyId}
+          selectedJourneyId={selectedJourneyId}
+          onJourneySelect={setSelectedJourneyId}
+          onStickerClick={handleStickerClick}
+        />
+      )}
+
+      <ExploreSheet
+        journeys={journeys}
+        selectedJourneyId={selectedJourneyId}
+        onJourneySelect={setSelectedJourneyId}
+        hidden={!!memory}
+      />
+
+      {memory && (
+        <MemoryView
+          stop={memory.stop}
+          stopIndex={memory.stopIndex}
+          journeyStops={memory.journeyStops}
+          journeyTitle={memory.journeyTitle}
+          color={memory.color}
+          onClose={handleMemoryClose}
+          onNavigate={handleMemoryNavigate}
+        />
+      )}
     </div>
   );
 }
