@@ -1261,12 +1261,16 @@ function CapturePageInner() {
         let voiceBase64: string | null = null;
         let voiceMimeType: string | null = null;
         if (p.voiceBlob) {
-          voiceBase64 = await new Promise<string>((resolve) => {
+          voiceBase64 = await new Promise<string | null>((resolve) => {
             const reader = new FileReader();
-            reader.onload = () => resolve((reader.result as string).split(",")[1]);
+            reader.onload = () => {
+              const result = reader.result as string | null;
+              resolve(result ? result.split(",")[1] ?? null : null);
+            };
+            reader.onerror = () => resolve(null);
             reader.readAsDataURL(p.voiceBlob!);
           });
-          voiceMimeType = p.voiceMimeType ?? null;
+          voiceMimeType = p.voiceBlob.type || p.voiceMimeType || "audio/webm";
         }
         return {
           stickerBase64: p.stickerDataUrl,

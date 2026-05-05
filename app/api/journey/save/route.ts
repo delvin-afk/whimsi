@@ -63,14 +63,17 @@ export async function POST(req: Request) {
         .getPublicUrl(filename);
 
       let voiceUrl: string | null = null;
-      if (s.voiceBase64 && s.voiceMimeType) {
+      if (s.voiceBase64) {
+        const mimeType = s.voiceMimeType || "audio/webm";
         const voiceBuffer = Buffer.from(s.voiceBase64, "base64");
-        const ext = s.voiceMimeType.includes("mp4") ? "m4a" : "webm";
+        const ext = mimeType.includes("mp4") ? "m4a" : mimeType.includes("ogg") ? "ogg" : "webm";
         const voiceFilename = `audio/${userId}/${Date.now()}-${s.orderIndex}.${ext}`;
         const { error: voiceUploadError } = await supabaseAdmin.storage
           .from("Stickers")
-          .upload(voiceFilename, voiceBuffer, { contentType: s.voiceMimeType, upsert: false });
-        if (!voiceUploadError) {
+          .upload(voiceFilename, voiceBuffer, { contentType: mimeType, upsert: false });
+        if (voiceUploadError) {
+          console.error(`Voice upload failed for sticker ${s.orderIndex}:`, voiceUploadError.message);
+        } else {
           const { data: { publicUrl: voicePublicUrl } } = supabaseAdmin.storage
             .from("Stickers")
             .getPublicUrl(voiceFilename);
