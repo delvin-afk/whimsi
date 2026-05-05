@@ -38,7 +38,7 @@ export default function MapPage() {
   }, []);
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-[calc(100dvh-4rem)]">
       <div className="px-5 pt-5 pb-3 flex items-center justify-between">
         <h1 className="text-xl font-bold">Sticker Map</h1>
         <span className="text-sm text-neutral-400">
