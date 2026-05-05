@@ -397,7 +397,7 @@ function JourneyDoneScreen({
   return (
     <div className="fixed inset-0 z-[80] flex flex-col" style={{ background: "#4ade80" }}>
       <div className="shrink-0 pt-14 pb-5 px-5 text-center">
-        <p className="text-3xl font-black text-black">Story is created! 🤩</p>
+        <p className="text-3xl font-black text-black">{journeyPhotos.length === 1 ? "Sticker is live! 🤩" : "Journey is live! 🤩"}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-4">
@@ -1329,7 +1329,7 @@ function CapturePageInner() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <polyline points="15 18 9 12 15 6"/>
             </svg>
-            Create a New Story
+            {flow === "journey" ? "Create a Journey" : "Create a Sticker"}
           </button>
           {username && (
             <div className="w-9 h-9 rounded-full bg-[#a855f7] flex items-center justify-center text-white font-bold text-sm">
@@ -1428,7 +1428,7 @@ function CapturePageInner() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <polyline points="15 18 9 12 15 6"/>
             </svg>
-            Create a New Story
+            {flow === "journey" ? "Create a Journey" : "Create a Sticker"}
           </button>
         </div>
 
@@ -1489,7 +1489,7 @@ function CapturePageInner() {
     <>
     <main className="max-w-lg mx-auto p-5 space-y-4 pb-36">
       <h1 className="text-2xl font-bold pt-2" suppressHydrationWarning>
-        {flow === "journey" ? "Create a Journey" : "Create a New Story"}
+        {(flow === "journey" || pendingPhotos.length > 1) ? "Create a Journey" : "Create a Sticker"}
       </h1>
 
       {/* ── SINGLE MODE ── */}
@@ -1511,7 +1511,7 @@ function CapturePageInner() {
                     <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
                   <span className="font-medium text-sm">{localImageUrl ? "Change photo" : flow === "journey" ? "Choose photos" : "Choose photo"}</span>
-                  <span className="text-xs text-neutral-400">{flow === "journey" ? "Select 2+ photos for your story" : "1 photo becomes a sticker"}</span>
+                  <span className="text-xs text-neutral-400">{flow === "journey" ? "Select 2+ photos for your journey" : "1 photo becomes a sticker"}</span>
                 </div>
               </label>
 
@@ -1735,14 +1735,14 @@ function CapturePageInner() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-neutral-600">{journeyPhotos.length} {journeyPhotos.length === 1 ? "photo" : "photos"}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">{journeyPhotos.length === 1 ? "Story" : "Journey"}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">{journeyPhotos.length === 1 ? "Sticker" : "Journey"}</span>
                 </div>
                 <button onClick={resetJourney} className="text-xs text-neutral-400 hover:text-neutral-700">Start over</button>
               </div>
 
               {/* Caption */}
               <div>
-                <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">{journeyPhotos.length === 1 ? "Story Caption" : "Journey Title / Caption"}</label>
+                <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">{journeyPhotos.length === 1 ? "Sticker Caption" : "Journey Caption"}</label>
                 <input
                   value={journeyCaption}
                   onChange={(e) => setJourneyCaption(e.target.value)}
@@ -1822,7 +1822,7 @@ function CapturePageInner() {
                 onClick={createJourney}
                 className="w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold text-base"
               >
-                {journeyPhotos.length === 1 ? "Create Story" : `Create Journey (${journeyPhotos.length} stickers)`}
+                {journeyPhotos.length === 1 ? "Create Sticker" : "Create Journey"}
               </button>
             </div>
           )}

@@ -28,7 +28,7 @@ function CreateMenu({ onClose }: { onClose: () => void }) {
           className="w-full flex items-center gap-4 px-6 py-5 text-white active:bg-white/10 transition-colors"
         >
           <span className="text-xl font-light leading-none">+</span>
-          <span className="text-base font-medium">Create New Story</span>
+          <span className="text-base font-medium">Create Journey</span>
         </button>
         <div className="h-px bg-white/10 mx-6" />
         <button
