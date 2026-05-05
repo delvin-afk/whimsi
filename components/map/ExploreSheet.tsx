@@ -35,7 +35,7 @@ export default function ExploreSheet({ journeys, selectedJourneyId, onJourneySel
 
   return (
     <div
-      className="fixed left-0 right-0 z-40 flex flex-col"
+      className="lg:hidden fixed left-0 right-0 z-40 flex flex-col"
       style={{
         bottom: 64,
         height: `${SHEET_VH}vh`,
