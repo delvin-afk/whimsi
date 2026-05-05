@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ssr: false });
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 import JourneyShareCardModal from "@/components/JourneyShareCardModal";
+import AudioPlayer from "@/components/AudioPlayer";
 
 // ── SpeechRecognition types ───────────────────────────────────────────────────
 interface ISpeechRecognitionResult {
@@ -1685,7 +1686,7 @@ function CapturePageInner() {
                       )}
                       {voicePreviewUrl && !isRecording && (
                         <div className="space-y-2">
-                          <audio src={voicePreviewUrl} controls className="w-full h-10" />
+                          <AudioPlayer src={voicePreviewUrl} />
                           <button type="button" onClick={clearVoiceMemo}
                             className="text-xs text-neutral-400 hover:text-red-500 underline underline-offset-2">
                             Remove &amp; re-record
@@ -2101,7 +2102,7 @@ function CapturePageInner() {
                 )}
                 {journeyCaptionVoicePreviewUrl && !journeyCaptionIsRecording && (
                   <div className="space-y-2">
-                    <audio src={journeyCaptionVoicePreviewUrl} controls className="w-full h-10" />
+                    <AudioPlayer src={journeyCaptionVoicePreviewUrl} />
                     <button type="button" onClick={clearJourneyCaptionVoice}
                       className="text-xs text-neutral-500 hover:text-red-400 underline underline-offset-2">
                       Remove &amp; re-record
