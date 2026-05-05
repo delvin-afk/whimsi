@@ -18,21 +18,6 @@ function travelDays(stickers: StickerPost[]): number | null {
   return Math.max(1, Math.round(span / 86400000) + 1);
 }
 
-function buildMapUrl(stickers: StickerPost[], token: string): string | null {
-  const located = stickers.filter((s) => s.lat != null && s.lng != null);
-  if (!located.length || !token) return null;
-
-  const pins = located
-    .slice(0, 10)
-    .map((s) => `pin-s+f43f5e(${s.lng},${s.lat})`)
-    .join(",");
-
-  if (located.length === 1) {
-    return `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${pins}/${located[0].lng},${located[0].lat},13/280x180@2x?access_token=${token}`;
-  }
-  return `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${pins}/auto/280x180@2x?padding=30&access_token=${token}`;
-}
-
 interface Props {
   journey: Journey;
   isSelected?: boolean;
@@ -45,14 +30,15 @@ export default function JourneyCard({ journey, isSelected, onTap }: Props) {
   const firstLocation = journey.stickers.find((s) => s.location_name)?.location_name ?? null;
   const stopCount = journey.stickers.length;
   const days = travelDays(journey.stickers);
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
-  const mapUrl = buildMapUrl(journey.stickers, token);
 
   const dateDisplay = new Date(journey.created_at).toLocaleDateString(undefined, {
     month: "numeric",
     day: "numeric",
     year: "numeric",
   });
+
+  // Up to 4 stickers with images for the preview grid
+  const previews = journey.stickers.filter((s) => s.image_url).slice(0, 4);
 
   return (
     <div
@@ -63,7 +49,7 @@ export default function JourneyCard({ journey, isSelected, onTap }: Props) {
         border: isSelected ? `1.5px solid ${color}60` : "1.5px solid rgba(255,255,255,0.06)",
       }}
     >
-      {/* Top: user info */}
+      {/* User info row */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
         <div
           className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
@@ -73,40 +59,51 @@ export default function JourneyCard({ journey, isSelected, onTap }: Props) {
         </div>
         <div className="min-w-0">
           <p className="text-white text-sm font-semibold leading-tight">{journey.username}</p>
-          <p className="text-xs leading-tight" style={{ color: "rgba(255,255,255,0.45)" }}>
+          <p className="text-xs leading-tight truncate" style={{ color: "rgba(255,255,255,0.45)" }}>
             {dateDisplay}
             {firstLocation ? ` · ${firstLocation}` : ""}
           </p>
         </div>
       </div>
 
-      {/* Journey title */}
+      {/* Title */}
       <p className="px-4 pb-3 text-white font-bold text-base leading-snug">{title}</p>
 
-      {/* Map + stats row */}
-      <div className="flex gap-0 mx-4 mb-4 rounded-xl overflow-hidden" style={{ height: 110 }}>
-        {/* Map thumbnail */}
-        <div className="flex-1 relative overflow-hidden rounded-xl" style={{ background: "#1a1a1e" }}>
-          {mapUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={mapUrl}
-              alt="route map"
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center" style={{ color: "rgba(255,255,255,0.2)" }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9M9 7l6 2" />
+      {/* Images + stats row */}
+      <div className="flex gap-2 mx-4 mb-4" style={{ height: 110 }}>
+        {/* Sticker image grid */}
+        <div className="flex-1 grid gap-1 overflow-hidden rounded-xl min-w-0"
+          style={{ gridTemplateColumns: previews.length >= 2 ? "1fr 1fr" : "1fr",
+                   gridTemplateRows: previews.length >= 3 ? "1fr 1fr" : "1fr" }}>
+          {previews.length === 0 ? (
+            <div className="rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.05)" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+                <circle cx="8.5" cy="8.5" r="1.5" fill="rgba(255,255,255,0.2)" stroke="none" />
+                <path d="M21 15l-5-5L5 21" strokeLinecap="round" />
               </svg>
             </div>
+          ) : (
+            previews.map((s, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={s.id}
+                src={s.image_url}
+                alt=""
+                className="w-full h-full object-cover"
+                style={{
+                  borderRadius: i === 0 && previews.length === 1 ? "12px" : undefined,
+                  gridColumn: previews.length === 3 && i === 0 ? "1 / 2" : undefined,
+                }}
+              />
+            ))
           )}
         </div>
 
-        {/* Stats */}
+        {/* Stats panel */}
         <div
-          className="flex flex-col justify-center gap-3 px-4 rounded-xl ml-2 shrink-0"
-          style={{ background: "rgba(255,255,255,0.05)", minWidth: 130 }}
+          className="flex flex-col justify-center gap-3 px-4 rounded-xl shrink-0"
+          style={{ background: "rgba(255,255,255,0.05)", minWidth: 120 }}
         >
           <div>
             <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Number of Entries</p>
@@ -115,7 +112,9 @@ export default function JourneyCard({ journey, isSelected, onTap }: Props) {
           {days != null && (
             <div>
               <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Travel Time</p>
-              <p className="text-white font-bold text-xl leading-tight">{days} {days === 1 ? "day" : "days"}</p>
+              <p className="text-white font-bold text-xl leading-tight">
+                {days} {days === 1 ? "day" : "days"}
+              </p>
             </div>
           )}
         </div>
