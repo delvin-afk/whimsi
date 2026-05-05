@@ -6,6 +6,14 @@ import AudioPlayer from "@/components/AudioPlayer";
 
 const JOURNEY_COLORS = ["#a855f7", "#3b82f6", "#f97316", "#ec4899", "#14b8a6"];
 
+type SuggestionFeature = {
+  id: string;
+  text: string;
+  place_name: string;
+  center: [number, number];
+  place_type: string[];
+};
+
 interface Props {
   stickers: StickerPost[];
   journeys?: Journey[];
@@ -180,8 +188,11 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
   const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<SuggestionFeature[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [searching, setSearching] = useState(false);
   const [locating, setLocating] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedStop, setSelectedStop] = useState<SelectedStop | null>(null);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
 
@@ -537,20 +548,68 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
     return () => { destroyed = true; mapRef.current?.remove(); mapRef.current = null; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function onQueryChange(value: string) {
+    setQuery(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!value.trim() || !token) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(value.trim())}.json?access_token=${token}&types=poi,address,place,region,country&limit=5&language=en`
+        );
+        const json = await res.json();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const features: SuggestionFeature[] = (json.features ?? []).map((f: any) => ({
+          id: f.id,
+          text: f.text,
+          place_name: f.place_name,
+          center: f.center,
+          place_type: f.place_type,
+        }));
+        setSuggestions(features);
+        setShowSuggestions(features.length > 0);
+      } catch {
+        // ignore
+      }
+    }, 300);
+  }
+
+  function selectSuggestion(s: SuggestionFeature) {
+    const [lng, lat] = s.center;
+    const isPoi = s.place_type.includes("poi");
+    const isAddress = s.place_type.includes("address");
+    const isPlace = s.place_type.includes("place");
+    const zoom = isPoi ? 16 : isAddress ? 15 : isPlace ? 12 : 9;
+    mapRef.current?.flyTo({ center: [lng, lat], zoom, duration: 1000 });
+    setQuery(s.text);
+    setSuggestions([]);
+    setShowSuggestions(false);
+  }
+
   async function searchCity(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!query.trim() || !token || !mapRef.current) return;
+    if (suggestions.length > 0) { selectSuggestion(suggestions[0]); return; }
     setSearching(true);
     try {
       const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query.trim())}.json?access_token=${token}&types=place,region,country&limit=1`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query.trim())}.json?access_token=${token}&types=poi,address,place,region,country&limit=1&language=en`
       );
       const json = await res.json();
       const feature = json.features?.[0];
       if (feature) {
         const [lng, lat] = feature.center;
-        mapRef.current.flyTo({ center: [lng, lat], zoom: 10, duration: 1000 });
+        const isPoi = feature.place_type.includes("poi");
+        const isAddress = feature.place_type.includes("address");
+        const zoom = isPoi ? 16 : isAddress ? 15 : feature.place_type.includes("place") ? 12 : 9;
+        mapRef.current.flyTo({ center: [lng, lat], zoom, duration: 1000 });
         setQuery("");
+        setSuggestions([]);
+        setShowSuggestions(false);
       }
     } finally {
       setSearching(false);
@@ -582,16 +641,42 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
 
   return (
     <div className="relative w-full h-full">
-      {/* Search bar */}
-      <form onSubmit={searchCity} className="absolute top-3 left-3 right-14 z-10 flex gap-2">
-        <input value={query} onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search city or place…"
-          className="flex-1 h-10 rounded-xl bg-white shadow-md border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-purple-300" />
-        <button type="submit" disabled={searching || !query.trim()}
-          className="h-10 px-3 rounded-xl bg-white shadow-md border border-neutral-200 text-sm font-medium text-neutral-700 disabled:opacity-50 hover:bg-neutral-50">
-          {searching ? "…" : "Go"}
-        </button>
-      </form>
+      {/* Search bar + autocomplete */}
+      <div className="absolute top-3 left-3 right-14 z-10">
+        <form onSubmit={searchCity} className="flex gap-2">
+          <input
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+            placeholder="Search places, restaurants…"
+            className="flex-1 h-10 rounded-xl bg-white shadow-md border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-purple-300"
+          />
+          <button
+            type="submit"
+            disabled={searching || !query.trim()}
+            className="h-10 px-3 rounded-xl bg-white shadow-md border border-neutral-200 text-sm font-medium text-neutral-700 disabled:opacity-50 hover:bg-neutral-50"
+          >
+            {searching ? "…" : "Go"}
+          </button>
+        </form>
+
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="mt-1 rounded-xl bg-white shadow-lg border border-neutral-100 overflow-hidden">
+            {suggestions.map((s, i) => (
+              <button
+                key={s.id}
+                type="button"
+                onMouseDown={() => selectSuggestion(s)}
+                className={`w-full flex flex-col px-3 py-2.5 text-left hover:bg-neutral-50 active:bg-neutral-100 ${i < suggestions.length - 1 ? "border-b border-neutral-100" : ""}`}
+              >
+                <span className="text-sm font-medium text-neutral-800 truncate">{s.text}</span>
+                <span className="text-xs text-neutral-400 truncate">{s.place_name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Locate me */}
       <button onClick={locateMe} disabled={locating}
