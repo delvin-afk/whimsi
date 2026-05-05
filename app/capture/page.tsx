@@ -1322,7 +1322,7 @@ function CapturePageInner() {
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pt-12 pb-4">
           <button
-            onClick={() => { streamRef.current?.getTracks().forEach((t) => t.stop()); setCameraStep(null); }}
+            onClick={() => { streamRef.current?.getTracks().forEach((t) => t.stop()); router.push("/feed"); }}
             className="flex items-center gap-1.5 text-white font-semibold text-base"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
