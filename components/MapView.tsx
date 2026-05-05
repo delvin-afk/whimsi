@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { StickerPost, Journey } from "@/types";
+import AudioPlayer from "@/components/AudioPlayer";
 
 const JOURNEY_COLORS = ["#a855f7", "#3b82f6", "#f97316", "#ec4899", "#14b8a6"];
 
@@ -153,15 +154,8 @@ function StickerSheet({
         ) : null}
 
         {sticker.voice_url && (
-          <div className="mx-4 mb-3 rounded-2xl px-3 py-2.5 flex items-center gap-3"
-            style={{ background: "rgba(255,255,255,0.06)" }}>
-            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: color }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                <rect x="9" y="2" width="6" height="12" rx="3" stroke="white" strokeWidth="1.8"/>
-                <path d="M5 10a7 7 0 0 0 14 0" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
-              </svg>
-            </div>
-            <audio src={sticker.voice_url} controls className="flex-1 h-8" />
+          <div className="mx-4 mb-3">
+            <AudioPlayer src={sticker.voice_url} />
           </div>
         )}
 
