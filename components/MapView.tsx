@@ -192,6 +192,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
 
   const clickedJourneyRef = useRef(false); // prevents map-click from immediately deselecting
+  const selectedMarkerElRef = useRef<HTMLElement | null>(null);
   const markersByJourneyRef = useRef<Map<string, HTMLElement[]>>(new Map());
   // stickerId → {el, coords} for cluster visibility management
   const markerInfoRef = useRef<Map<string, { el: HTMLElement; coords: [number, number]; journeyId: string | null }>>(new Map());
@@ -201,6 +202,25 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
 
   // Keep ref in sync with state so cluster callbacks can read latest value
   useEffect(() => { selectedJourneyIdRef.current = selectedJourneyId; }, [selectedJourneyId]);
+
+  function selectMarker(el: HTMLElement) {
+    if (selectedMarkerElRef.current && selectedMarkerElRef.current !== el) {
+      selectedMarkerElRef.current.style.transform = "";
+      selectedMarkerElRef.current.style.zIndex = "";
+    }
+    selectedMarkerElRef.current = el;
+    el.style.transform = "scale(1.3)";
+    el.style.transition = "transform 0.2s";
+    el.style.zIndex = "10";
+  }
+
+  function deselectMarker() {
+    if (selectedMarkerElRef.current) {
+      selectedMarkerElRef.current.style.transform = "";
+      selectedMarkerElRef.current.style.zIndex = "";
+      selectedMarkerElRef.current = null;
+    }
+  }
 
   // Compute the display for a marker based on both cluster state and journey selection
   function applyMarkerDisplay(el: HTMLElement) {
@@ -294,7 +314,15 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
           wrapper.appendChild(pin);
           wrapper.addEventListener("click", (e) => {
             e.stopPropagation();
+            selectMarker(wrapper);
             setSelectedStop({ sticker, color: "#f43f5e", journeyTitle: null, stopIndex: null });
+            const mapH = containerRef.current?.clientHeight ?? 600;
+            map.flyTo({
+              center: [sticker.lng!, sticker.lat!],
+              zoom: Math.max(map.getZoom(), 13),
+              duration: 500,
+              padding: { top: 60, bottom: Math.round(mapH * 0.58), left: 60, right: 60 },
+            });
           });
           markerInfoRef.current.set(sticker.id, { el: wrapper, coords: [sticker.lng!, sticker.lat!], journeyId: null });
           new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
@@ -373,8 +401,16 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
             wrapper.addEventListener("click", (e) => {
               e.stopPropagation();
               clickedJourneyRef.current = true;
+              selectMarker(wrapper);
               setSelectedJourneyId(journey.id);
               setSelectedStop({ sticker: stop, color, journeyTitle: journey.caption ?? `${journey.username}'s Journey`, stopIndex: stopIndex + 1, journeyStops: validStops });
+              const mapH = containerRef.current?.clientHeight ?? 600;
+              map.flyTo({
+                center: [stop.lng!, stop.lat!],
+                zoom: Math.max(map.getZoom(), 13),
+                duration: 500,
+                padding: { top: 60, bottom: Math.round(mapH * 0.58), left: 60, right: 60 },
+              });
             });
 
             if (!markersByJourneyRef.current.has(journey.id)) {
@@ -597,9 +633,9 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
         return (
           <StickerSheet
             stop={selectedStop}
-            onClose={() => { setSelectedStop(null); setSelectedJourneyId(null); }}
-            onPrev={hasPrev ? () => navTo(stopIndex! - 2) : null}
-            onNext={hasNext ? () => navTo(stopIndex!) : null}
+            onClose={() => { deselectMarker(); setSelectedStop(null); setSelectedJourneyId(null); }}
+            onPrev={hasPrev ? () => { deselectMarker(); navTo(stopIndex! - 2); } : null}
+            onNext={hasNext ? () => { deselectMarker(); navTo(stopIndex!); } : null}
           />
         );
       })()}
