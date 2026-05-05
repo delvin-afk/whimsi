@@ -594,7 +594,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
     const isPoi = s.place_type.includes("poi");
     const isAddress = s.place_type.includes("address");
     const isPlace = s.place_type.includes("place");
-    const zoom = isPoi ? 16 : isAddress ? 15 : isPlace ? 12 : 9;
+    const zoom = (isPoi || isAddress) ? 17 : isPlace ? 12 : 9;
     mapRef.current?.flyTo({ center: [lng, lat], zoom, duration: 1000 });
     setQuery(s.text);
     setSuggestions([]);
@@ -617,7 +617,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
         const [lng, lat] = feature.center;
         const isPoi = feature.place_type.includes("poi");
         const isAddress = feature.place_type.includes("address");
-        const zoom = isPoi ? 16 : isAddress ? 15 : feature.place_type.includes("place") ? 12 : 9;
+        const zoom = (isPoi || isAddress) ? 17 : feature.place_type.includes("place") ? 12 : 9;
         mapRef.current.flyTo({ center: [lng, lat], zoom, duration: 1000 });
         setQuery("");
         setSuggestions([]);
