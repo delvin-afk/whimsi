@@ -193,8 +193,24 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
 
   const clickedJourneyRef = useRef(false); // prevents map-click from immediately deselecting
   const markersByJourneyRef = useRef<Map<string, HTMLElement[]>>(new Map());
+  // stickerId → {el, coords} for cluster visibility management
+  const markerInfoRef = useRef<Map<string, { el: HTMLElement; coords: [number, number]; journeyId: string | null }>>(new Map());
+  const selectedJourneyIdRef = useRef<string | null>(null);
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+  // Keep ref in sync with state so cluster callbacks can read latest value
+  useEffect(() => { selectedJourneyIdRef.current = selectedJourneyId; }, [selectedJourneyId]);
+
+  // Compute the display for a marker based on both cluster state and journey selection
+  function applyMarkerDisplay(el: HTMLElement) {
+    const clustered = el.dataset.clustered === "1";
+    const journeyId = el.dataset.journeyId ?? null;
+    const journeyHidden = journeyId !== null
+      && selectedJourneyIdRef.current !== null
+      && selectedJourneyIdRef.current !== journeyId;
+    el.style.display = (clustered || journeyHidden) ? "none" : "flex";
+  }
 
   // ── Update line / marker visibility when selection changes ──────────────────
   useEffect(() => {
@@ -216,14 +232,16 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
       }
     });
 
-    // Show/hide journey markers based on selection
-    markersByJourneyRef.current.forEach((elements, jId) => {
-      const hide = selectedJourneyId !== null && jId !== selectedJourneyId;
-      elements.forEach((el) => {
-        el.style.display = hide ? "none" : "flex";
-      });
+    // Recompute display for all markers (cluster + journey selection)
+    markerInfoRef.current.forEach(({ el }) => applyMarkerDisplay(el));
+
+    // Dim/show opacity via data attribute
+    containerRef.current?.querySelectorAll<HTMLElement>("[data-journey-id]").forEach((el) => {
+      const active = selectedJourneyId === null || el.dataset.journeyId === selectedJourneyId;
+      el.style.opacity = active ? "1" : "0.15";
+      el.style.transition = "opacity 0.25s";
     });
-  }, [selectedJourneyId, journeys]);
+  }, [selectedJourneyId, journeys]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !token) return;
@@ -269,7 +287,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
           wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer;";
           const img = document.createElement("img");
           img.src = sticker.image_url;
-          img.style.cssText = "width:40px;height:40px;object-fit:contain;display:block;filter:drop-shadow(0 0 4px rgba(0,0,0,0.5));";
+          img.style.cssText = "width:52px;height:52px;object-fit:contain;display:block;filter:drop-shadow(0 0 4px rgba(0,0,0,0.5));";
           const pin = document.createElement("div");
           pin.style.cssText = "width:8px;height:8px;border-radius:50%;background:#f43f5e;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.5);margin-top:2px;flex-shrink:0;";
           wrapper.appendChild(img);
@@ -278,6 +296,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
             e.stopPropagation();
             setSelectedStop({ sticker, color: "#f43f5e", journeyTitle: null, stopIndex: null });
           });
+          markerInfoRef.current.set(sticker.id, { el: wrapper, coords: [sticker.lng!, sticker.lat!], journeyId: null });
           new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
             .setLngLat([sticker.lng!, sticker.lat!])
             .addTo(map);
@@ -341,15 +360,11 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
             wrapper.dataset.journeyId = journey.id;
             wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:opacity 0.25s;";
             const stickerWrap = document.createElement("div");
-            stickerWrap.style.cssText = "position:relative;width:44px;height:44px;";
+            stickerWrap.style.cssText = "position:relative;width:56px;height:56px;";
             const img = document.createElement("img");
             img.src = stop.image_url;
-            img.style.cssText = "width:44px;height:44px;object-fit:contain;display:block;filter:drop-shadow(0 0 3px rgba(0,0,0,0.45));";
+            img.style.cssText = "width:56px;height:56px;object-fit:contain;display:block;filter:drop-shadow(0 0 3px rgba(0,0,0,0.45));";
             stickerWrap.appendChild(img);
-            const badge = document.createElement("div");
-            badge.style.cssText = `position:absolute;top:-5px;left:-5px;width:18px;height:18px;border-radius:50%;background:${color};color:white;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.4);border:1.5px solid white;`;
-            badge.textContent = String(stopIndex + 1);
-            stickerWrap.appendChild(badge);
             const pin = document.createElement("div");
             pin.style.cssText = `width:8px;height:8px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.45);margin-top:2px;flex-shrink:0;`;
             wrapper.appendChild(stickerWrap);
@@ -366,6 +381,7 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
               markersByJourneyRef.current.set(journey.id, []);
             }
             markersByJourneyRef.current.get(journey.id)!.push(wrapper);
+            markerInfoRef.current.set(stop.id, { el: wrapper, coords: [stop.lng!, stop.lat!], journeyId: journey.id });
 
             new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
               .setLngLat([stop.lng!, stop.lat!])
@@ -377,6 +393,92 @@ export default function MapView({ stickers, journeys = [], initialJourneyId }: P
 
         await Promise.all(journeyPromises);
         if (destroyed) return;
+
+        // ── Cluster source + layers ─────────────────────────────────────────
+        const clusterFeatures = Array.from(markerInfoRef.current.entries()).map(([id, { coords }]) => ({
+          type: "Feature" as const,
+          properties: { stickerId: id },
+          geometry: { type: "Point" as const, coordinates: coords },
+        }));
+
+        if (clusterFeatures.length > 0) {
+          map.addSource("stickers-cluster", {
+            type: "geojson",
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            data: { type: "FeatureCollection", features: clusterFeatures } as any,
+            cluster: true,
+            clusterRadius: 50,
+            clusterMaxZoom: 14,
+          });
+
+          map.addLayer({
+            id: "stickers-clusters",
+            type: "circle",
+            source: "stickers-cluster",
+            filter: ["has", "point_count"],
+            paint: {
+              "circle-color": "#f43f5e",
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              "circle-radius": ["step", ["get", "point_count"], 18, 10, 22, 30, 26] as any,
+              "circle-stroke-width": 2,
+              "circle-stroke-color": "#ffffff",
+              "circle-opacity": 0.9,
+            },
+          });
+
+          map.addLayer({
+            id: "stickers-cluster-count",
+            type: "symbol",
+            source: "stickers-cluster",
+            filter: ["has", "point_count"],
+            layout: {
+              "text-field": "{point_count_abbreviated}",
+              "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+              "text-size": 13,
+            },
+            paint: { "text-color": "#ffffff" },
+          });
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          map.on("click", "stickers-clusters", (e: any) => {
+            const features = map.queryRenderedFeatures(e.point, { layers: ["stickers-clusters"] });
+            if (!features.length) return;
+            const clusterId = features[0].properties?.cluster_id;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (map.getSource("stickers-cluster") as any).getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
+              if (err) return;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              map.easeTo({ center: (features[0].geometry as any).coordinates, zoom: zoom + 0.5 });
+            });
+          });
+          map.on("mouseenter", "stickers-clusters", () => { map.getCanvas().style.cursor = "pointer"; });
+          map.on("mouseleave", "stickers-clusters", () => { map.getCanvas().style.cursor = ""; });
+
+          function updateClusterVisibility() {
+            if (!map.isSourceLoaded("stickers-cluster")) return;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const unclustered: any[] = map.querySourceFeatures("stickers-cluster", {
+              filter: ["!", ["has", "point_count"]],
+            });
+            const visibleIds = new Set<string>(
+              unclustered.map((f) => f.properties?.stickerId as string).filter(Boolean)
+            );
+            const bounds = map.getBounds();
+            markerInfoRef.current.forEach(({ el, coords }, stickerId) => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const inViewport = bounds.contains(coords as any);
+              el.dataset.clustered = inViewport && !visibleIds.has(stickerId) ? "1" : "";
+              applyMarkerDisplay(el);
+            });
+          }
+
+          map.on("moveend", updateClusterVisibility);
+          map.on("zoomend", updateClusterVisibility);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          map.on("sourcedata", (e: any) => {
+            if (e.sourceId === "stickers-cluster" && e.isSourceLoaded) updateClusterVisibility();
+          });
+        }
 
         if (initialJourneyId) {
           const target = journeys.find((j) => j.id === initialJourneyId);
