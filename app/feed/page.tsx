@@ -233,6 +233,18 @@ function JourneyCard({
           <JourneyMapView journey={journey} mapboxToken={mapboxToken} />
         </div>
 
+        {/* Stats */}
+        <div className="flex divide-x" style={{ borderColor: "#2c2c2e" }}>
+          <div className="flex-1 px-4 py-4 text-center">
+            <p className="text-xs text-neutral-500 mb-1">Number of Entries</p>
+            <p className="text-white font-bold text-2xl">{journey.stickers.length}</p>
+          </div>
+          <div className="flex-1 px-4 py-4 text-center">
+            <p className="text-xs text-neutral-500 mb-1">Location</p>
+            <p className="text-white font-bold text-sm truncate px-2">{locationStr || "—"}</p>
+          </div>
+        </div>
+
       </div>
 
       {isOwner && sheetOpen && (
