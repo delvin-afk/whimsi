@@ -998,8 +998,13 @@ function CapturePageInner() {
             i--;
             results[i] = { ...results[i], status: "pending", stickerDataUrl: null };
             updatePhoto(results[i].id, { status: "pending", stickerDataUrl: null });
+            continue;
           }
-          continue;
+          // i === 0: exit the flow entirely, return to journey form
+          setCustomizeModalPhoto(null);
+          customizeResolverRef.current = null;
+          setJourneyStep("details");
+          return;
         }
 
         if (customizeResult.type === "jump") {
@@ -1068,15 +1073,13 @@ function CapturePageInner() {
         if ("type" in captionResult && captionResult.type === "back") {
           if (ci > 0) {
             ci--;
-          } else {
-            // Back from first caption → return to last customize
-            backToCustomize = true;
-            const lastIdx = results.length - 1;
-            results[lastIdx] = { ...results[lastIdx], status: "pending", stickerDataUrl: null };
-            updatePhoto(results[lastIdx].id, { status: "pending", stickerDataUrl: null });
-            customizeStart = lastIdx;
+            continue;
           }
-          continue;
+          // ci === 0: exit the flow entirely, return to journey form
+          setCaptionModalPhoto(null);
+          captionResolverRef.current = null;
+          setJourneyStep("details");
+          return;
         }
 
         const cr = captionResult as Exclude<CaptionResult, { type: "back" }>;
