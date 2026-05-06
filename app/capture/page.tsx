@@ -1357,7 +1357,7 @@ function CapturePageInner() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <polyline points="15 18 9 12 15 6"/>
             </svg>
-            {flow === "journey" ? "Create a Journey" : "Create a Sticker"}
+            {pendingPhotos.length > 1 ? "Create a Journey" : "Create a Sticker"}
           </button>
           {username && (
             <div className="w-9 h-9 rounded-full bg-[#a855f7] flex items-center justify-center text-white font-bold text-sm">
@@ -1456,7 +1456,7 @@ function CapturePageInner() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <polyline points="15 18 9 12 15 6"/>
             </svg>
-            {flow === "journey" ? "Create a Journey" : "Create a Sticker"}
+            {pendingPhotos.length > 1 ? "Create a Journey" : "Create a Sticker"}
           </button>
         </div>
 
@@ -1517,7 +1517,7 @@ function CapturePageInner() {
     <>
     <main className="max-w-lg mx-auto p-5 space-y-4 pb-36">
       <h1 className="text-2xl font-bold pt-2" suppressHydrationWarning>
-        {(flow === "journey" || pendingPhotos.length > 1) ? "Create a Journey" : "Create a Sticker"}
+        {pendingPhotos.length > 1 ? "Create a Journey" : "Create a Sticker"}
       </h1>
 
       {/* ── SINGLE MODE ── */}
@@ -1531,15 +1531,15 @@ function CapturePageInner() {
                   className="sr-only"
                   type="file"
                   accept="image/*"
-                  multiple={flow !== "sticker"}
+                  multiple={true}
                   onChange={(e) => onFilesSelected(e.target.files)}
                 />
                 <div className="flex flex-col items-center justify-center gap-2 h-28 rounded-2xl border-2 border-dashed border-neutral-300 hover:bg-neutral-50 cursor-pointer text-neutral-500">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                     <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
-                  <span className="font-medium text-sm">{localImageUrl ? "Change photo" : flow === "journey" ? "Choose photos" : "Choose photo"}</span>
-                  <span className="text-xs text-neutral-400">{flow === "journey" ? "Select 2+ photos for your journey" : "1 photo becomes a sticker"}</span>
+                  <span className="font-medium text-sm">{localImageUrl ? "Change photo" : "Choose photos"}</span>
+                  <span className="text-xs text-neutral-400">1 photo → sticker · 2+ photos → journey</span>
                 </div>
               </label>
 
@@ -1753,7 +1753,7 @@ function CapturePageInner() {
             className="sr-only"
             type="file"
             accept="image/*"
-            multiple={flow !== "sticker"}
+            multiple={true}
             onChange={(e) => onFilesSelected(e.target.files)}
           />
 
