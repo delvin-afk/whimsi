@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Journey } from "@/types";
 import Link from "next/link";
-import JourneyShareCardModal from "@/components/JourneyShareCardModal";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 interface ISpeechRecognitionResult {
@@ -168,7 +167,6 @@ function JourneyCard({
   onDeleted: (id: string) => void;
 }) {
   const isOwner = currentUserId === journey.user_id;
-  const [showShareCard, setShowShareCard] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -235,43 +233,7 @@ function JourneyCard({
           <JourneyMapView journey={journey} mapboxToken={mapboxToken} />
         </div>
 
-        {/* Actions */}
-        <div className="px-4 pb-4 pt-3 space-y-2">
-          {(
-            <div className="flex gap-2">
-              <Link
-                href={`/journey/${journey.id}`}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-white text-sm font-semibold"
-                style={{ background: "#2c2c2e" }}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
-                  <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
-                </svg>
-                View
-              </Link>
-              <button
-                onClick={() => setShowShareCard(true)}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-black text-sm font-semibold transition active:scale-[0.98]"
-                style={{ background: ACCENT }}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
-                </svg>
-                Share Card
-              </button>
-            </div>
-          )}
-        </div>
       </div>
-
-      {showShareCard && (
-        <JourneyShareCardModal
-          journeyId={journey.id}
-          journeyUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/journey/${journey.id}`}
-          onClose={() => setShowShareCard(false)}
-        />
-      )}
 
       {isOwner && sheetOpen && (
         <>
