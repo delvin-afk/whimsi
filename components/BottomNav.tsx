@@ -58,6 +58,7 @@ export default function BottomNav() {
   const feedActive = pathname === "/feed";
   const mapActive = pathname.startsWith("/map");
   const scrapbookActive = pathname.startsWith("/scrapbook") && !pathname.startsWith("/scrapbook/create");
+  const profileActive = pathname.startsWith("/profile");
   const createActive = isCreateActive || showCreate;
 
   return (
@@ -118,20 +119,15 @@ export default function BottomNav() {
         </Link>
 
         <Link
-          href="/scrapbook"
+          href="/profile"
           onClick={() => setShowCreate(false)}
-          className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-colors ${scrapbookActive ? "text-pink-500" : "text-neutral-400 hover:text-neutral-700"}`}
+          className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-colors ${profileActive ? "text-pink-500" : "text-neutral-400 hover:text-neutral-700"}`}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-              stroke="currentColor"
-              strokeWidth={scrapbookActive ? 2.5 : 1.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth={profileActive ? 2.5 : 1.5} fill={profileActive ? "currentColor" : "none"} fillOpacity={profileActive ? 0.15 : 0} />
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth={profileActive ? 2.5 : 1.5} strokeLinecap="round" />
           </svg>
-          <span className="text-[10px] font-medium">Scrapbook</span>
+          <span className="text-[10px] font-medium">Profile</span>
         </Link>
       </nav>
     </>
