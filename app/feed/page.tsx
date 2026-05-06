@@ -237,10 +237,12 @@ function JourneyCard({
           </div>
         )}
 
-        {/* Map */}
-        <div className="h-64 w-full bg-neutral-800">
+        {/* Map — tapping navigates to the map tab with this journey selected */}
+        <Link href={`/map?journey=${journey.id}`} className="block h-64 w-full bg-neutral-800 relative">
           <JourneyMapView journey={journey} mapboxToken={mapboxToken} />
-        </div>
+          {/* Invisible overlay so the tap registers on the Link, not the non-interactive map */}
+          <div className="absolute inset-0" />
+        </Link>
 
         {/* Stats */}
         <div className="flex divide-x" style={{ borderColor: "#2c2c2e" }}>
