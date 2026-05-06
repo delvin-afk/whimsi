@@ -45,14 +45,6 @@ function formatDateRange(stickers: Journey["stickers"], createdAt: string) {
   return first.toDateString() === last.toDateString() ? fmt(first) : `${fmt(first)} – ${fmt(last)}`;
 }
 
-function travelDays(stickers: Journey["stickers"]): number | null {
-  const times = stickers
-    .filter((s) => s.photo_taken_at)
-    .map((s) => new Date(s.photo_taken_at!).getTime())
-    .sort((a, b) => a - b);
-  if (times.length < 2) return null;
-  return Math.max(1, Math.ceil((times[times.length - 1] - times[0]) / 86400000));
-}
 
 function avatarColor(username: string) {
   const colors = ["#f43f5e", "#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#06b6d4", "#ec4899"];
@@ -168,41 +160,21 @@ function JourneyMapView({ journey, mapboxToken }: { journey: Journey; mapboxToke
 
 // ── Journey card ──────────────────────────────────────────────────────────────
 function JourneyCard({
-  journey, currentUserId, mapboxToken, onMadePublic, onDeleted,
+  journey, currentUserId, mapboxToken, onDeleted,
 }: {
   journey: Journey;
   currentUserId: string | null;
   mapboxToken: string;
-  onMadePublic: (id: string) => void;
   onDeleted: (id: string) => void;
 }) {
   const isOwner = currentUserId === journey.user_id;
-  const [shared, setShared] = useState(journey.is_public);
-  const [sharing, setSharing] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const dateRange = formatDateRange(journey.stickers, journey.created_at);
-  const days = travelDays(journey.stickers);
   const uniqueLocations = [...new Set(journey.stickers.map((s) => s.location_name).filter(Boolean))].slice(0, 2);
   const locationStr = uniqueLocations.join(", ");
-
-  const actionLabel = shared ? "shared a story" : "created a story";
-
-  async function handleShare() {
-    setSharing(true);
-    try {
-      const res = await fetch(`/api/journeys/${journey.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUserId, is_public: true }),
-      });
-      if (res.ok) { setShared(true); onMadePublic(journey.id); }
-    } finally {
-      setSharing(false);
-    }
-  }
 
   async function handleDelete() {
     setDeleting(true);
@@ -228,13 +200,13 @@ function JourneyCard({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white font-semibold text-sm leading-tight">
-              {journey.username} <span className="font-normal text-neutral-400">{actionLabel}</span>
+              {journey.username} <span className="font-normal text-neutral-400">shared a story</span>
             </p>
             <p className="text-xs text-neutral-500 truncate">
               {dateRange}{locationStr ? ` · ${locationStr}` : ""}
             </p>
           </div>
-          {!shared && isOwner && (
+          {!journey.is_public && isOwner && (
             <span className="shrink-0 text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(74,222,128,0.15)", color: ACCENT }}>
               Private
             </span>
@@ -263,33 +235,9 @@ function JourneyCard({
           <JourneyMapView journey={journey} mapboxToken={mapboxToken} />
         </div>
 
-        {/* Stats */}
-        <div className="flex divide-x" style={{ borderColor: "#2c2c2e" }}>
-          <div className="flex-1 px-4 py-4 text-center">
-            <p className="text-xs text-neutral-500 mb-1">Number of Entries</p>
-            <p className="text-white font-bold text-2xl">{journey.stickers.length}</p>
-          </div>
-          <div className="flex-1 px-4 py-4 text-center" style={{ borderColor: "#2c2c2e" }}>
-            <p className="text-xs text-neutral-500 mb-1">Travel Time</p>
-            <p className="text-white font-bold text-2xl">
-              {days != null ? `${days} day${days !== 1 ? "s" : ""}` : "—"}
-            </p>
-          </div>
-        </div>
-
         {/* Actions */}
-        <div className="px-4 pb-4 pt-1 space-y-2">
-          {isOwner && !shared && (
-            <button
-              onClick={handleShare}
-              disabled={sharing}
-              className="w-full py-3 rounded-2xl text-black text-sm font-semibold disabled:opacity-50 transition active:scale-[0.98]"
-              style={{ background: ACCENT }}
-            >
-              {sharing ? "Sharing…" : "Share to Feed"}
-            </button>
-          )}
-          {shared && (
+        <div className="px-4 pb-4 pt-3 space-y-2">
+          {(
             <div className="flex gap-2">
               <Link
                 href={`/journey/${journey.id}`}
@@ -545,7 +493,6 @@ export default function FeedPage() {
             journey={journey}
             currentUserId={currentUserId}
             mapboxToken={mapboxToken}
-            onMadePublic={(id) => setJourneys((prev) => prev.map((j) => j.id === id ? { ...j, is_public: true } : j))}
             onDeleted={(id) => setJourneys((prev) => prev.filter((j) => j.id !== id))}
           />
         ))}
