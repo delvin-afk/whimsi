@@ -189,6 +189,27 @@ function CutoutShapeIcon({ shape }: { shape: CutoutShape }) {
   }
 }
 
+// Resize a sticker data-URL to ≤ maxDim px before upload to avoid 4 MB body limits
+async function compressDataUrl(dataUrl: string, maxDim = 900): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const { naturalWidth: w, naturalHeight: h } = img;
+      if (w <= maxDim && h <= maxDim) { resolve(dataUrl); return; }
+      const scale = maxDim / Math.max(w, h);
+      const cw = Math.round(w * scale);
+      const ch = Math.round(h * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = cw; canvas.height = ch;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, cw, ch);
+      const isJpeg = dataUrl.startsWith("data:image/jpeg");
+      resolve(canvas.toDataURL(isJpeg ? "image/jpeg" : "image/png", isJpeg ? 0.85 : undefined));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 // ── Journey photo item ────────────────────────────────────────────────────────
 type PhotoItem = {
   id: string;
@@ -1272,8 +1293,11 @@ function CapturePageInner() {
           });
           voiceMimeType = p.voiceBlob.type || p.voiceMimeType || "audio/webm";
         }
+        const stickerBase64 = p.stickerDataUrl
+          ? await compressDataUrl(p.stickerDataUrl)
+          : p.stickerDataUrl;
         return {
-          stickerBase64: p.stickerDataUrl,
+          stickerBase64,
           caption: p.caption || null,
           locationName: p.locationName || null,
           lat: p.lat,
@@ -1871,6 +1895,29 @@ function CapturePageInner() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Saving */}
+          {journeyStep === "saving" && (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <div className="w-10 h-10 rounded-full border-4 border-neutral-200 border-t-[#4ade80] animate-spin" />
+              <p className="text-neutral-500 text-sm">Saving your journey…</p>
+            </div>
+          )}
+
+          {/* Rescue — save failed */}
+          {journeyStep === "rescue" && (
+            <div className="space-y-4 py-8 text-center px-4">
+              <p className="text-2xl">😕</p>
+              <p className="font-semibold text-neutral-800">Something went wrong</p>
+              <p className="text-sm text-red-600">{journeySaveError || "Failed to save journey. Please try again."}</p>
+              <button
+                onClick={resetJourney}
+                className="w-full py-3.5 rounded-2xl bg-[#4ade80] text-black font-bold text-base"
+              >
+                Start Over
+              </button>
             </div>
           )}
 
