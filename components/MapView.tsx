@@ -511,28 +511,33 @@ export default function MapView({
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
             placeholder="Search places, restaurants…"
-            className="flex-1 h-10 rounded-xl bg-white shadow-md border border-neutral-200 px-3 text-sm outline-none focus:ring-2 focus:ring-purple-300"
+            className="flex-1 h-10 rounded-xl px-3 text-sm outline-none text-white placeholder-neutral-500 focus:ring-2 focus:ring-purple-500"
+            style={{ background: "#1c1c1e", border: "1px solid rgba(255,255,255,0.08)" }}
           />
           <button
             type="submit"
             disabled={searching || !query.trim()}
-            className="h-10 px-3 rounded-xl bg-white shadow-md border border-neutral-200 text-sm font-medium text-neutral-700 disabled:opacity-50 hover:bg-neutral-50"
+            className="h-10 px-3 rounded-xl text-sm font-medium text-white disabled:opacity-40"
+            style={{ background: "#1c1c1e", border: "1px solid rgba(255,255,255,0.08)" }}
           >
             {searching ? "…" : "Go"}
           </button>
         </form>
 
         {showSuggestions && suggestions.length > 0 && (
-          <div className="mt-1 rounded-xl bg-white shadow-lg border border-neutral-100 overflow-hidden">
+          <div className="mt-1 rounded-xl overflow-hidden shadow-xl" style={{ background: "#1c1c1e", border: "1px solid rgba(255,255,255,0.08)" }}>
             {suggestions.map((s, i) => (
               <button
                 key={s.id}
                 type="button"
                 onMouseDown={() => selectSuggestion(s)}
-                className={`w-full flex flex-col px-3 py-2.5 text-left hover:bg-neutral-50 active:bg-neutral-100 ${i < suggestions.length - 1 ? "border-b border-neutral-100" : ""}`}
+                className={`w-full flex flex-col px-3 py-2.5 text-left transition-colors ${i < suggestions.length - 1 ? "border-b" : ""}`}
+                style={{ borderColor: "rgba(255,255,255,0.06)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.07)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "")}
               >
-                <span className="text-sm font-medium text-neutral-800 truncate">{s.text}</span>
-                <span className="text-xs text-neutral-400 truncate">{s.place_name}</span>
+                <span className="text-sm font-medium text-white truncate">{s.text}</span>
+                <span className="text-xs text-neutral-500 truncate">{s.place_name}</span>
               </button>
             ))}
           </div>
@@ -543,7 +548,8 @@ export default function MapView({
       <button
         onClick={locateMe}
         disabled={locating}
-        className="absolute top-3 right-3 z-10 w-10 h-10 rounded-xl bg-white shadow-md border border-neutral-200 flex items-center justify-center text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+        className="absolute top-3 right-3 z-10 w-10 h-10 rounded-xl flex items-center justify-center text-white disabled:opacity-40"
+        style={{ background: "#1c1c1e", border: "1px solid rgba(255,255,255,0.08)" }}
       >
         {locating ? (
           <div className="w-4 h-4 rounded-full border-2 border-neutral-300 border-t-purple-500 animate-spin" />
