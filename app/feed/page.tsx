@@ -45,6 +45,15 @@ function formatDateRange(stickers: Journey["stickers"], createdAt: string) {
 }
 
 
+function travelDays(stickers: Journey["stickers"]): number | null {
+  const times = stickers
+    .filter((s) => s.photo_taken_at)
+    .map((s) => new Date(s.photo_taken_at!).getTime())
+    .sort((a, b) => a - b);
+  if (times.length < 2) return null;
+  return Math.max(1, Math.ceil((times[times.length - 1] - times[0]) / 86400000));
+}
+
 function avatarColor(username: string) {
   const colors = ["#f43f5e", "#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#06b6d4", "#ec4899"];
   let hash = 0;
@@ -240,8 +249,8 @@ function JourneyCard({
             <p className="text-white font-bold text-2xl">{journey.stickers.length}</p>
           </div>
           <div className="flex-1 px-4 py-4 text-center">
-            <p className="text-xs text-neutral-500 mb-1">Location</p>
-            <p className="text-white font-bold text-sm truncate px-2">{locationStr || "—"}</p>
+            <p className="text-xs text-neutral-500 mb-1">Travel Time</p>
+            {(() => { const d = travelDays(journey.stickers); return <p className="text-white font-bold text-2xl">{d != null ? `${d} day${d !== 1 ? "s" : ""}` : "—"}</p>; })()}
           </div>
         </div>
 
