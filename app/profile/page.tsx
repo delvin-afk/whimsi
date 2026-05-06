@@ -17,8 +17,13 @@ function avatarColor(username: string) {
   return colors[Math.abs(hash) % colors.length];
 }
 
-function uniqueLocationCount(stickers: Journey["stickers"]): number {
-  return new Set(stickers.map((s) => s.location_name).filter(Boolean)).size;
+function travelDays(stickers: Journey["stickers"]): number | null {
+  const times = stickers
+    .filter((s) => s.photo_taken_at)
+    .map((s) => new Date(s.photo_taken_at!).getTime())
+    .sort((a, b) => a - b);
+  if (times.length < 2) return null;
+  return Math.max(1, Math.ceil((times[times.length - 1] - times[0]) / 86400000));
 }
 
 function journeyMatchesSearch(journey: Journey, query: string): boolean {
@@ -121,7 +126,6 @@ function JourneyMiniMap({ journey, mapboxToken }: { journey: Journey; mapboxToke
 
 // ── Journey card ──────────────────────────────────────────────────────────────
 function ProfileJourneyCard({ journey, mapboxToken }: { journey: Journey; mapboxToken: string }) {
-  const locCount = uniqueLocationCount(journey.stickers);
 
   return (
     <div className="rounded-3xl overflow-hidden" style={{ background: "#1c1c1e" }}>
@@ -149,12 +153,12 @@ function ProfileJourneyCard({ journey, mapboxToken }: { journey: Journey; mapbox
       {/* Stats */}
       <div className="flex divide-x" style={{ borderColor: "#2c2c2e" }}>
         <div className="flex-1 px-4 py-3 text-center">
-          <p className="text-xs text-neutral-500 mb-0.5">Entries</p>
-          <p className="text-white font-bold text-xl">{journey.stickers.length}</p>
+          <p className="text-xs text-neutral-500 mb-0.5">Number of Entries</p>
+          <p className="text-white font-bold text-2xl">{journey.stickers.length}</p>
         </div>
         <div className="flex-1 px-4 py-3 text-center">
-          <p className="text-xs text-neutral-500 mb-0.5">Locations</p>
-          <p className="text-white font-bold text-xl">{locCount || "—"}</p>
+          <p className="text-xs text-neutral-500 mb-0.5">Travel Time</p>
+          <p className="text-white font-bold text-2xl">{(() => { const d = travelDays(journey.stickers); return d != null ? `${d} day${d !== 1 ? "s" : ""}` : "—"; })()}</p>
         </div>
       </div>
     </div>
