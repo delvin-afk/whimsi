@@ -1,14 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabase/browser";
+import { useEffect, useRef, useState } from "react";
 import type { Journey } from "@/types";
+import Link from "next/link";
+import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 const MAP_LINE = "#a855f7";
 const STICKER_SIZE = 30;
 
-// ── Mini map ──────────────────────────────────────────────────────────────────
 function JourneyMapThumb({ journey, mapboxToken }: { journey: Journey; mapboxToken: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,64 +94,45 @@ function JourneyMapThumb({ journey, mapboxToken }: { journey: Journey; mapboxTok
   return <div ref={containerRef} className="w-full h-full" />;
 }
 
-// ── Postcard preview ──────────────────────────────────────────────────────────
-function PostcardPreview({
-  journey, recipientName, location, caption, mapboxToken,
-}: {
+function PostcardDisplay({ journey, recipientName, location, caption, mapboxToken, dateStr }: {
   journey: Journey;
   recipientName: string;
   location: string;
   caption: string;
   mapboxToken: string;
+  dateStr: string;
 }) {
-  const now = new Date();
-  const dateStr = `${String(now.getMonth() + 1).padStart(2, "0")} ${String(now.getDate()).padStart(2, "0")} ${String(now.getFullYear()).slice(-2)}`;
-
   return (
     <div className="flex w-full" style={{ height: 340, background: "#f5f0e8" }}>
-
-      {/* Left: map inset — cream border visible on all sides */}
       <div className="shrink-0" style={{ width: "50%", padding: "6px 6px 6px 6px" }}>
         <div className="w-full h-full overflow-hidden">
           <JourneyMapThumb journey={journey} mapboxToken={mapboxToken} />
         </div>
       </div>
 
-      {/* Vertical divider */}
       <div className="shrink-0" style={{ width: 1, background: "#a09080" }} />
 
-      {/* Right: postcard panel */}
       <div className="relative flex-1" style={{ background: "#f5f0e8" }}>
-
-        {/* Wavy lines — top left, slightly smaller, with 3 stars */}
         <div className="absolute" style={{ top: 10, left: 10, right: 58 }}>
           <svg width="100%" height="54" viewBox="0 0 150 54" preserveAspectRatio="none">
             {[0, 15, 30].map((y) => (
-              <path
-                key={y}
+              <path key={y}
                 d={`M0,${y + 10} C25,${y + 3} 50,${y + 18} 75,${y + 10} C100,${y + 3} 125,${y + 18} 150,${y + 10}`}
-                fill="none"
-                stroke="#777"
-                strokeWidth="1.4"
-                opacity="0.5"
-              />
+                fill="none" stroke="#777" strokeWidth="1.4" opacity="0.5" />
             ))}
-            <text x="6"   y="7"  fontSize="10" fill="#888" opacity="0.7">✦</text>
-            <text x="76"  y="28" fontSize="9"  fill="#888" opacity="0.6">✦</text>
-            <text x="130" y="48" fontSize="8"  fill="#888" opacity="0.5">✦</text>
+            <text x="6" y="7" fontSize="10" fill="#888" opacity="0.7">✦</text>
+            <text x="76" y="28" fontSize="9" fill="#888" opacity="0.6">✦</text>
+            <text x="130" y="48" fontSize="8" fill="#888" opacity="0.5">✦</text>
           </svg>
         </div>
 
-        {/* whimsi burst badge — top right, bigger */}
         <div className="absolute" style={{ top: 5, right: 5 }}>
           <svg width="62" height="62" viewBox="0 0 50 50">
-            <path d="M25,1 L28,10 L37,6 L34,15 L43,15 L37,22 L45,27 L37,32 L43,39 L34,39 L37,48 L28,44 L25,53 L22,44 L13,48 L16,39 L7,39 L13,32 L5,27 L13,22 L7,15 L16,15 L13,6 L22,10 Z"
-              fill="#4ade80" />
+            <path d="M25,1 L28,10 L37,6 L34,15 L43,15 L37,22 L45,27 L37,32 L43,39 L34,39 L37,48 L28,44 L25,53 L22,44 L13,48 L16,39 L7,39 L13,32 L5,27 L13,22 L7,15 L16,15 L13,6 L22,10 Z" fill="#4ade80" />
             <text x="25" y="29" textAnchor="middle" fontSize="7" fontWeight="700" fill="black" fontFamily="sans-serif">whimsi</text>
           </svg>
         </div>
 
-        {/* Postmark stamp — directly below the wavy lines */}
         <div className="absolute" style={{ top: 70, left: "50%", transform: "translateX(-50%)" }}>
           <svg width="80" height="80" viewBox="0 0 80 80">
             <circle cx="40" cy="40" r="37" fill="none" stroke="#a09080" strokeWidth="1.5" />
@@ -163,22 +143,15 @@ function PostcardPreview({
           </svg>
         </div>
 
-        {/* Bottom: 3 ruled lines — name (biggest), location, caption (smallest) */}
         <div className="absolute left-4 right-4 space-y-2" style={{ bottom: 16 }}>
           <div className="border-b pb-0.5" style={{ borderColor: "#c4b49a" }}>
-            <p style={{ color: "#1a0f0a", fontFamily: "Georgia, serif", fontSize: 15, fontStyle: "italic", minHeight: 18 }}>
-              {recipientName}
-            </p>
+            <p style={{ color: "#1a0f0a", fontFamily: "Georgia, serif", fontSize: 15, fontStyle: "italic", minHeight: 18 }}>{recipientName}</p>
           </div>
           <div className="border-b pb-0.5" style={{ borderColor: "#c4b49a" }}>
-            <p style={{ color: "#5a4030", fontFamily: "Georgia, serif", fontSize: 11, fontStyle: "italic", minHeight: 15 }}>
-              {location}
-            </p>
+            <p style={{ color: "#5a4030", fontFamily: "Georgia, serif", fontSize: 11, fontStyle: "italic", minHeight: 15 }}>{location}</p>
           </div>
           <div className="border-b pb-0.5" style={{ borderColor: "#c4b49a" }}>
-            <p style={{ color: "#7a6050", fontFamily: "Georgia, serif", fontSize: 9, fontStyle: "italic", minHeight: 13 }}>
-              {caption}
-            </p>
+            <p style={{ color: "#7a6050", fontFamily: "Georgia, serif", fontSize: 9, fontStyle: "italic", minHeight: 13 }}>{caption}</p>
           </div>
         </div>
       </div>
@@ -186,140 +159,81 @@ function PostcardPreview({
   );
 }
 
-// ── Page content ──────────────────────────────────────────────────────────────
-function CreatePostcardContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const journeyId = searchParams.get("journey");
-  const [journey, setJourney] = useState<Journey | null>(null);
-  const [recipientName, setRecipientName] = useState("");
-  const [location, setLocation] = useState("");
-  const [caption, setCaption] = useState("");
-  const [copied, setCopied] = useState(false);
+export default function PostcardViewPage({ journey, recipientName, location, caption }: {
+  journey: Journey;
+  recipientName: string;
+  location: string;
+  caption: string;
+}) {
+  const [isAuthed, setIsAuthed] = useState(false);
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
-  function handleSend() {
-    if (!journeyId) return;
-    const params = new URLSearchParams({ journey: journeyId });
-    if (recipientName) params.set("to", recipientName);
-    if (location) params.set("loc", location);
-    if (caption) params.set("cap", caption);
-    const shareUrl = `${window.location.origin}/postcard/view?${params.toString()}`;
-    const title = recipientName ? `A postcard for ${recipientName}` : "A whimsi postcard";
-
-    if (navigator.share) {
-      navigator.share({ title, url: shareUrl }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-      });
-    }
-  }
-
   useEffect(() => {
-    if (!journeyId) return;
-    getSupabaseBrowser().auth.getUser().then(async ({ data }) => {
-      const uid = data.user?.id;
-      if (!uid) return;
-      const res = await fetch(`/api/journeys?user_id=${uid}`).then((r) => r.json()).catch(() => ({ journeys: [] }));
-      const found = (res.journeys ?? []).find((j: Journey) => j.id === journeyId);
-      if (found) setJourney(found);
-    });
-  }, [journeyId]);
+    getSupabaseBrowser().auth.getSession().then(({ data }) => setIsAuthed(!!data.session));
+  }, []);
+
+  const now = new Date();
+  const dateStr = `${String(now.getMonth() + 1).padStart(2, "0")} ${String(now.getDate()).padStart(2, "0")} ${String(now.getFullYear()).slice(-2)}`;
 
   return (
-    <main className="min-h-screen pb-20" style={{ background: "#0f0f0f" }}>
+    <div className="min-h-screen flex flex-col" style={{ background: "#0f0f0f" }}>
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-14 pb-6">
-        <button
-          onClick={() => router.back()}
-          className="text-white p-1 -ml-1"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 5l-7 7 7 7" />
-          </svg>
-        </button>
-        <h1 className="text-white font-bold text-2xl">Create Post Card</h1>
+      <div className="flex items-center justify-between px-4 pt-12 pb-5">
+        <span className="text-white font-black text-xl tracking-tight">whimsi</span>
+        {recipientName && (
+          <p className="text-neutral-400 text-sm">For <span className="text-white font-medium">{recipientName}</span></p>
+        )}
       </div>
 
-      {/* Postcard preview — full width, no side padding */}
-      {journey ? (
-        <PostcardPreview
+      {/* Postcard — tapping opens the journey on the map */}
+      <Link href={isAuthed ? `/journey/${journey.id}` : "/auth"} className="block">
+        <PostcardDisplay
           journey={journey}
           recipientName={recipientName}
           location={location}
           caption={caption}
           mapboxToken={mapboxToken}
+          dateStr={dateStr}
         />
-      ) : (
-        <div className="w-full flex items-center justify-center" style={{ height: 340, background: "#f5f0e8" }}>
-          <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: "#c4b49a", borderTopColor: "#4ade80" }} />
-        </div>
-      )}
+      </Link>
 
-      {/* Form */}
-      <div className="px-4 space-y-5 mt-6">
-          <div>
-            <p className="text-white text-sm font-medium mb-2">Enter Recipient&apos;s Name:</p>
-            <input
-              type="text"
-              value={recipientName}
-              onChange={(e) => setRecipientName(e.target.value)}
-              placeholder="To Whom?"
-              className="w-full px-4 py-4 rounded-2xl text-white placeholder-neutral-600 text-sm outline-none"
-              style={{ background: "#1c1c1e" }}
-            />
-          </div>
+      {/* Journey info */}
+      <div className="px-4 pt-5 pb-4">
+        {journey.caption && (
+          <p className="text-white font-bold text-lg mb-1">{journey.caption}</p>
+        )}
+        <p className="text-neutral-500 text-sm">
+          A journey by <span className="text-neutral-300 font-medium">{journey.username}</span> · {journey.stickers.length} stop{journey.stickers.length !== 1 ? "s" : ""}
+        </p>
+      </div>
 
-          <div>
-            <p className="text-white text-sm font-medium mb-2">Select Location</p>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Ex: Athens, Greece"
-              className="w-full px-4 py-4 rounded-2xl text-white placeholder-neutral-600 text-sm outline-none"
-              style={{ background: "#1c1c1e" }}
-            />
-          </div>
-
-          <div>
-            <p className="text-white text-sm font-medium mb-2">Write Caption:</p>
-            <textarea
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              placeholder="Ex: What happened here?"
-              rows={5}
-              className="w-full px-4 py-4 rounded-2xl text-white placeholder-neutral-600 text-sm outline-none resize-none"
-              style={{ background: "#1c1c1e" }}
-            />
-          </div>
-
-          {/* Send Postcard button */}
-          <button
-            onClick={handleSend}
-            disabled={!journey}
-            className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-base disabled:opacity-40 transition-opacity"
-            style={{ background: "#4ade80", color: "#000" }}
+      {/* CTA */}
+      <div className="px-4 mt-2">
+        {isAuthed ? (
+          <Link
+            href={`/journey/${journey.id}`}
+            className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-base text-black"
+            style={{ background: "#4ade80" }}
           >
-            {copied ? "Link copied!" : "Send Postcard"}
-            {!copied && (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="4" width="20" height="16" rx="2"/>
-                <path d="M7 15h3M7 11h5"/>
-              </svg>
-            )}
-          </button>
-        </div>
-    </main>
-  );
-}
-
-export default function CreatePostcardPage() {
-  return (
-    <Suspense>
-      <CreatePostcardContent />
-    </Suspense>
+            View Journey on Map
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+              <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
+            </svg>
+          </Link>
+        ) : (
+          <div className="space-y-3">
+            <Link
+              href="/auth"
+              className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-base text-black"
+              style={{ background: "#4ade80" }}
+            >
+              Join whimsi to explore
+            </Link>
+            <p className="text-center text-neutral-600 text-xs">Sign in to view this journey on the map</p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
