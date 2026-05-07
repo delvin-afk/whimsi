@@ -56,26 +56,5 @@ export default async function Page({
 
   if (!journeyId) notFound();
 
-  const { data: journey } = await supabaseAdmin
-    .from("journeys")
-    .select("*")
-    .eq("id", journeyId)
-    .single();
-
-  if (!journey) notFound();
-
-  const { data: stickers } = await supabaseAdmin
-    .from("stickers")
-    .select("*")
-    .eq("journey_id", journeyId)
-    .order("order_index", { ascending: true });
-
-  return (
-    <PostcardViewPage
-      journey={{ ...journey, stickers: stickers ?? [] }}
-      recipientName={to}
-      location={loc}
-      caption={cap}
-    />
-  );
+  return <PostcardViewPage journeyId={journeyId} />;
 }
