@@ -1,11 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { StickerPost, Journey } from "@/types";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 import ExploreSheet from "@/components/map/ExploreSheet";
+import MemoryPeek from "@/components/map/MemoryPeek";
 import MemoryView from "@/components/map/MemoryView";
 import JourneyCard from "@/components/map/JourneyCard";
 import type { StickerClickPayload } from "@/components/MapView";
@@ -18,6 +19,7 @@ type MemoryState = {
   journeyStops: StickerPost[] | null;
   journeyTitle: string | null;
   color: string;
+  mode: "peek" | "full";
 };
 
 export default function MapPage() {
@@ -27,6 +29,7 @@ export default function MapPage() {
   const [initialJourneyId, setInitialJourneyId] = useState<string | null>(null);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
   const [memory, setMemory] = useState<MemoryState | null>(null);
+  const mapFlyToRef = useRef<((coords: [number, number]) => void) | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -60,10 +63,14 @@ export default function MapPage() {
       journeyStops: payload.journeyStops,
       journeyTitle: payload.journeyTitle,
       color: payload.color,
+      mode: "peek",
     });
   }
 
   function handleMemoryNavigate(stop: StickerPost, index: number) {
+    if (stop.lat != null && stop.lng != null) {
+      mapFlyToRef.current?.([stop.lng, stop.lat]);
+    }
     setMemory((prev) => prev ? { ...prev, stop, stopIndex: index } : prev);
   }
 
@@ -136,7 +143,7 @@ export default function MapPage() {
       </aside>
 
       {/* ── Map (offset on desktop) ─────────────────────────────────────── */}
-      <div className="absolute inset-0 lg:left-[340px]">
+      <div className="absolute inset-0 lg:left-85">
         {loading ? (
           <div className="w-full h-full flex items-center justify-center bg-neutral-100">
             <div className="h-8 w-8 rounded-full border-2 border-neutral-300 border-t-neutral-700 animate-spin" />
@@ -149,11 +156,12 @@ export default function MapPage() {
             selectedJourneyId={selectedJourneyId}
             onJourneySelect={setSelectedJourneyId}
             onStickerClick={handleStickerClick}
+            flyToRef={mapFlyToRef}
           />
         )}
       </div>
 
-      {/* ── Mobile bottom sheet (hidden on lg+) ─────────────────────────── */}
+      {/* ── Mobile bottom sheet (hidden on lg+, hidden when memory peek/full open) ── */}
       <ExploreSheet
         journeys={journeys}
         selectedJourneyId={selectedJourneyId}
@@ -161,15 +169,28 @@ export default function MapPage() {
         hidden={!!memory}
       />
 
-      {/* ── Memory overlay (both breakpoints) ───────────────────────────── */}
-      {memory && (
+      {/* ── Memory peek ─────────────────────────────────────────────────── */}
+      {memory?.mode === "peek" && (
+        <MemoryPeek
+          stop={memory.stop}
+          stopIndex={memory.stopIndex}
+          journeyStops={memory.journeyStops}
+          color={memory.color}
+          onClose={() => setMemory(null)}
+          onExpand={() => setMemory((prev) => prev ? { ...prev, mode: "full" } : prev)}
+          onNavigate={handleMemoryNavigate}
+        />
+      )}
+
+      {/* ── Memory full detail ───────────────────────────────────────────── */}
+      {memory?.mode === "full" && (
         <MemoryView
           stop={memory.stop}
           stopIndex={memory.stopIndex}
           journeyStops={memory.journeyStops}
           journeyTitle={memory.journeyTitle}
           color={memory.color}
-          onClose={() => setMemory(null)}
+          onClose={() => setMemory((prev) => prev ? { ...prev, mode: "peek" } : prev)}
           onNavigate={handleMemoryNavigate}
         />
       )}

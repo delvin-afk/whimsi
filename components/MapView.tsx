@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { StickerPost, Journey } from "@/types";
+import type { MutableRefObject } from "react";
 
 const JOURNEY_COLORS = ["#a855f7", "#3b82f6", "#f97316", "#ec4899", "#14b8a6"];
 
@@ -28,6 +29,7 @@ interface Props {
   selectedJourneyId: string | null;
   onJourneySelect: (id: string | null) => void;
   onStickerClick: (payload: StickerClickPayload) => void;
+  flyToRef?: MutableRefObject<((coords: [number, number]) => void) | null>;
 }
 
 export default function MapView({
@@ -37,6 +39,7 @@ export default function MapView({
   selectedJourneyId,
   onJourneySelect,
   onStickerClick,
+  flyToRef,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -160,6 +163,11 @@ export default function MapView({
 
       map.on("load", async () => {
         if (destroyed) return;
+        if (flyToRef) {
+          flyToRef.current = (coords) => {
+            map.flyTo({ center: coords, zoom: Math.max(map.getZoom(), 13), duration: 500 });
+          };
+        }
 
         // ── Solo sticker markers ──────────────────────────────────────────────
         const located = stickers.filter((s) => s.lat != null && s.lng != null);
@@ -398,7 +406,12 @@ export default function MapView({
       });
     });
 
-    return () => { destroyed = true; mapRef.current?.remove(); mapRef.current = null; };
+    return () => {
+      destroyed = true;
+      if (flyToRef) flyToRef.current = null;
+      mapRef.current?.remove();
+      mapRef.current = null;
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function onQueryChange(value: string) {
