@@ -232,27 +232,27 @@ function JourneyCard({
 
         {/* Journey title */}
         {journey.caption && (
-          <div className="px-4 pb-2">
+          <div className="px-4 pb-3">
             <p className="text-white font-bold text-base">{journey.caption}</p>
           </div>
         )}
 
-        {/* Map — tapping navigates to the map tab with this journey selected */}
-        <Link href={`/map?journey=${journey.id}`} className="block h-64 w-full bg-neutral-800 relative">
-          <JourneyMapView journey={journey} mapboxToken={mapboxToken} />
-          {/* Invisible overlay so the tap registers on the Link, not the non-interactive map */}
-          <div className="absolute inset-0" />
-        </Link>
-
-        {/* Stats */}
-        <div className="flex divide-x" style={{ borderColor: "#2c2c2e" }}>
-          <div className="flex-1 px-4 py-4 text-center">
-            <p className="text-xs text-neutral-500 mb-1">Number of Entries</p>
-            <p className="text-white font-bold text-2xl">{journey.stickers.length}</p>
-          </div>
-          <div className="flex-1 px-4 py-4 text-center">
-            <p className="text-xs text-neutral-500 mb-1">Travel Time</p>
-            {(() => { const d = travelDays(journey.stickers); return <p className="text-white font-bold text-2xl">{d != null ? `${d} day${d !== 1 ? "s" : ""}` : "—"}</p>; })()}
+        {/* Map left + Stats right */}
+        <div className="px-4 pb-4 flex gap-3" style={{ height: 180 }}>
+          <Link href={`/map?journey=${journey.id}`} className="relative flex-[3] rounded-2xl overflow-hidden bg-neutral-800">
+            <JourneyMapView journey={journey} mapboxToken={mapboxToken} />
+            <div className="absolute inset-0" />
+          </Link>
+          <div className="flex-[2] flex flex-col rounded-2xl overflow-hidden" style={{ background: "#2c2c2e" }}>
+            <div className="flex-1 flex flex-col items-center justify-center px-2">
+              <p className="text-xs text-neutral-500 mb-1 text-center leading-tight">Number of Entries</p>
+              <p className="text-white font-bold text-2xl">{journey.stickers.length}</p>
+            </div>
+            <div className="h-px mx-3" style={{ background: "#3c3c3e" }} />
+            <div className="flex-1 flex flex-col items-center justify-center px-2">
+              <p className="text-xs text-neutral-500 mb-1 text-center leading-tight">Travel Time</p>
+              {(() => { const d = travelDays(journey.stickers); return <p className="text-white font-bold text-2xl">{d != null ? `${d} day${d !== 1 ? "s" : ""}` : "—"}</p>; })()}
+            </div>
           </div>
         </div>
 
