@@ -77,6 +77,7 @@ export default function MapPage() {
   const selectedJourney = journeys.find((j) => j.id === selectedJourneyId) ?? null;
 
   return (
+    <>
     <div className="fixed inset-0" style={{ zIndex: 0 }}>
       {/* ── Desktop sidebar (lg+) ───────────────────────────────────────── */}
       <aside
@@ -168,32 +169,33 @@ export default function MapPage() {
         onJourneySelect={setSelectedJourneyId}
         hidden={!!memory}
       />
-
-      {/* ── Memory peek ─────────────────────────────────────────────────── */}
-      {memory?.mode === "peek" && (
-        <MemoryPeek
-          stop={memory.stop}
-          stopIndex={memory.stopIndex}
-          journeyStops={memory.journeyStops}
-          color={memory.color}
-          onClose={() => setMemory(null)}
-          onExpand={() => setMemory((prev) => prev ? { ...prev, mode: "full" } : prev)}
-          onNavigate={handleMemoryNavigate}
-        />
-      )}
-
-      {/* ── Memory full detail ───────────────────────────────────────────── */}
-      {memory?.mode === "full" && (
-        <MemoryView
-          stop={memory.stop}
-          stopIndex={memory.stopIndex}
-          journeyStops={memory.journeyStops}
-          journeyTitle={memory.journeyTitle}
-          color={memory.color}
-          onClose={() => setMemory((prev) => prev ? { ...prev, mode: "peek" } : prev)}
-          onNavigate={handleMemoryNavigate}
-        />
-      )}
     </div>
+
+    {/* ── Memory peek — outside stacking context so it clears BottomNav ── */}
+    {memory?.mode === "peek" && (
+      <MemoryPeek
+        stop={memory.stop}
+        stopIndex={memory.stopIndex}
+        journeyStops={memory.journeyStops}
+        color={memory.color}
+        onClose={() => setMemory(null)}
+        onExpand={() => setMemory((prev) => prev ? { ...prev, mode: "full" } : prev)}
+        onNavigate={handleMemoryNavigate}
+      />
+    )}
+
+    {/* ── Memory full detail — outside stacking context so it clears BottomNav ── */}
+    {memory?.mode === "full" && (
+      <MemoryView
+        stop={memory.stop}
+        stopIndex={memory.stopIndex}
+        journeyStops={memory.journeyStops}
+        journeyTitle={memory.journeyTitle}
+        color={memory.color}
+        onClose={() => setMemory((prev) => prev ? { ...prev, mode: "peek" } : prev)}
+        onNavigate={handleMemoryNavigate}
+      />
+    )}
+    </>
   );
 }

@@ -45,11 +45,9 @@ export default function MemoryView({
         year: "numeric",
       });
 
-  const memoryTitle = stop.caption ?? (stopIndex != null ? `Memory ${stopIndex}` : "Memory");
-
   return (
     <div
-      className="fixed inset-0 z-[60] flex flex-col overflow-hidden"
+      className="fixed inset-0 z-60 flex flex-col overflow-hidden"
       style={{ background: "#000000", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {/* Header */}
@@ -96,11 +94,6 @@ export default function MemoryView({
               {stop.location_name ? ` · ${stop.location_name}` : ""}
             </p>
           </div>
-        </div>
-
-        {/* Memory title */}
-        <div className="px-4 pb-4">
-          <h2 className="text-xl font-bold text-white leading-snug">{memoryTitle}</h2>
         </div>
 
         {/* Image */}
