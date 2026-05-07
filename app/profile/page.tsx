@@ -162,7 +162,8 @@ function ProfileJourneyCard({ journey, mapboxToken }: { journey: Journey; mapbox
 
       {/* Create Post Card */}
       <div className="px-4 py-4">
-        <button
+        <Link
+          href={`/postcard/create?journey=${journey.id}`}
           className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 text-black font-bold text-base"
           style={{ background: ACCENT }}
         >
@@ -171,7 +172,7 @@ function ProfileJourneyCard({ journey, mapboxToken }: { journey: Journey; mapbox
             <rect x="2" y="4" width="20" height="16" rx="2"/>
             <path d="M7 15h3M7 11h5"/>
           </svg>
-        </button>
+        </Link>
       </div>
     </div>
   );
