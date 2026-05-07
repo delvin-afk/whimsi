@@ -124,29 +124,28 @@ function PostcardPreview({
       {/* Right: postcard panel */}
       <div className="relative flex-1" style={{ background: "#f5f0e8" }}>
 
-        {/* Wavy lines — top left of right panel, bigger, with 3 stars */}
-        <div className="absolute" style={{ top: 10, left: 10, right: 54 }}>
-          <svg width="100%" height="72" viewBox="0 0 150 72" preserveAspectRatio="none">
-            {[0, 20, 40].map((y) => (
+        {/* Wavy lines — top left, slightly smaller, with 3 stars */}
+        <div className="absolute" style={{ top: 10, left: 10, right: 58 }}>
+          <svg width="100%" height="54" viewBox="0 0 150 54" preserveAspectRatio="none">
+            {[0, 15, 30].map((y) => (
               <path
                 key={y}
-                d={`M0,${y + 12} C25,${y + 3} 50,${y + 22} 75,${y + 12} C100,${y + 3} 125,${y + 22} 150,${y + 12}`}
+                d={`M0,${y + 10} C25,${y + 3} 50,${y + 18} 75,${y + 10} C100,${y + 3} 125,${y + 18} 150,${y + 10}`}
                 fill="none"
                 stroke="#777"
-                strokeWidth="1.6"
+                strokeWidth="1.4"
                 opacity="0.5"
               />
             ))}
-            {/* 3 stars spaced around the lines */}
-            <text x="8"   y="8"  fontSize="12" fill="#888" opacity="0.7">✦</text>
-            <text x="78"  y="34" fontSize="11" fill="#888" opacity="0.6">✦</text>
-            <text x="128" y="60" fontSize="10" fill="#888" opacity="0.5">✦</text>
+            <text x="6"   y="7"  fontSize="10" fill="#888" opacity="0.7">✦</text>
+            <text x="76"  y="28" fontSize="9"  fill="#888" opacity="0.6">✦</text>
+            <text x="130" y="48" fontSize="8"  fill="#888" opacity="0.5">✦</text>
           </svg>
         </div>
 
-        {/* whimsi burst badge — top right */}
-        <div className="absolute" style={{ top: 6, right: 6 }}>
-          <svg width="48" height="48" viewBox="0 0 50 50">
+        {/* whimsi burst badge — top right, bigger */}
+        <div className="absolute" style={{ top: 5, right: 5 }}>
+          <svg width="62" height="62" viewBox="0 0 50 50">
             <path d="M25,1 L28,10 L37,6 L34,15 L43,15 L37,22 L45,27 L37,32 L43,39 L34,39 L37,48 L28,44 L25,53 L22,44 L13,48 L16,39 L7,39 L13,32 L5,27 L13,22 L7,15 L16,15 L13,6 L22,10 Z"
               fill="#4ade80" />
             <text x="25" y="29" textAnchor="middle" fontSize="7" fontWeight="700" fill="black" fontFamily="sans-serif">whimsi</text>
@@ -154,7 +153,7 @@ function PostcardPreview({
         </div>
 
         {/* Postmark stamp — directly below the wavy lines */}
-        <div className="absolute" style={{ top: 88, left: "50%", transform: "translateX(-50%)" }}>
+        <div className="absolute" style={{ top: 70, left: "50%", transform: "translateX(-50%)" }}>
           <svg width="80" height="80" viewBox="0 0 80 80">
             <circle cx="40" cy="40" r="37" fill="none" stroke="#a09080" strokeWidth="1.5" />
             <circle cx="40" cy="40" r="31" fill="none" stroke="#a09080" strokeWidth="0.8" strokeDasharray="4 2.5" />
@@ -164,32 +163,22 @@ function PostcardPreview({
           </svg>
         </div>
 
-        {/* Bottom: recipient name + ruled lines */}
-        <div className="absolute left-4 right-4" style={{ bottom: 18 }}>
-          {(location || caption) && (
-            <div className="mb-2">
-              {location && (
-                <p style={{ color: "#9c8468", fontFamily: "monospace", fontSize: 9, letterSpacing: "0.07em" }}>
-                  {location.toUpperCase()}
-                </p>
-              )}
-              {caption && (
-                <p className="leading-snug" style={{ color: "#6b5740", fontFamily: "Georgia, serif", fontSize: 9 }}>
-                  {caption}
-                </p>
-              )}
-            </div>
-          )}
-          <p
-            className="border-b pb-1 mb-3"
-            style={{ color: "#1a0f0a", fontFamily: "Georgia, serif", fontSize: 18, fontStyle: "italic", borderColor: "#a09080", minHeight: 26 }}
-          >
-            {recipientName}
-          </p>
-          <div className="space-y-3">
-            {[0, 1, 2].map((i) => (
-              <div key={i} style={{ height: 1, background: "#c4b49a" }} />
-            ))}
+        {/* Bottom: 3 ruled lines — name (biggest), location, caption (smallest) */}
+        <div className="absolute left-4 right-4 space-y-2" style={{ bottom: 16 }}>
+          <div className="border-b pb-0.5" style={{ borderColor: "#c4b49a" }}>
+            <p style={{ color: "#1a0f0a", fontFamily: "Georgia, serif", fontSize: 15, fontStyle: "italic", minHeight: 18 }}>
+              {recipientName}
+            </p>
+          </div>
+          <div className="border-b pb-0.5" style={{ borderColor: "#c4b49a" }}>
+            <p style={{ color: "#5a4030", fontFamily: "Georgia, serif", fontSize: 11, fontStyle: "italic", minHeight: 15 }}>
+              {location}
+            </p>
+          </div>
+          <div className="border-b pb-0.5" style={{ borderColor: "#c4b49a" }}>
+            <p style={{ color: "#7a6050", fontFamily: "Georgia, serif", fontSize: 9, fontStyle: "italic", minHeight: 13 }}>
+              {caption}
+            </p>
           </div>
         </div>
       </div>
