@@ -1811,7 +1811,7 @@ function CapturePageInner() {
 
           {journeyStep === "details" && (
             <div
-              className="fixed inset-0 z-50 flex flex-col overflow-hidden"
+              className="fixed inset-0 z-[60] flex flex-col overflow-hidden"
               style={{ background: "#111113" }}
               onClick={() => { if (openMenuId) setOpenMenuId(null); }}
             >
@@ -1855,9 +1855,10 @@ function CapturePageInner() {
                   {journeyPhotos.map((photo, index) => (
                     <div
                       key={photo.id}
-                      className="rounded-2xl overflow-hidden"
+                      className="rounded-2xl"
                       style={{ background: "#1e1e22", border: "1px solid rgba(255,255,255,0.07)" }}
                     >
+                      {/* ── Main row ── */}
                       <div className="flex gap-3 p-3 items-start">
                         {/* Badge + thumbnail */}
                         <div className="relative shrink-0">
@@ -1880,57 +1881,12 @@ function CapturePageInner() {
                           ) : (
                             <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>No timestamp</p>
                           )}
-
-                          {/* Location row */}
-                          {!photo.showLocationPicker ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs">📍</span>
-                              <span className="text-xs truncate flex-1" style={{ color: photo.locationName ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.25)" }}>
-                                {photo.locationName || "No location detected"}
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <LocationPicker
-                                defaultLat={photo.exifLat}
-                                defaultLng={photo.exifLng}
-                                onChange={(name, newLat, newLng) =>
-                                  updatePhoto(photo.id, { locationName: name, lat: newLat, lng: newLng })
-                                }
-                              />
-                              <button
-                                onClick={() => updatePhoto(photo.id, { showLocationPicker: false })}
-                                className="text-xs underline underline-offset-2"
-                                style={{ color: "#4ade80" }}
-                              >
-                                Done
-                              </button>
-                            </div>
-                          )}
-
-                          {/* Timestamp editor */}
-                          {editingTimestampId === photo.id && (
-                            <div className="space-y-1.5 pt-1">
-                              <input
-                                type="datetime-local"
-                                defaultValue={photo.photoTakenAt ? toLocalInputValue(photo.photoTakenAt) : ""}
-                                className="w-full rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
-                                style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", colorScheme: "dark" }}
-                                onChange={(e) => {
-                                  if (e.target.value) {
-                                    updatePhoto(photo.id, { photoTakenAt: new Date(e.target.value).toISOString() });
-                                  }
-                                }}
-                              />
-                              <button
-                                onClick={() => setEditingTimestampId(null)}
-                                className="text-xs underline underline-offset-2"
-                                style={{ color: "#4ade80" }}
-                              >
-                                Done
-                              </button>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs">📍</span>
+                            <span className="text-xs truncate flex-1" style={{ color: photo.locationName ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.25)" }}>
+                              {photo.locationName || "No location set"}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Three-dot menu button */}
@@ -1952,7 +1908,7 @@ function CapturePageInner() {
                           {/* Dropdown */}
                           {openMenuId === photo.id && (
                             <div
-                              className="absolute right-0 top-9 z-50 rounded-2xl overflow-hidden shadow-2xl"
+                              className="absolute right-0 top-9 z-[70] rounded-2xl overflow-hidden shadow-2xl"
                               style={{ background: "#2a2a2e", border: "1px solid rgba(255,255,255,0.1)", minWidth: 180 }}
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -1961,6 +1917,7 @@ function CapturePageInner() {
                                 onClick={() => {
                                   setOpenMenuId(null);
                                   setEditingTimestampId(photo.id);
+                                  updatePhoto(photo.id, { showLocationPicker: false });
                                 }}
                               >
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
@@ -1971,6 +1928,7 @@ function CapturePageInner() {
                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-left text-white hover:bg-white/5 transition-colors"
                                 onClick={() => {
                                   setOpenMenuId(null);
+                                  setEditingTimestampId(null);
                                   updatePhoto(photo.id, { showLocationPicker: true });
                                 }}
                               >
@@ -1993,6 +1951,54 @@ function CapturePageInner() {
                           )}
                         </div>
                       </div>
+
+                      {/* ── Timestamp editor (full-width below row) ── */}
+                      {editingTimestampId === photo.id && (
+                        <div className="px-3 pb-3 space-y-2">
+                          <div className="h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
+                          <label className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>Edit Timestamp</label>
+                          <input
+                            type="datetime-local"
+                            defaultValue={photo.photoTakenAt ? toLocalInputValue(photo.photoTakenAt) : ""}
+                            className="w-full rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
+                            style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", colorScheme: "dark" }}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                updatePhoto(photo.id, { photoTakenAt: new Date(e.target.value).toISOString() });
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={() => setEditingTimestampId(null)}
+                            className="text-xs font-medium underline underline-offset-2"
+                            style={{ color: "#4ade80" }}
+                          >
+                            Done
+                          </button>
+                        </div>
+                      )}
+
+                      {/* ── Location picker (full-width below row) ── */}
+                      {photo.showLocationPicker && (
+                        <div className="px-3 pb-3 space-y-2">
+                          <div className="h-px" style={{ background: "rgba(255,255,255,0.07)" }} />
+                          <label className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>Edit Location</label>
+                          <LocationPicker
+                            defaultLat={photo.exifLat ?? photo.lat ?? undefined}
+                            defaultLng={photo.exifLng ?? photo.lng ?? undefined}
+                            onChange={(name, newLat, newLng) =>
+                              updatePhoto(photo.id, { locationName: name, lat: newLat, lng: newLng })
+                            }
+                          />
+                          <button
+                            onClick={() => updatePhoto(photo.id, { showLocationPicker: false })}
+                            className="text-xs font-medium underline underline-offset-2"
+                            style={{ color: "#4ade80" }}
+                          >
+                            Done
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
