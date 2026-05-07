@@ -40,13 +40,9 @@ declare global {
 // ── Cut-out shapes ────────────────────────────────────────────────────────────
 type CutoutShape = "circle" | "star" | "square" | "diamond";
 
-type CustomizeResult =
-  | { type: "original" }
-  | { type: "cutout"; shape: CutoutShape; dataUrl: string }
-  | { type: "ai"; dataUrl: string }
+type CombinedResult =
   | { type: "back" }
-  | { type: "jump"; targetIndex: number }
-  | { type: "jumpForward"; targetIndex: number; currentStickerDataUrl: string | null };
+  | { type: "confirm"; stickerDataUrl: string | null; caption: string; voiceBlob: Blob | null; voiceMimeType: string | null };
 
 const CUTOUT_SHAPES: { id: CutoutShape; label: string }[] = [
   { id: "circle",  label: "Circle"  },
@@ -557,31 +553,24 @@ function CapturePageInner() {
   const [savedJourneyId, setSavedJourneyId] = useState("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editingTimestampId, setEditingTimestampId] = useState<string | null>(null);
-  // Customize sticker modal: shown per photo during journey creation
-  const [customizeModalPhoto, setCustomizeModalPhoto] = useState<PhotoItem | null>(null);
-  const customizeResolverRef = useRef<((r: CustomizeResult) => void) | null>(null);
+  // Combined sticker+caption modal: shown per photo during journey creation
+  const [combinedModalPhoto, setCombinedModalPhoto] = useState<PhotoItem | null>(null);
+  const combinedResolverRef = useRef<((r: CombinedResult) => void) | null>(null);
   const [customizeSelectedMode, setCustomizeSelectedMode] = useState<"original" | CutoutShape | "ai-done">("original");
   const [customizeCurrentDataUrl, setCustomizeCurrentDataUrl] = useState<string | null>(null);
   const [customizeShapePreviews, setCustomizeShapePreviews] = useState<Partial<Record<CutoutShape, string>>>({});
   type ShapeCacheEntry = { mode: "original" | CutoutShape | "ai-done"; dataUrl: string | null; previews: Partial<Record<CutoutShape, string>> };
   const customizeShapeCache = useRef<Map<string, ShapeCacheEntry>>(new Map());
+  type CaptionCacheEntry = { caption: string; voiceBlob: Blob | null; voiceMimeType: string | null; voicePreviewUrl: string | null };
+  const captionCache = useRef<Map<string, CaptionCacheEntry>>(new Map());
   const [customizeAiLoading, setCustomizeAiLoading] = useState(false);
   const [customizeAiError, setCustomizeAiError] = useState("");
 
-  // Caption popup: shown mid-processing after each sticker is ready
-  const [captionModalPhoto, setCaptionModalPhoto] = useState<PhotoItem | null>(null);
-  const [captionModalIndex, setCaptionModalIndex] = useState(0); // 0-based index within valid photos
-  const [captionModalTotal, setCaptionModalTotal] = useState(0);
-  type CaptionResult = { caption: string; voiceBlob: Blob | null; voiceMimeType: string | null; photoTakenAt?: string; locationName?: string; lat?: number | null; lng?: number | null } | { type: "back" };
-  const captionResolverRef = useRef<((result: CaptionResult) => void) | null>(null);
+  // Caption state (used inside combined modal)
   const [journeyCaptionInput, setJourneyCaptionInput] = useState("");
   const [isJourneyListening, setIsJourneyListening] = useState(false);
   const [journeyInterimText, setJourneyInterimText] = useState("");
   const journeyCommittedRef = useRef("");
-  const [journeyCaptionTimestamp, setJourneyCaptionTimestamp] = useState("");
-  const [journeyCaptionLocationName, setJourneyCaptionLocationName] = useState("");
-  const [journeyCaptionLat, setJourneyCaptionLat] = useState<number | null>(null);
-  const [journeyCaptionLng, setJourneyCaptionLng] = useState<number | null>(null);
 
   // Journey caption voice memo recorder
   const [journeyCaptionIsRecording, setJourneyCaptionIsRecording] = useState(false);
@@ -636,47 +625,46 @@ function CapturePageInner() {
     };
   }, [cameraStep, facingMode]);
 
-  // Initialise caption modal timestamp + location when it opens
+  // Initialise combined modal: restore shape + caption state when photo changes
   useEffect(() => {
-    if (!captionModalPhoto) return;
-    const iso = captionModalPhoto.photoTakenAt;
-    setJourneyCaptionTimestamp(iso ? toLocalInputValue(iso) : "");
-    setJourneyCaptionLocationName(captionModalPhoto.locationName ?? "");
-    setJourneyCaptionLat(captionModalPhoto.lat ?? null);
-    setJourneyCaptionLng(captionModalPhoto.lng ?? null);
-  }, [captionModalPhoto]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Pre-generate shape preview thumbnails when customize modal opens; restore cached selection
-  useEffect(() => {
-    if (!customizeModalPhoto) return;
+    if (!combinedModalPhoto) return;
     setCustomizeAiLoading(false);
     setCustomizeAiError("");
-    const cached = customizeShapeCache.current.get(customizeModalPhoto.id);
-    if (cached) {
-      setCustomizeSelectedMode(cached.mode);
-      setCustomizeCurrentDataUrl(cached.dataUrl);
-      setCustomizeShapePreviews(cached.previews);
+    // Restore shape selection
+    const shapeCached = customizeShapeCache.current.get(combinedModalPhoto.id);
+    if (shapeCached) {
+      setCustomizeSelectedMode(shapeCached.mode);
+      setCustomizeCurrentDataUrl(shapeCached.dataUrl);
+      setCustomizeShapePreviews(shapeCached.previews);
     } else {
       setCustomizeSelectedMode("original");
       setCustomizeCurrentDataUrl(null);
       setCustomizeShapePreviews({});
     }
-    const url = customizeModalPhoto.localUrl;
-    const photoId = customizeModalPhoto.id;
+    // Restore caption
+    const captionCached = captionCache.current.get(combinedModalPhoto.id);
+    setJourneyCaptionInput(captionCached?.caption ?? combinedModalPhoto.caption ?? "");
+    journeyCommittedRef.current = captionCached?.caption ?? combinedModalPhoto.caption ?? "";
+    setJourneyCaptionVoiceBlob(captionCached?.voiceBlob ?? null);
+    setJourneyCaptionVoicePreviewUrl(captionCached?.voicePreviewUrl ?? null);
+    setJourneyCaptionIsRecording(false);
+    setJourneyCaptionRecordingSeconds(0);
+    // Pre-generate shape previews
+    const url = combinedModalPhoto.localUrl;
+    const photoId = combinedModalPhoto.id;
     for (const { id } of CUTOUT_SHAPES) {
-      if (cached?.previews[id]) continue; // already have this preview
+      if (shapeCached?.previews[id]) continue;
       generateCutout(url, id).then((dataUrl) => {
         setCustomizeShapePreviews((prev) => {
-          const next = { ...prev, [id]: dataUrl };
           customizeShapeCache.current.set(photoId, {
             ...customizeShapeCache.current.get(photoId) ?? { mode: "original", dataUrl: null, previews: {} },
             previews: { ...customizeShapeCache.current.get(photoId)?.previews, [id]: dataUrl },
           });
-          return next;
+          return { ...prev, [id]: dataUrl };
         });
       }).catch(() => {});
     }
-  }, [customizeModalPhoto]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [combinedModalPhoto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function flipCamera() {
     setFacingMode((f) => (f === "environment" ? "user" : "environment"));
@@ -997,137 +985,49 @@ function CapturePageInner() {
     setJourneySaveError("");
 
     const results: PhotoItem[] = journeyPhotos.map((p) => ({ ...p }));
+    let i = 0;
 
-    // ── Phases loop (caption back can return to customize) ──────────────────
-    let customizeStart = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      // ── Phase 1: Customize all stickers ──────────────────────────────────
-      let i = customizeStart;
-      while (i < results.length) {
-        results[i] = { ...results[i], status: "processing" };
-        updatePhoto(results[i].id, { status: "processing" });
-        setJourneyProgress({ current: i + 1, total: results.length });
+    while (i < results.length) {
+      results[i] = { ...results[i], status: "processing" };
+      updatePhoto(results[i].id, { status: "processing" });
+      setJourneyProgress({ current: i + 1, total: results.length });
 
-        const customizeResult = await new Promise<CustomizeResult>((resolve) => {
-          customizeResolverRef.current = resolve;
-          setCustomizeModalPhoto({ ...results[i] });
-        });
-        setCustomizeModalPhoto(null);
-        customizeResolverRef.current = null;
+      const result = await new Promise<CombinedResult>((resolve) => {
+        combinedResolverRef.current = resolve;
+        setCombinedModalPhoto({ ...results[i] });
+      });
+      setCombinedModalPhoto(null);
+      combinedResolverRef.current = null;
 
-        if (customizeResult.type === "back") {
+      if (result.type === "back") {
+        results[i] = { ...results[i], status: "pending", stickerDataUrl: null };
+        updatePhoto(results[i].id, { status: "pending", stickerDataUrl: null });
+        if (i > 0) {
+          i--;
           results[i] = { ...results[i], status: "pending", stickerDataUrl: null };
           updatePhoto(results[i].id, { status: "pending", stickerDataUrl: null });
-          if (i > 0) {
-            i--;
-            results[i] = { ...results[i], status: "pending", stickerDataUrl: null };
-            updatePhoto(results[i].id, { status: "pending", stickerDataUrl: null });
-            continue;
-          }
-          // i === 0: exit the flow entirely, return to journey form
-          setCustomizeModalPhoto(null);
-          customizeResolverRef.current = null;
-          setJourneyStep("details");
-          return;
-        }
-
-        if (customizeResult.type === "jump") {
-          for (let j = customizeResult.targetIndex; j <= i; j++) {
-            results[j] = { ...results[j], status: "pending", stickerDataUrl: null };
-            updatePhoto(results[j].id, { status: "pending", stickerDataUrl: null });
-          }
-          i = customizeResult.targetIndex;
           continue;
         }
-
-        if (customizeResult.type === "jumpForward") {
-          const curUrl = customizeResult.currentStickerDataUrl
-            ?? `data:${results[i].mimeType};base64,${results[i].base64}`;
-          results[i] = { ...results[i], stickerDataUrl: curUrl, status: "done" };
-          updatePhoto(results[i].id, { stickerDataUrl: curUrl, status: "done" });
-          for (let j = i + 1; j < customizeResult.targetIndex; j++) {
-            const origUrl = `data:${results[j].mimeType};base64,${results[j].base64}`;
-            results[j] = { ...results[j], stickerDataUrl: origUrl, status: "done" };
-            updatePhoto(results[j].id, { stickerDataUrl: origUrl, status: "done" });
-          }
-          i = customizeResult.targetIndex;
-          continue;
-        }
-
-        let stickerDataUrl: string | null = null;
-        if (customizeResult.type === "original") {
-          stickerDataUrl = `data:${results[i].mimeType};base64,${results[i].base64}`;
-        } else {
-          stickerDataUrl = customizeResult.dataUrl;
-        }
-
-        if (stickerDataUrl) {
-          results[i] = { ...results[i], stickerDataUrl, status: "done" };
-          updatePhoto(results[i].id, { stickerDataUrl, status: "done" });
-        } else {
-          results[i] = { ...results[i], status: "error", errorMsg: "Skipped" };
-          updatePhoto(results[i].id, { status: "error", errorMsg: "Skipped" });
-        }
-        i++;
+        setJourneyStep("details");
+        return;
       }
 
-      // ── Phase 2: Caption all stickers ──────────────────────────────────────
-      const validForCaption = results.filter((r) => r.stickerDataUrl);
-      let ci = 0;
-      let backToCustomize = false;
+      // Determine sticker data URL (null → use original photo)
+      const stickerDataUrl = result.stickerDataUrl
+        ?? `data:${results[i].mimeType};base64,${results[i].base64}`;
 
-      while (ci < validForCaption.length) {
-        const photo = validForCaption[ci];
-        setJourneyCaptionInput(photo.caption ?? "");
-        journeyCommittedRef.current = photo.caption ?? "";
-        setJourneyCaptionIsRecording(false);
-        setJourneyCaptionVoiceBlob(null);
-        setJourneyCaptionVoicePreviewUrl(null);
-        setJourneyCaptionRecordingSeconds(0);
-        setCaptionModalIndex(ci);
-        setCaptionModalTotal(validForCaption.length);
-
-        const captionResult = await new Promise<CaptionResult>((resolve) => {
-          captionResolverRef.current = resolve;
-          setCaptionModalPhoto({ ...photo });
-        });
-        setCaptionModalPhoto(null);
-        captionResolverRef.current = null;
-
-        if ("type" in captionResult && captionResult.type === "back") {
-          if (ci > 0) {
-            ci--;
-            continue;
-          }
-          // ci === 0: exit the flow entirely, return to journey form
-          setCaptionModalPhoto(null);
-          captionResolverRef.current = null;
-          setJourneyStep("details");
-          return;
-        }
-
-        const cr = captionResult as Exclude<CaptionResult, { type: "back" }>;
-        const resultIdx = results.findIndex((r) => r.id === photo.id);
-        results[resultIdx] = {
-          ...results[resultIdx],
-          caption: cr.caption,
-          voiceBlob: cr.voiceBlob,
-          voiceMimeType: cr.voiceMimeType,
-          photoTakenAt: cr.photoTakenAt ?? results[resultIdx].photoTakenAt,
-          locationName: cr.locationName ?? results[resultIdx].locationName,
-          lat: cr.lat ?? results[resultIdx].lat,
-          lng: cr.lng ?? results[resultIdx].lng,
-        };
-        updatePhoto(results[resultIdx].id, { caption: cr.caption, locationName: results[resultIdx].locationName });
-        ci++;
-      }
-
-      if (!backToCustomize) break; // both phases complete — exit outer loop
-      // else loop back: re-run Phase 1 from customizeStart
+      results[i] = {
+        ...results[i],
+        stickerDataUrl,
+        status: "done",
+        caption: result.caption,
+        voiceBlob: result.voiceBlob,
+        voiceMimeType: result.voiceMimeType,
+      };
+      updatePhoto(results[i].id, { stickerDataUrl, status: "done", caption: result.caption });
+      i++;
     }
 
-    // All done — save if we have at least 1
     const validCount = results.filter((p) => p.stickerDataUrl).length;
     if (validCount >= 1) {
       void saveJourney(results);
@@ -1137,14 +1037,14 @@ function CapturePageInner() {
     }
   }
 
-  // ── Customize sticker modal handlers ─────────────────────────────────────
+  // ── Combined modal shape handlers ─────────────────────────────────────────
   function onCustomizeSelectOriginal() {
     setCustomizeSelectedMode("original");
     setCustomizeCurrentDataUrl(null);
-    if (customizeModalPhoto) {
-      customizeShapeCache.current.set(customizeModalPhoto.id, {
+    if (combinedModalPhoto) {
+      customizeShapeCache.current.set(combinedModalPhoto.id, {
         mode: "original", dataUrl: null,
-        previews: customizeShapeCache.current.get(customizeModalPhoto.id)?.previews ?? {},
+        previews: customizeShapeCache.current.get(combinedModalPhoto.id)?.previews ?? {},
       });
     }
   }
@@ -1154,43 +1054,41 @@ function CapturePageInner() {
     const existing = customizeShapePreviews[shape];
     if (existing) {
       setCustomizeCurrentDataUrl(existing);
-      if (customizeModalPhoto) {
-        customizeShapeCache.current.set(customizeModalPhoto.id, {
+      if (combinedModalPhoto) {
+        customizeShapeCache.current.set(combinedModalPhoto.id, {
           mode: shape, dataUrl: existing,
-          previews: customizeShapeCache.current.get(customizeModalPhoto.id)?.previews ?? customizeShapePreviews,
+          previews: customizeShapeCache.current.get(combinedModalPhoto.id)?.previews ?? customizeShapePreviews,
         });
       }
-    } else if (customizeModalPhoto) {
-      const dataUrl = await generateCutout(customizeModalPhoto.localUrl, shape);
+    } else if (combinedModalPhoto) {
+      const dataUrl = await generateCutout(combinedModalPhoto.localUrl, shape);
       setCustomizeShapePreviews((prev) => ({ ...prev, [shape]: dataUrl }));
       setCustomizeCurrentDataUrl(dataUrl);
-      customizeShapeCache.current.set(customizeModalPhoto.id, {
+      customizeShapeCache.current.set(combinedModalPhoto.id, {
         mode: shape, dataUrl,
-        previews: { ...customizeShapeCache.current.get(customizeModalPhoto.id)?.previews, ...customizeShapePreviews, [shape]: dataUrl },
+        previews: { ...customizeShapeCache.current.get(combinedModalPhoto.id)?.previews, ...customizeShapePreviews, [shape]: dataUrl },
       });
     }
   }
 
   async function onCustomizeUseAI() {
-    if (!customizeModalPhoto) return;
+    if (!combinedModalPhoto) return;
     setCustomizeAiLoading(true);
     setCustomizeAiError("");
     try {
       const res = await fetch("/api/sticker", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ base64: customizeModalPhoto.base64, mimeType: customizeModalPhoto.mimeType }),
+        body: JSON.stringify({ base64: combinedModalPhoto.base64, mimeType: combinedModalPhoto.mimeType }),
       });
       const json = await res.json();
       if (res.ok) {
         setCustomizeCurrentDataUrl(json.sticker);
         setCustomizeSelectedMode("ai-done");
-        if (customizeModalPhoto) {
-          customizeShapeCache.current.set(customizeModalPhoto.id, {
-            mode: "ai-done", dataUrl: json.sticker,
-            previews: customizeShapeCache.current.get(customizeModalPhoto.id)?.previews ?? customizeShapePreviews,
-          });
-        }
+        customizeShapeCache.current.set(combinedModalPhoto.id, {
+          mode: "ai-done", dataUrl: json.sticker,
+          previews: customizeShapeCache.current.get(combinedModalPhoto.id)?.previews ?? customizeShapePreviews,
+        });
       } else {
         setCustomizeAiError("AI couldn't isolate a subject. Try a shape instead.");
       }
@@ -1201,29 +1099,32 @@ function CapturePageInner() {
     }
   }
 
-  function onCustomizeBack() {
-    customizeResolverRef.current?.({ type: "back" });
+  function saveCaptionToCache() {
+    if (!combinedModalPhoto) return;
+    captionCache.current.set(combinedModalPhoto.id, {
+      caption: journeyCommittedRef.current || journeyCaptionInput,
+      voiceBlob: journeyCaptionVoiceBlob,
+      voiceMimeType: journeyCaptionVoiceBlob?.type ?? null,
+      voicePreviewUrl: journeyCaptionVoicePreviewUrl,
+    });
   }
 
-  function onCustomizeJump(targetIndex: number) {
-    customizeResolverRef.current?.({ type: "jump", targetIndex });
+  function onCombinedBack() {
+    stopJourneyListening();
+    if (journeyCaptionIsRecording) stopJourneyCaptionRecording();
+    saveCaptionToCache();
+    combinedResolverRef.current?.({ type: "back" });
   }
 
-  function onCustomizeJumpForward(targetIndex: number) {
-    if (!customizeResolverRef.current) return;
-    const currentStickerDataUrl = customizeSelectedMode === "original" ? null : customizeCurrentDataUrl;
-    customizeResolverRef.current({ type: "jumpForward", targetIndex, currentStickerDataUrl });
-  }
-
-  function onCustomizeConfirm() {
-    if (!customizeResolverRef.current) return;
-    if (customizeSelectedMode === "original") {
-      customizeResolverRef.current({ type: "original" });
-    } else if (customizeSelectedMode === "ai-done" && customizeCurrentDataUrl) {
-      customizeResolverRef.current({ type: "ai", dataUrl: customizeCurrentDataUrl });
-    } else if (customizeCurrentDataUrl) {
-      customizeResolverRef.current({ type: "cutout", shape: customizeSelectedMode as CutoutShape, dataUrl: customizeCurrentDataUrl });
-    }
+  function onCombinedConfirm(skip: boolean) {
+    const caption = skip ? "" : (journeyCommittedRef.current || journeyCaptionInput).trim();
+    const voiceBlob = skip ? null : journeyCaptionVoiceBlob;
+    const voiceMimeType = skip ? null : (journeyCaptionVoiceBlob?.type ?? null);
+    stopJourneyListening();
+    if (journeyCaptionIsRecording) stopJourneyCaptionRecording();
+    saveCaptionToCache();
+    const stickerDataUrl = customizeSelectedMode === "original" ? null : customizeCurrentDataUrl;
+    combinedResolverRef.current?.({ type: "confirm", stickerDataUrl, caption, voiceBlob, voiceMimeType });
   }
 
   // ── Journey caption voice helpers ─────────────────────────────────────────
@@ -1294,30 +1195,6 @@ function CapturePageInner() {
     setJourneyCaptionRecordingSeconds(0);
   }
 
-  function onCaptionBack() {
-    stopJourneyListening();
-    if (journeyCaptionIsRecording) stopJourneyCaptionRecording();
-    setJourneyCaptionInput("");
-    captionResolverRef.current?.({ type: "back" });
-    clearJourneyCaptionVoice();
-  }
-
-  function onSubmitJourneyCaption(skip: boolean) {
-    const value = skip ? "" : (journeyCommittedRef.current || journeyCaptionInput).trim();
-    stopJourneyListening();
-    if (journeyCaptionIsRecording) stopJourneyCaptionRecording();
-    setJourneyCaptionInput("");
-    captionResolverRef.current?.({
-      caption: value,
-      voiceBlob: skip ? null : journeyCaptionVoiceBlob,
-      voiceMimeType: skip ? null : (journeyCaptionVoiceBlob?.type ?? null),
-      photoTakenAt: journeyCaptionTimestamp ? new Date(journeyCaptionTimestamp).toISOString() : undefined,
-      locationName: journeyCaptionLocationName.trim() || undefined,
-      lat: journeyCaptionLat,
-      lng: journeyCaptionLng,
-    });
-    clearJourneyCaptionVoice();
-  }
 
 
   async function saveJourney(photos: PhotoItem[]) {
@@ -1392,6 +1269,7 @@ function CapturePageInner() {
     setJourneySaveError("");
     setMode("single");
     customizeShapeCache.current.clear();
+    captionCache.current.clear();
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -2096,41 +1974,43 @@ function CapturePageInner() {
     </main>
 
       {/* ── Customize Sticker modal (full-screen, per photo) ── */}
-      {customizeModalPhoto && (
+      {combinedModalPhoto && (
         <div className="fixed inset-0 z-[70] bg-neutral-950 flex flex-col">
           {/* Header */}
-          <div className="shrink-0 flex items-center justify-between px-5 pt-12 pb-3">
-            <p className="text-white/50 text-sm">
-              Photo {journeyPhotos.findIndex((p) => p.id === customizeModalPhoto.id) + 1} of {journeyPhotos.length}
-            </p>
-            <p className="text-white font-semibold text-sm">Create a Sticker</p>
-            <div className="w-20" />
+          <div className="shrink-0 flex items-center gap-3 px-5 pt-12 pb-3">
+            <button
+              onClick={onCombinedBack}
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-neutral-800 shrink-0"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-bold text-lg leading-tight">Photo {journeyPhotos.findIndex((p) => p.id === combinedModalPhoto.id) + 1} of {journeyPhotos.length}</p>
+            </div>
           </div>
 
-          {/* Large sticker preview */}
-          <div className="flex-1 flex items-center justify-center px-10">
+          {/* Sticker preview */}
+          <div className="flex-1 min-h-0 flex items-center justify-center px-10">
             {customizeAiLoading ? (
-              <div className="w-64 h-64 rounded-3xl bg-neutral-800 flex flex-col items-center justify-center gap-3">
+              <div className="w-52 h-52 rounded-3xl bg-neutral-800 flex flex-col items-center justify-center gap-3">
                 <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white animate-spin" />
                 <p className="text-white/50 text-sm">Creating AI sticker…</p>
               </div>
             ) : (
               <img
-                src={customizeCurrentDataUrl ?? customizeModalPhoto.localUrl}
+                src={customizeCurrentDataUrl ?? combinedModalPhoto.localUrl}
                 alt="Sticker preview"
-                className="max-w-64 max-h-64 w-full object-contain"
+                className="max-w-52 max-h-52 w-full object-contain"
                 style={{ filter: "drop-shadow(0 8px 32px rgba(168,85,247,0.35))" }}
               />
             )}
           </div>
 
-          {/* Bottom panel */}
-          <div className="shrink-0 bg-neutral-900 rounded-t-3xl px-5 pt-5 space-y-4"
-            style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}>
-            <p className="text-white font-bold text-lg text-center">Customize Sticker</p>
+          {/* Bottom panel — shape picker + caption + footer */}
+          <div className="shrink-0 bg-neutral-900 rounded-t-3xl flex flex-col" style={{ maxHeight: "62vh" }}>
 
-            {/* Shape row + Use AI button */}
-            <div className="space-y-2.5">
+            {/* Shape picker (always visible) */}
+            <div className="shrink-0 px-5 pt-4 pb-3 space-y-2.5">
               <div className="flex items-center justify-between">
                 <p className="text-neutral-400 text-sm font-medium">Choose Sticker Shape</p>
                 <button
@@ -2144,210 +2024,122 @@ function CapturePageInner() {
                   Use AI
                 </button>
               </div>
-
-              {/* Thumbnail row: original + 4 shapes */}
               <div className="flex gap-2 overflow-x-auto pb-1">
-                {/* Original */}
                 <button
                   onClick={onCustomizeSelectOriginal}
-                  className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition ${
-                    customizeSelectedMode === "original" ? "border-white" : "border-neutral-700"
-                  }`}
+                  className={`shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 transition ${customizeSelectedMode === "original" ? "border-white" : "border-neutral-700"}`}
                 >
-                  <img src={customizeModalPhoto.localUrl} alt="Original" className="w-full h-full object-cover" />
+                  <img src={combinedModalPhoto.localUrl} alt="Original" className="w-full h-full object-cover" />
                 </button>
-
-                {/* Shape previews */}
                 {CUTOUT_SHAPES.map(({ id, label }) => (
                   <button
                     key={id}
                     onClick={() => onCustomizeSelectShape(id)}
-                    className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 bg-neutral-800 transition flex items-center justify-center ${
-                      customizeSelectedMode === id ? "border-white" : "border-neutral-700"
-                    }`}
+                    className={`shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 bg-neutral-800 transition flex items-center justify-center ${customizeSelectedMode === id ? "border-white" : "border-neutral-700"}`}
                   >
-                    {customizeShapePreviews[id] ? (
-                      <img src={customizeShapePreviews[id]} alt={label} className="w-full h-full object-contain" />
-                    ) : (
-                      <div className="opacity-50"><CutoutShapeIcon shape={id} /></div>
-                    )}
+                    {customizeShapePreviews[id]
+                      ? <img src={customizeShapePreviews[id]} alt={label} className="w-full h-full object-contain" />
+                      : <div className="opacity-50"><CutoutShapeIcon shape={id} /></div>}
                   </button>
                 ))}
               </div>
-
-              {customizeAiError && (
-                <p className="text-red-400 text-xs">{customizeAiError}</p>
-              )}
+              {customizeAiError && <p className="text-red-400 text-xs">{customizeAiError}</p>}
             </div>
 
-            {/* Journey strip + Back/Next buttons */}
-            <div className="flex items-center gap-3">
-              {journeyPhotos.findIndex((p) => p.id === customizeModalPhoto.id) > 0 ? (
-                <button
-                  onClick={onCustomizeBack}
-                  className="shrink-0 w-12 h-12 rounded-full bg-neutral-700 flex items-center justify-center active:scale-95 transition"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
-                  </svg>
-                </button>
-              ) : (
-                <div className="shrink-0 w-12 h-12" />
-              )}
-              <div className="flex gap-1.5 flex-1 overflow-x-auto pb-1">
-                {(() => {
-                  const currentIdx = journeyPhotos.findIndex((p) => p.id === customizeModalPhoto.id);
-                  return journeyPhotos.map((p, idx) => {
-                    const isCurrent = idx === currentIdx;
-                    const isPrev = idx < currentIdx;
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => {
-                          if (isPrev) onCustomizeJump(idx);
-                          else if (!isCurrent) onCustomizeJumpForward(idx);
-                        }}
-                        disabled={isCurrent}
-                        className={`shrink-0 w-10 h-10 rounded-lg overflow-hidden border-2 transition ${
-                          isCurrent
-                            ? "border-white"
-                            : isPrev
-                            ? "border-neutral-500 hover:border-white active:scale-95 cursor-pointer"
-                            : "border-neutral-700/40 hover:border-neutral-400 active:scale-95 cursor-pointer opacity-60"
-                        }`}
-                      >
-                        <img src={p.localUrl} alt="" className="w-full h-full object-cover" />
-                      </button>
-                    );
-                  });
-                })()}
+            {/* Divider */}
+            <div className="h-px mx-5 shrink-0 bg-white/10" />
+
+            {/* Scrollable caption + voice section */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 overscroll-contain">
+
+              {/* Write Caption */}
+              <div>
+                <label className="text-neutral-400 text-sm font-medium">Write Caption:</label>
+                <div className="mt-1.5 relative">
+                  <textarea
+                    value={journeyCaptionInput + (journeyInterimText ? " " + journeyInterimText : "")}
+                    onChange={(e) => { journeyCommittedRef.current = e.target.value; setJourneyCaptionInput(e.target.value); }}
+                    placeholder="Ex: What happened here?"
+                    rows={3}
+                    className={`w-full bg-neutral-800 text-white placeholder-neutral-600 rounded-2xl px-4 py-3 pr-12 text-sm resize-none outline-none focus:ring-2 transition-colors ${isJourneyListening ? "ring-2 ring-red-500" : "focus:ring-[#4ade80]"}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={isJourneyListening ? stopJourneyListening : startJourneyListening}
+                    className={`absolute right-2 bottom-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isJourneyListening ? "bg-red-500 text-white" : "bg-neutral-700 text-neutral-400 hover:bg-neutral-600"}`}
+                  >
+                    {isJourneyListening
+                      ? <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="2" width="8" height="8" rx="1"/></svg>
+                      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5"/><path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 19v3M9 22h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    }
+                  </button>
+                </div>
+                {isJourneyListening && (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-400">
+                    <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                    Listening{journeyInterimText ? `… "${journeyInterimText}"` : "…"}
+                  </p>
+                )}
               </div>
+
+              {/* Record Memo */}
+              <div>
+                <label className="text-neutral-400 text-sm font-medium">Record Memo:</label>
+                <div className="mt-1.5">
+                  {!journeyCaptionVoicePreviewUrl && !journeyCaptionIsRecording && (
+                    <button type="button" onClick={startJourneyCaptionRecording}
+                      className="w-full flex items-center gap-3 py-3 px-4 rounded-2xl border border-white/10 bg-neutral-800 hover:bg-neutral-700 transition-colors">
+                      <span className="w-8 h-8 rounded-full bg-[#4ade80] flex items-center justify-center shrink-0">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                          <rect x="9" y="2" width="6" height="12" rx="3" stroke="black" strokeWidth="1.5"/>
+                          <path d="M5 10a7 7 0 0 0 14 0" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
+                          <path d="M12 19v3M9 22h6" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
+                      </span>
+                      <span className="text-sm text-neutral-400">Tap to share the story with your voice</span>
+                    </button>
+                  )}
+                  {journeyCaptionIsRecording && (
+                    <div className="flex items-center gap-3 py-3 px-4 rounded-2xl border border-[#4ade80] bg-green-950/30">
+                      <span className="w-3 h-3 rounded-full bg-[#4ade80] animate-pulse shrink-0" />
+                      <span className="flex-1 text-sm text-neutral-300 font-mono">
+                        {String(Math.floor(journeyCaptionRecordingSeconds / 60)).padStart(2, "0")}:{String(journeyCaptionRecordingSeconds % 60).padStart(2, "0")}
+                      </span>
+                      <button type="button" onClick={stopJourneyCaptionRecording}
+                        className="px-3 py-1.5 rounded-xl bg-neutral-100 text-neutral-900 text-xs font-bold">Stop</button>
+                    </div>
+                  )}
+                  {journeyCaptionVoicePreviewUrl && !journeyCaptionIsRecording && (
+                    <div className="space-y-2">
+                      <AudioPlayer src={journeyCaptionVoicePreviewUrl} />
+                      <button type="button" onClick={clearJourneyCaptionVoice}
+                        className="text-xs text-neutral-500 hover:text-red-400 underline underline-offset-2">
+                        Remove &amp; re-record
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer buttons */}
+            <div className="shrink-0 px-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] space-y-2.5 border-t border-white/10">
               <button
-                onClick={onCustomizeConfirm}
+                onClick={() => onCombinedConfirm(false)}
                 disabled={customizeAiLoading}
-                className="shrink-0 w-12 h-12 rounded-full bg-[#4ade80] flex items-center justify-center disabled:opacity-40 active:scale-95 transition"
+                className="w-full py-3.5 rounded-2xl font-semibold text-sm text-black disabled:opacity-40 active:scale-[0.98] transition"
+                style={{ background: "#22c55e" }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round">
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
-                </svg>
+                {journeyPhotos.findIndex((p) => p.id === combinedModalPhoto.id) < journeyPhotos.length - 1 ? "Next →" : "Finish"}
+              </button>
+              <button
+                onClick={() => onCombinedConfirm(true)}
+                disabled={customizeAiLoading}
+                className="w-full py-3 rounded-2xl border border-white/10 text-neutral-400 text-sm font-medium hover:text-white hover:border-white/20 transition disabled:opacity-40"
+              >
+                Skip
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Caption / details modal (full-screen, per sticker) ── */}
-      {captionModalPhoto && (
-        <div className="fixed inset-0 z-[75] bg-neutral-950 flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="shrink-0 flex items-center gap-3 px-5 pt-12 pb-4">
-            <button
-              onClick={onCaptionBack}
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-neutral-800 text-neutral-400 hover:text-white shrink-0 transition-colors"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
-            </button>
-            {captionModalPhoto.stickerDataUrl && (
-              <img src={captionModalPhoto.stickerDataUrl} alt=""
-                className="w-12 h-12 object-contain rounded-xl shrink-0 bg-neutral-800" />
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-bold text-lg">Add Details</p>
-              <p className="text-neutral-400 text-sm">
-                {captionModalIndex + 1} of {captionModalTotal}
-              </p>
-            </div>
-          </div>
-
-          {/* Scrollable form */}
-          <div className="flex-1 overflow-y-auto px-5 space-y-4 pb-4">
-
-            {/* Write Caption */}
-            <div>
-              <label className="text-neutral-400 text-sm font-medium">Write Caption:</label>
-              <div className="mt-1.5 relative">
-                <textarea
-                  value={journeyCaptionInput + (journeyInterimText ? " " + journeyInterimText : "")}
-                  onChange={(e) => { journeyCommittedRef.current = e.target.value; setJourneyCaptionInput(e.target.value); }}
-                  placeholder="Ex: What happened here?"
-                  rows={3}
-                  className={`w-full bg-neutral-800 text-white placeholder-neutral-600 rounded-2xl px-4 py-3 pr-12 text-sm resize-none outline-none focus:ring-2 transition-colors ${isJourneyListening ? "ring-2 ring-red-500" : "focus:ring-purple-500"}`}
-                />
-                <button
-                  type="button"
-                  onClick={isJourneyListening ? stopJourneyListening : startJourneyListening}
-                  className={`absolute right-2 bottom-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isJourneyListening ? "bg-red-500 text-white" : "bg-neutral-700 text-neutral-400 hover:bg-neutral-600"}`}
-                >
-                  {isJourneyListening
-                    ? <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="2" width="8" height="8" rx="1"/></svg>
-                    : <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5"/><path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M12 19v3M9 22h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                  }
-                </button>
-              </div>
-              {isJourneyListening && (
-                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-400">
-                  <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                  Listening{journeyInterimText ? `… "${journeyInterimText}"` : "…"}
-                </p>
-              )}
-            </div>
-
-            {/* Record Memo */}
-            <div>
-              <label className="text-neutral-400 text-sm font-medium">Record Memo:</label>
-              <div className="mt-1.5">
-                {!journeyCaptionVoicePreviewUrl && !journeyCaptionIsRecording && (
-                  <button type="button" onClick={startJourneyCaptionRecording}
-                    className="w-full flex items-center gap-3 py-3 px-4 rounded-2xl border border-white/10 bg-neutral-800 hover:bg-neutral-700 transition-colors">
-                    <span className="w-8 h-8 rounded-full bg-[#4ade80] flex items-center justify-center shrink-0">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                        <rect x="9" y="2" width="6" height="12" rx="3" stroke="black" strokeWidth="1.5"/>
-                        <path d="M5 10a7 7 0 0 0 14 0" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
-                        <path d="M12 19v3M9 22h6" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
-                      </svg>
-                    </span>
-                    <span className="text-sm text-neutral-400">Tap to share the story with your voice</span>
-                  </button>
-                )}
-                {journeyCaptionIsRecording && (
-                  <div className="flex items-center gap-3 py-3 px-4 rounded-2xl border border-[#4ade80] bg-green-950/30">
-                    <span className="w-3 h-3 rounded-full bg-[#4ade80] animate-pulse shrink-0" />
-                    <span className="flex-1 text-sm text-neutral-300 font-mono">
-                      {String(Math.floor(journeyCaptionRecordingSeconds / 60)).padStart(2, "0")}:{String(journeyCaptionRecordingSeconds % 60).padStart(2, "0")}
-                    </span>
-                    <button type="button" onClick={stopJourneyCaptionRecording}
-                      className="px-3 py-1.5 rounded-xl bg-neutral-100 text-neutral-900 text-xs font-bold">Stop</button>
-                  </div>
-                )}
-                {journeyCaptionVoicePreviewUrl && !journeyCaptionIsRecording && (
-                  <div className="space-y-2">
-                    <AudioPlayer src={journeyCaptionVoicePreviewUrl} />
-                    <button type="button" onClick={clearJourneyCaptionVoice}
-                      className="text-xs text-neutral-500 hover:text-red-400 underline underline-offset-2">
-                      Remove &amp; re-record
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-          </div>
-
-          {/* Sticky action buttons */}
-          <div className="shrink-0 px-5 pt-3 space-y-2.5"
-            style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}>
-            <button
-              onClick={() => onSubmitJourneyCaption(false)}
-              className="w-full py-3.5 rounded-2xl bg-purple-600 text-white font-semibold text-sm hover:bg-purple-700 active:scale-[0.98] transition"
-            >
-              Next →
-            </button>
-            <button
-              onClick={() => onSubmitJourneyCaption(true)}
-              className="w-full py-3 rounded-2xl border border-white/10 text-neutral-400 text-sm font-medium hover:text-white hover:border-white/20 transition"
-            >
-              Skip
-            </button>
           </div>
         </div>
       )}
