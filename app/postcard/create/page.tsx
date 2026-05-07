@@ -109,70 +109,77 @@ function PostcardPreview({
   const dateStr = `${String(now.getMonth() + 1).padStart(2, "0")} ${String(now.getDate()).padStart(2, "0")} ${String(now.getFullYear()).slice(-2)}`;
 
   return (
-    <div className="rounded-2xl overflow-hidden flex shadow-xl" style={{ height: 260 }}>
-      {/* Left: journey map */}
-      <div className="relative shrink-0" style={{ width: "54%" }}>
+    <div className="overflow-hidden flex w-full" style={{ height: 340, background: "#f5f0e8" }}>
+      {/* Left: journey map — exactly half */}
+      <div className="relative shrink-0" style={{ width: "50%" }}>
         <JourneyMapThumb journey={journey} mapboxToken={mapboxToken} />
       </div>
 
-      {/* Right: postcard panel */}
-      <div className="relative flex-1" style={{ background: "#f5f0e8" }}>
-        {/* Wavy decoration lines — upper portion */}
-        <div className="absolute inset-x-0 top-0" style={{ height: 72, padding: "8px 10px 0 10px" }}>
-          <svg width="100%" height="60" viewBox="0 0 120 60" preserveAspectRatio="none">
-            {[0, 10, 20, 30, 40].map((y) => (
+      {/* Right: postcard panel — exactly half */}
+      <div className="relative" style={{ width: "50%", background: "#f5f0e8" }}>
+
+        {/* Wavy lines + sparkles — upper-right area */}
+        <div className="absolute" style={{ top: 14, left: 10, right: 52 }}>
+          <svg width="100%" height="52" viewBox="0 0 130 52" preserveAspectRatio="none">
+            {[0, 12, 24].map((y) => (
               <path
                 key={y}
-                d={`M0,${y + 6} C20,${y + 2} 40,${y + 10} 60,${y + 6} C80,${y + 2} 100,${y + 10} 120,${y + 6}`}
+                d={`M0,${y + 8} C22,${y + 2} 44,${y + 14} 66,${y + 8} C88,${y + 2} 110,${y + 14} 130,${y + 8}`}
                 fill="none"
-                stroke="#c8b89a"
-                strokeWidth="1"
-                opacity="0.65"
+                stroke="#8a8a8a"
+                strokeWidth="1.2"
+                opacity="0.55"
               />
             ))}
+            {/* sparkles */}
+            <text x="18" y="6" fontSize="8" fill="#aaa" opacity="0.7">✦</text>
+            <text x="72" y="10" fontSize="7" fill="#aaa" opacity="0.6">✦</text>
+            <text x="108" y="4" fontSize="6" fill="#aaa" opacity="0.5">✦</text>
+            <text x="48" y="38" fontSize="6" fill="#aaa" opacity="0.5">✦</text>
           </svg>
         </div>
 
-        {/* whimsi badge — top right */}
-        <div
-          className="absolute top-2 right-2 px-2 py-0.5 rounded-full font-bold text-black z-10"
-          style={{ background: "#4ade80", fontSize: 9 }}
-        >
-          whimsi
-        </div>
-
-        {/* Postmark stamp — center */}
-        <div className="absolute" style={{ top: 56, left: "50%", transform: "translateX(-50%)" }}>
-          <svg width="62" height="62" viewBox="0 0 62 62">
-            <circle cx="31" cy="31" r="29" fill="none" stroke="#b8a48a" strokeWidth="1.5" />
-            <circle cx="31" cy="31" r="24" fill="none" stroke="#b8a48a" strokeWidth="0.75" strokeDasharray="3 2" />
-            <text x="31" y="26" textAnchor="middle" fontSize="6.5" fill="#9c8468" fontFamily="monospace" letterSpacing="2">· · · ·</text>
-            <text x="31" y="34" textAnchor="middle" fontSize="8" fill="#9c8468" fontFamily="monospace">{dateStr}</text>
-            <text x="31" y="42" textAnchor="middle" fontSize="6.5" fill="#9c8468" fontFamily="monospace" letterSpacing="2">· · · ·</text>
+        {/* whimsi badge — top right (scalloped burst) */}
+        <div className="absolute" style={{ top: 8, right: 8 }}>
+          <svg width="52" height="52" viewBox="0 0 52 52">
+            <path d="M26,2 L29,10 L37,7 L35,15 L43,16 L38,22 L45,27 L38,32 L43,38 L35,39 L37,47 L29,44 L26,52 L23,44 L15,47 L17,39 L9,38 L14,32 L7,27 L14,22 L9,16 L17,15 L15,7 L23,10 Z"
+              fill="#4ade80" />
+            <text x="26" y="28" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="black" fontFamily="sans-serif">whimsi</text>
           </svg>
         </div>
 
-        {/* Bottom section: location, name, lines */}
-        <div className="absolute bottom-3 left-3 right-3">
+        {/* Postmark stamp — center of right panel */}
+        <div className="absolute" style={{ top: 80, left: "50%", transform: "translateX(-50%)" }}>
+          <svg width="78" height="78" viewBox="0 0 78 78">
+            <circle cx="39" cy="39" r="36" fill="none" stroke="#b0a090" strokeWidth="1.5" />
+            <circle cx="39" cy="39" r="30" fill="none" stroke="#b0a090" strokeWidth="0.75" strokeDasharray="4 2.5" />
+            <text x="39" y="33" textAnchor="middle" fontSize="7" fill="#9c8878" fontFamily="monospace" letterSpacing="3">·  ·  ·  ·</text>
+            <text x="39" y="43" textAnchor="middle" fontSize="10" fill="#9c8878" fontFamily="monospace" letterSpacing="1">{dateStr}</text>
+            <text x="39" y="53" textAnchor="middle" fontSize="7" fill="#9c8878" fontFamily="monospace" letterSpacing="3">·  ·  ·  ·</text>
+          </svg>
+        </div>
+
+        {/* Bottom: name + ruled lines */}
+        <div className="absolute left-4 right-4" style={{ bottom: 20 }}>
           {location && (
-            <p className="mb-1" style={{ color: "#9c8468", fontFamily: "monospace", fontSize: 8, letterSpacing: "0.08em" }}>
+            <p className="mb-1.5" style={{ color: "#9c8468", fontFamily: "monospace", fontSize: 9, letterSpacing: "0.07em" }}>
               {location.toUpperCase()}
             </p>
           )}
           {caption && (
-            <p className="mb-1.5 leading-tight" style={{ color: "#6b5740", fontFamily: "Georgia, serif", fontSize: 9 }}>
+            <p className="mb-2 leading-snug" style={{ color: "#6b5740", fontFamily: "Georgia, serif", fontSize: 10 }}>
               {caption}
             </p>
           )}
           <p
-            className="border-b pb-0.5 mb-2"
-            style={{ color: "#2d2016", fontFamily: "Georgia, serif", fontSize: 14, fontStyle: "italic", borderColor: "#c8b89a", minHeight: 20 }}
+            className="border-b pb-1 mb-3"
+            style={{ color: "#1a0f0a", fontFamily: "Georgia, serif", fontSize: 18, fontStyle: "italic", borderColor: "#b0a090", minHeight: 24 }}
           >
             {recipientName}
           </p>
-          <div className="space-y-2">
-            {[0, 1, 2].map((i) => (
-              <div key={i} style={{ height: 1, background: "#d6c9b0" }} />
+          <div className="space-y-3">
+            {[0, 1].map((i) => (
+              <div key={i} style={{ height: 1, background: "#c8b89a" }} />
             ))}
           </div>
         </div>
@@ -218,24 +225,23 @@ function CreatePostcardContent() {
         <h1 className="text-white font-bold text-2xl">Create Post Card</h1>
       </div>
 
-      <div className="px-4 space-y-6">
-        {/* Postcard preview */}
-        {journey ? (
-          <PostcardPreview
-            journey={journey}
-            recipientName={recipientName}
-            location={location}
-            caption={caption}
-            mapboxToken={mapboxToken}
-          />
-        ) : (
-          <div className="rounded-2xl flex items-center justify-center" style={{ height: 260, background: "#1c1c1e" }}>
-            <div className="w-8 h-8 rounded-full border-2 border-neutral-800 animate-spin" style={{ borderTopColor: "#4ade80" }} />
-          </div>
-        )}
+      {/* Postcard preview — full width, no side padding */}
+      {journey ? (
+        <PostcardPreview
+          journey={journey}
+          recipientName={recipientName}
+          location={location}
+          caption={caption}
+          mapboxToken={mapboxToken}
+        />
+      ) : (
+        <div className="flex items-center justify-center" style={{ height: 340, background: "#1c1c1e" }}>
+          <div className="w-8 h-8 rounded-full border-2 border-neutral-800 animate-spin" style={{ borderTopColor: "#4ade80" }} />
+        </div>
+      )}
 
-        {/* Form */}
-        <div className="space-y-5">
+      {/* Form */}
+      <div className="px-4 space-y-5 mt-6">
           <div>
             <p className="text-white text-sm font-medium mb-2">Enter Recipient&apos;s Name:</p>
             <input
@@ -272,7 +278,6 @@ function CreatePostcardContent() {
             />
           </div>
         </div>
-      </div>
     </main>
   );
 }
