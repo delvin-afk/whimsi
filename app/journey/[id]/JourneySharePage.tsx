@@ -66,6 +66,13 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
     setMemory((prev) => prev ? { ...prev, stop, stopIndex: index } : prev);
   }
 
+  // Auto-open peek for stop 1 so the user immediately knows they can swipe
+  useEffect(() => {
+    if (validStops.length > 0) {
+      setMemory({ stop: validStops[0], stopIndex: 1, mode: "peek" });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !token || validStops.length === 0) return;
 
@@ -83,14 +90,8 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
       mapRef.current = map;
 
       map.on("load", async () => {
-        if (validStops.length > 1) {
-          const lngs = validStops.map((s) => s.lng!);
-          const lats = validStops.map((s) => s.lat!);
-          map.fitBounds(
-            [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-            { padding: 80, duration: 800 }
-          );
-        }
+        // Fly to stop 1 with peek-tile bottom padding so the pin isn't hidden behind the sheet
+        flyToStop(0, true);
 
         if (validStops.length >= 2) {
           const straight = validStops.map((s) => [s.lng!, s.lat!]);
