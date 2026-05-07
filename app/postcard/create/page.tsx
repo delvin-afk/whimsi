@@ -111,8 +111,8 @@ function PostcardPreview({
   return (
     <div className="flex w-full" style={{ height: 340, background: "#f5f0e8" }}>
 
-      {/* Left: map inset — small cream border visible on top/left/bottom edges */}
-      <div className="shrink-0" style={{ width: "50%", padding: "6px 0 6px 6px" }}>
+      {/* Left: map inset — cream border visible on all sides */}
+      <div className="shrink-0" style={{ width: "50%", padding: "6px 6px 6px 6px" }}>
         <div className="w-full h-full overflow-hidden">
           <JourneyMapThumb journey={journey} mapboxToken={mapboxToken} />
         </div>
@@ -124,43 +124,43 @@ function PostcardPreview({
       {/* Right: postcard panel */}
       <div className="relative flex-1" style={{ background: "#f5f0e8" }}>
 
-        {/* Wavy lines — upper right, beside the stamp */}
-        <div className="absolute" style={{ top: 12, left: 86, right: 56 }}>
-          <svg width="100%" height="48" viewBox="0 0 120 48" preserveAspectRatio="none">
-            {[0, 13, 26].map((y) => (
+        {/* Wavy lines — top left of right panel, bigger, with 3 stars */}
+        <div className="absolute" style={{ top: 10, left: 10, right: 54 }}>
+          <svg width="100%" height="72" viewBox="0 0 150 72" preserveAspectRatio="none">
+            {[0, 20, 40].map((y) => (
               <path
                 key={y}
-                d={`M0,${y + 8} C20,${y + 2} 40,${y + 14} 60,${y + 8} C80,${y + 2} 100,${y + 14} 120,${y + 8}`}
+                d={`M0,${y + 12} C25,${y + 3} 50,${y + 22} 75,${y + 12} C100,${y + 3} 125,${y + 22} 150,${y + 12}`}
                 fill="none"
-                stroke="#888"
-                strokeWidth="1.3"
+                stroke="#777"
+                strokeWidth="1.6"
                 opacity="0.5"
               />
             ))}
-            <text x="10"  y="6"  fontSize="8" fill="#999" opacity="0.7">✦</text>
-            <text x="68"  y="10" fontSize="7" fill="#999" opacity="0.55">✦</text>
-            <text x="105" y="5"  fontSize="6" fill="#999" opacity="0.45">✦</text>
-            <text x="42"  y="40" fontSize="6" fill="#999" opacity="0.4">✦</text>
+            {/* 3 stars spaced around the lines */}
+            <text x="8"   y="8"  fontSize="12" fill="#888" opacity="0.7">✦</text>
+            <text x="78"  y="34" fontSize="11" fill="#888" opacity="0.6">✦</text>
+            <text x="128" y="60" fontSize="10" fill="#888" opacity="0.5">✦</text>
           </svg>
         </div>
 
         {/* whimsi burst badge — top right */}
         <div className="absolute" style={{ top: 6, right: 6 }}>
-          <svg width="50" height="50" viewBox="0 0 50 50">
+          <svg width="48" height="48" viewBox="0 0 50 50">
             <path d="M25,1 L28,10 L37,6 L34,15 L43,15 L37,22 L45,27 L37,32 L43,39 L34,39 L37,48 L28,44 L25,53 L22,44 L13,48 L16,39 L7,39 L13,32 L5,27 L13,22 L7,15 L16,15 L13,6 L22,10 Z"
               fill="#4ade80" />
             <text x="25" y="29" textAnchor="middle" fontSize="7" fontWeight="700" fill="black" fontFamily="sans-serif">whimsi</text>
           </svg>
         </div>
 
-        {/* Postmark stamp — upper left of right panel */}
-        <div className="absolute" style={{ top: 14, left: 10 }}>
-          <svg width="76" height="76" viewBox="0 0 76 76">
-            <circle cx="38" cy="38" r="35" fill="none" stroke="#a09080" strokeWidth="1.5" />
-            <circle cx="38" cy="38" r="29" fill="none" stroke="#a09080" strokeWidth="0.8" strokeDasharray="4 2.5" />
-            <text x="38" y="31" textAnchor="middle" fontSize="7" fill="#9c8878" fontFamily="monospace" letterSpacing="2">·  ·  ·  ·</text>
-            <text x="38" y="41" textAnchor="middle" fontSize="10" fill="#9c8878" fontFamily="monospace">{dateStr}</text>
-            <text x="38" y="51" textAnchor="middle" fontSize="7" fill="#9c8878" fontFamily="monospace" letterSpacing="2">·  ·  ·  ·</text>
+        {/* Postmark stamp — directly below the wavy lines */}
+        <div className="absolute" style={{ top: 88, left: "50%", transform: "translateX(-50%)" }}>
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle cx="40" cy="40" r="37" fill="none" stroke="#a09080" strokeWidth="1.5" />
+            <circle cx="40" cy="40" r="31" fill="none" stroke="#a09080" strokeWidth="0.8" strokeDasharray="4 2.5" />
+            <text x="40" y="33" textAnchor="middle" fontSize="7" fill="#9c8878" fontFamily="monospace" letterSpacing="2">·  ·  ·  ·</text>
+            <text x="40" y="44" textAnchor="middle" fontSize="11" fill="#9c8878" fontFamily="monospace">{dateStr}</text>
+            <text x="40" y="55" textAnchor="middle" fontSize="7" fill="#9c8878" fontFamily="monospace" letterSpacing="2">·  ·  ·  ·</text>
           </svg>
         </div>
 
