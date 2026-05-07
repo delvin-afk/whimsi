@@ -109,77 +109,86 @@ function PostcardPreview({
   const dateStr = `${String(now.getMonth() + 1).padStart(2, "0")} ${String(now.getDate()).padStart(2, "0")} ${String(now.getFullYear()).slice(-2)}`;
 
   return (
-    <div className="overflow-hidden flex w-full" style={{ height: 340, background: "#f5f0e8" }}>
-      {/* Left: journey map — exactly half */}
-      <div className="relative shrink-0" style={{ width: "50%" }}>
-        <JourneyMapThumb journey={journey} mapboxToken={mapboxToken} />
+    <div className="flex w-full" style={{ height: 340, background: "#f5f0e8" }}>
+
+      {/* Left: map inset — small cream border visible on top/left/bottom edges */}
+      <div className="shrink-0" style={{ width: "50%", padding: "6px 0 6px 6px" }}>
+        <div className="w-full h-full overflow-hidden">
+          <JourneyMapThumb journey={journey} mapboxToken={mapboxToken} />
+        </div>
       </div>
 
-      {/* Right: postcard panel — exactly half */}
-      <div className="relative" style={{ width: "50%", background: "#f5f0e8" }}>
+      {/* Vertical divider */}
+      <div className="shrink-0" style={{ width: 1, background: "#a09080" }} />
 
-        {/* Wavy lines + sparkles — upper-right area */}
-        <div className="absolute" style={{ top: 14, left: 10, right: 52 }}>
-          <svg width="100%" height="52" viewBox="0 0 130 52" preserveAspectRatio="none">
-            {[0, 12, 24].map((y) => (
+      {/* Right: postcard panel */}
+      <div className="relative flex-1" style={{ background: "#f5f0e8" }}>
+
+        {/* Wavy lines — upper right, beside the stamp */}
+        <div className="absolute" style={{ top: 12, left: 86, right: 56 }}>
+          <svg width="100%" height="48" viewBox="0 0 120 48" preserveAspectRatio="none">
+            {[0, 13, 26].map((y) => (
               <path
                 key={y}
-                d={`M0,${y + 8} C22,${y + 2} 44,${y + 14} 66,${y + 8} C88,${y + 2} 110,${y + 14} 130,${y + 8}`}
+                d={`M0,${y + 8} C20,${y + 2} 40,${y + 14} 60,${y + 8} C80,${y + 2} 100,${y + 14} 120,${y + 8}`}
                 fill="none"
-                stroke="#8a8a8a"
-                strokeWidth="1.2"
-                opacity="0.55"
+                stroke="#888"
+                strokeWidth="1.3"
+                opacity="0.5"
               />
             ))}
-            {/* sparkles */}
-            <text x="18" y="6" fontSize="8" fill="#aaa" opacity="0.7">✦</text>
-            <text x="72" y="10" fontSize="7" fill="#aaa" opacity="0.6">✦</text>
-            <text x="108" y="4" fontSize="6" fill="#aaa" opacity="0.5">✦</text>
-            <text x="48" y="38" fontSize="6" fill="#aaa" opacity="0.5">✦</text>
+            <text x="10"  y="6"  fontSize="8" fill="#999" opacity="0.7">✦</text>
+            <text x="68"  y="10" fontSize="7" fill="#999" opacity="0.55">✦</text>
+            <text x="105" y="5"  fontSize="6" fill="#999" opacity="0.45">✦</text>
+            <text x="42"  y="40" fontSize="6" fill="#999" opacity="0.4">✦</text>
           </svg>
         </div>
 
-        {/* whimsi badge — top right (scalloped burst) */}
-        <div className="absolute" style={{ top: 8, right: 8 }}>
-          <svg width="52" height="52" viewBox="0 0 52 52">
-            <path d="M26,2 L29,10 L37,7 L35,15 L43,16 L38,22 L45,27 L38,32 L43,38 L35,39 L37,47 L29,44 L26,52 L23,44 L15,47 L17,39 L9,38 L14,32 L7,27 L14,22 L9,16 L17,15 L15,7 L23,10 Z"
+        {/* whimsi burst badge — top right */}
+        <div className="absolute" style={{ top: 6, right: 6 }}>
+          <svg width="50" height="50" viewBox="0 0 50 50">
+            <path d="M25,1 L28,10 L37,6 L34,15 L43,15 L37,22 L45,27 L37,32 L43,39 L34,39 L37,48 L28,44 L25,53 L22,44 L13,48 L16,39 L7,39 L13,32 L5,27 L13,22 L7,15 L16,15 L13,6 L22,10 Z"
               fill="#4ade80" />
-            <text x="26" y="28" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="black" fontFamily="sans-serif">whimsi</text>
+            <text x="25" y="29" textAnchor="middle" fontSize="7" fontWeight="700" fill="black" fontFamily="sans-serif">whimsi</text>
           </svg>
         </div>
 
-        {/* Postmark stamp — center of right panel */}
-        <div className="absolute" style={{ top: 80, left: "50%", transform: "translateX(-50%)" }}>
-          <svg width="78" height="78" viewBox="0 0 78 78">
-            <circle cx="39" cy="39" r="36" fill="none" stroke="#b0a090" strokeWidth="1.5" />
-            <circle cx="39" cy="39" r="30" fill="none" stroke="#b0a090" strokeWidth="0.75" strokeDasharray="4 2.5" />
-            <text x="39" y="33" textAnchor="middle" fontSize="7" fill="#9c8878" fontFamily="monospace" letterSpacing="3">·  ·  ·  ·</text>
-            <text x="39" y="43" textAnchor="middle" fontSize="10" fill="#9c8878" fontFamily="monospace" letterSpacing="1">{dateStr}</text>
-            <text x="39" y="53" textAnchor="middle" fontSize="7" fill="#9c8878" fontFamily="monospace" letterSpacing="3">·  ·  ·  ·</text>
+        {/* Postmark stamp — upper left of right panel */}
+        <div className="absolute" style={{ top: 14, left: 10 }}>
+          <svg width="76" height="76" viewBox="0 0 76 76">
+            <circle cx="38" cy="38" r="35" fill="none" stroke="#a09080" strokeWidth="1.5" />
+            <circle cx="38" cy="38" r="29" fill="none" stroke="#a09080" strokeWidth="0.8" strokeDasharray="4 2.5" />
+            <text x="38" y="31" textAnchor="middle" fontSize="7" fill="#9c8878" fontFamily="monospace" letterSpacing="2">·  ·  ·  ·</text>
+            <text x="38" y="41" textAnchor="middle" fontSize="10" fill="#9c8878" fontFamily="monospace">{dateStr}</text>
+            <text x="38" y="51" textAnchor="middle" fontSize="7" fill="#9c8878" fontFamily="monospace" letterSpacing="2">·  ·  ·  ·</text>
           </svg>
         </div>
 
-        {/* Bottom: name + ruled lines */}
-        <div className="absolute left-4 right-4" style={{ bottom: 20 }}>
-          {location && (
-            <p className="mb-1.5" style={{ color: "#9c8468", fontFamily: "monospace", fontSize: 9, letterSpacing: "0.07em" }}>
-              {location.toUpperCase()}
-            </p>
-          )}
-          {caption && (
-            <p className="mb-2 leading-snug" style={{ color: "#6b5740", fontFamily: "Georgia, serif", fontSize: 10 }}>
-              {caption}
-            </p>
+        {/* Bottom: recipient name + ruled lines */}
+        <div className="absolute left-4 right-4" style={{ bottom: 18 }}>
+          {(location || caption) && (
+            <div className="mb-2">
+              {location && (
+                <p style={{ color: "#9c8468", fontFamily: "monospace", fontSize: 9, letterSpacing: "0.07em" }}>
+                  {location.toUpperCase()}
+                </p>
+              )}
+              {caption && (
+                <p className="leading-snug" style={{ color: "#6b5740", fontFamily: "Georgia, serif", fontSize: 9 }}>
+                  {caption}
+                </p>
+              )}
+            </div>
           )}
           <p
             className="border-b pb-1 mb-3"
-            style={{ color: "#1a0f0a", fontFamily: "Georgia, serif", fontSize: 18, fontStyle: "italic", borderColor: "#b0a090", minHeight: 24 }}
+            style={{ color: "#1a0f0a", fontFamily: "Georgia, serif", fontSize: 18, fontStyle: "italic", borderColor: "#a09080", minHeight: 26 }}
           >
             {recipientName}
           </p>
           <div className="space-y-3">
-            {[0, 1].map((i) => (
-              <div key={i} style={{ height: 1, background: "#c8b89a" }} />
+            {[0, 1, 2].map((i) => (
+              <div key={i} style={{ height: 1, background: "#c4b49a" }} />
             ))}
           </div>
         </div>
@@ -235,8 +244,8 @@ function CreatePostcardContent() {
           mapboxToken={mapboxToken}
         />
       ) : (
-        <div className="flex items-center justify-center" style={{ height: 340, background: "#1c1c1e" }}>
-          <div className="w-8 h-8 rounded-full border-2 border-neutral-800 animate-spin" style={{ borderTopColor: "#4ade80" }} />
+        <div className="w-full flex items-center justify-center" style={{ height: 340, background: "#f5f0e8" }}>
+          <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: "#c4b49a", borderTopColor: "#4ade80" }} />
         </div>
       )}
 
