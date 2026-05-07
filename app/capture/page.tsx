@@ -1990,9 +1990,9 @@ function CapturePageInner() {
           </div>
 
           {/* Sticker preview */}
-          <div className="flex-1 min-h-0 flex items-center justify-center px-10">
+          <div className="flex-1 min-h-0 flex items-center justify-center px-10 overflow-hidden py-4">
             {customizeAiLoading ? (
-              <div className="w-52 h-52 rounded-3xl bg-neutral-800 flex flex-col items-center justify-center gap-3">
+              <div className="w-44 h-44 rounded-3xl bg-neutral-800 flex flex-col items-center justify-center gap-3 shrink-0">
                 <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white animate-spin" />
                 <p className="text-white/50 text-sm">Creating AI sticker…</p>
               </div>
@@ -2000,14 +2000,14 @@ function CapturePageInner() {
               <img
                 src={customizeCurrentDataUrl ?? combinedModalPhoto.localUrl}
                 alt="Sticker preview"
-                className="max-w-52 max-h-52 w-full object-contain"
+                className="w-full h-full object-contain"
                 style={{ filter: "drop-shadow(0 8px 32px rgba(168,85,247,0.35))" }}
               />
             )}
           </div>
 
           {/* Bottom panel — shape picker + caption + footer */}
-          <div className="shrink-0 bg-neutral-900 rounded-t-3xl flex flex-col" style={{ maxHeight: "62vh" }}>
+          <div className="shrink-0 bg-neutral-900 rounded-t-3xl flex flex-col" style={{ maxHeight: "58vh" }}>
 
             {/* Shape picker (always visible) */}
             <div className="shrink-0 px-5 pt-4 pb-3 space-y-2.5">
@@ -2122,8 +2122,8 @@ function CapturePageInner() {
               </div>
             </div>
 
-            {/* Footer buttons */}
-            <div className="shrink-0 px-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] space-y-2.5 border-t border-white/10">
+            {/* Footer button */}
+            <div className="shrink-0 px-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] border-t border-white/10">
               <button
                 onClick={() => onCombinedConfirm(false)}
                 disabled={customizeAiLoading}
@@ -2131,13 +2131,6 @@ function CapturePageInner() {
                 style={{ background: "#22c55e" }}
               >
                 {journeyPhotos.findIndex((p) => p.id === combinedModalPhoto.id) < journeyPhotos.length - 1 ? "Next →" : "Finish"}
-              </button>
-              <button
-                onClick={() => onCombinedConfirm(true)}
-                disabled={customizeAiLoading}
-                className="w-full py-3 rounded-2xl border border-white/10 text-neutral-400 text-sm font-medium hover:text-white hover:border-white/20 transition disabled:opacity-40"
-              >
-                Skip
               </button>
             </div>
           </div>
