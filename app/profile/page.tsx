@@ -126,40 +126,52 @@ function JourneyMiniMap({ journey, mapboxToken }: { journey: Journey; mapboxToke
 
 // ── Journey card ──────────────────────────────────────────────────────────────
 function ProfileJourneyCard({ journey, mapboxToken }: { journey: Journey; mapboxToken: string }) {
-
   return (
     <div className="rounded-3xl overflow-hidden" style={{ background: "#1c1c1e" }}>
-      {/* Header row */}
-      <div className="px-4 pt-4 pb-2">
-        <div className="flex items-center justify-between gap-2">
-          {journey.caption
-            ? <p className="text-white font-bold text-base truncate">{journey.caption}</p>
-            : <p className="text-neutral-500 text-sm italic">No caption</p>
-          }
-          {!journey.is_public && (
-            <span className="shrink-0 text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(74,222,128,0.15)", color: ACCENT }}>
-              Private
-            </span>
-          )}
+      {/* Title row */}
+      <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-2">
+        {journey.caption
+          ? <p className="text-white font-bold text-base truncate">{journey.caption}</p>
+          : <p className="text-neutral-500 text-sm italic">No caption</p>
+        }
+        {!journey.is_public && (
+          <span className="shrink-0 text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(74,222,128,0.15)", color: ACCENT }}>
+            Private
+          </span>
+        )}
+      </div>
+
+      {/* Map left + Stats right */}
+      <div className="px-4 flex gap-3" style={{ height: 180 }}>
+        <Link href={`/map?journey=${journey.id}`} className="relative flex-[3] rounded-2xl overflow-hidden bg-neutral-800">
+          <JourneyMiniMap journey={journey} mapboxToken={mapboxToken} />
+          <div className="absolute inset-0" />
+        </Link>
+        <div className="flex-[2] flex flex-col rounded-2xl overflow-hidden" style={{ background: "#2c2c2e" }}>
+          <div className="flex-1 flex flex-col items-center justify-center px-2">
+            <p className="text-xs text-neutral-500 mb-1 text-center leading-tight">Number of Entries</p>
+            <p className="text-white font-bold text-2xl">{journey.stickers.length}</p>
+          </div>
+          <div className="h-px mx-3" style={{ background: "#3c3c3e" }} />
+          <div className="flex-1 flex flex-col items-center justify-center px-2">
+            <p className="text-xs text-neutral-500 mb-1 text-center leading-tight">Travel Time</p>
+            {(() => { const d = travelDays(journey.stickers); return <p className="text-white font-bold text-2xl">{d != null ? `${d} day${d !== 1 ? "s" : ""}` : "—"}</p>; })()}
+          </div>
         </div>
       </div>
 
-      {/* Map — tapping opens this journey on the map */}
-      <Link href={`/map?journey=${journey.id}`} className="block h-56 w-full bg-neutral-800 relative">
-        <JourneyMiniMap journey={journey} mapboxToken={mapboxToken} />
-        <div className="absolute inset-0" />
-      </Link>
-
-      {/* Stats */}
-      <div className="flex divide-x" style={{ borderColor: "#2c2c2e" }}>
-        <div className="flex-1 px-4 py-3 text-center">
-          <p className="text-xs text-neutral-500 mb-0.5">Number of Entries</p>
-          <p className="text-white font-bold text-2xl">{journey.stickers.length}</p>
-        </div>
-        <div className="flex-1 px-4 py-3 text-center">
-          <p className="text-xs text-neutral-500 mb-0.5">Travel Time</p>
-          <p className="text-white font-bold text-2xl">{(() => { const d = travelDays(journey.stickers); return d != null ? `${d} day${d !== 1 ? "s" : ""}` : "—"; })()}</p>
-        </div>
+      {/* Create Post Card */}
+      <div className="px-4 py-4">
+        <button
+          className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 text-black font-bold text-base"
+          style={{ background: ACCENT }}
+        >
+          Create Post Card
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <path d="M7 15h3M7 11h5"/>
+          </svg>
+        </button>
       </div>
     </div>
   );
@@ -215,6 +227,9 @@ export default function ProfilePage() {
   }, [router]);
 
   const filtered = journeys.filter((j) => journeyMatchesSearch(j, searchQuery));
+  const locationsDocumented = new Set(
+    journeys.flatMap((j) => j.stickers.map((s) => s.location_name).filter(Boolean))
+  ).size;
 
   return (
     <main className="min-h-screen pb-28" style={{ background: "#0f0f0f" }}>
@@ -222,20 +237,25 @@ export default function ProfilePage() {
 
         {/* Header */}
         <div className="pt-14 pb-5 flex items-center gap-4">
-          <div
-            className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shrink-0"
-            style={{ background: username ? avatarColor(username) : "#2c2c2e" }}
-          >
-            {username ? username[0].toUpperCase() : ""}
+          <div className="flex flex-col items-center gap-1 shrink-0">
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl"
+              style={{ background: username ? avatarColor(username) : "#2c2c2e" }}
+            >
+              {username ? username[0].toUpperCase() : ""}
+            </div>
+            <p className="text-neutral-500 text-xs font-medium">Journey</p>
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white font-black text-2xl leading-tight">{username || "…"}</p>
-            <p className="text-neutral-500 text-sm">{journeys.length} {journeys.length === 1 ? "journey" : "journeys"}</p>
           </div>
         </div>
 
+        {/* Journeys heading */}
+        <p className="text-white font-bold text-lg mb-3">Journeys</p>
+
         {/* Search */}
-        <div className="mb-5">
+        <div className="mb-4">
           <div className="flex items-center gap-2 px-4 py-3 rounded-2xl" style={{ background: "#1c1c1e" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2.5" strokeLinecap="round" className="shrink-0">
               <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
@@ -256,6 +276,20 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+
+        {/* Stats banner */}
+        {!loading && (
+          <div className="rounded-2xl mb-5 flex divide-x" style={{ background: "#1c1c1e", borderColor: "#2c2c2e" }}>
+            <div className="flex-1 px-4 py-4 text-center">
+              <p className="text-xs text-neutral-500 mb-1">Number of Journeys</p>
+              <p className="text-white font-bold text-2xl">{journeys.length}</p>
+            </div>
+            <div className="flex-1 px-4 py-4 text-center">
+              <p className="text-xs text-neutral-500 mb-1">Locations Documented</p>
+              <p className="text-white font-bold text-2xl">{locationsDocumented}</p>
+            </div>
+          </div>
+        )}
 
         {/* Cards */}
         <div className="space-y-4">
