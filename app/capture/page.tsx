@@ -555,12 +555,16 @@ function CapturePageInner() {
   const [journeyProgress, setJourneyProgress] = useState({ current: 0, total: 0 });
   const [journeySaveError, setJourneySaveError] = useState("");
   const [savedJourneyId, setSavedJourneyId] = useState("");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [editingTimestampId, setEditingTimestampId] = useState<string | null>(null);
   // Customize sticker modal: shown per photo during journey creation
   const [customizeModalPhoto, setCustomizeModalPhoto] = useState<PhotoItem | null>(null);
   const customizeResolverRef = useRef<((r: CustomizeResult) => void) | null>(null);
   const [customizeSelectedMode, setCustomizeSelectedMode] = useState<"original" | CutoutShape | "ai-done">("original");
   const [customizeCurrentDataUrl, setCustomizeCurrentDataUrl] = useState<string | null>(null);
   const [customizeShapePreviews, setCustomizeShapePreviews] = useState<Partial<Record<CutoutShape, string>>>({});
+  type ShapeCacheEntry = { mode: "original" | CutoutShape | "ai-done"; dataUrl: string | null; previews: Partial<Record<CutoutShape, string>> };
+  const customizeShapeCache = useRef<Map<string, ShapeCacheEntry>>(new Map());
   const [customizeAiLoading, setCustomizeAiLoading] = useState(false);
   const [customizeAiError, setCustomizeAiError] = useState("");
 
@@ -642,18 +646,34 @@ function CapturePageInner() {
     setJourneyCaptionLng(captionModalPhoto.lng ?? null);
   }, [captionModalPhoto]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Pre-generate shape preview thumbnails when customize modal opens
+  // Pre-generate shape preview thumbnails when customize modal opens; restore cached selection
   useEffect(() => {
     if (!customizeModalPhoto) return;
-    setCustomizeSelectedMode("original");
-    setCustomizeCurrentDataUrl(null);
-    setCustomizeShapePreviews({});
     setCustomizeAiLoading(false);
     setCustomizeAiError("");
+    const cached = customizeShapeCache.current.get(customizeModalPhoto.id);
+    if (cached) {
+      setCustomizeSelectedMode(cached.mode);
+      setCustomizeCurrentDataUrl(cached.dataUrl);
+      setCustomizeShapePreviews(cached.previews);
+    } else {
+      setCustomizeSelectedMode("original");
+      setCustomizeCurrentDataUrl(null);
+      setCustomizeShapePreviews({});
+    }
     const url = customizeModalPhoto.localUrl;
+    const photoId = customizeModalPhoto.id;
     for (const { id } of CUTOUT_SHAPES) {
+      if (cached?.previews[id]) continue; // already have this preview
       generateCutout(url, id).then((dataUrl) => {
-        setCustomizeShapePreviews((prev) => ({ ...prev, [id]: dataUrl }));
+        setCustomizeShapePreviews((prev) => {
+          const next = { ...prev, [id]: dataUrl };
+          customizeShapeCache.current.set(photoId, {
+            ...customizeShapeCache.current.get(photoId) ?? { mode: "original", dataUrl: null, previews: {} },
+            previews: { ...customizeShapeCache.current.get(photoId)?.previews, [id]: dataUrl },
+          });
+          return next;
+        });
       }).catch(() => {});
     }
   }, [customizeModalPhoto]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -965,6 +985,11 @@ function CapturePageInner() {
     setJourneyPhotos((prev) => prev.map((p) => p.id === id ? { ...p, ...patch } : p));
   }
 
+  function removeJourneyPhoto(id: string) {
+    setJourneyPhotos((prev) => prev.filter((p) => p.id !== id));
+    if (openMenuId === id) setOpenMenuId(null);
+  }
+
   async function createJourney() {
     if (!userId || !username) { router.push("/auth"); return; }
     setJourneyStep("processing");
@@ -1116,16 +1141,33 @@ function CapturePageInner() {
   function onCustomizeSelectOriginal() {
     setCustomizeSelectedMode("original");
     setCustomizeCurrentDataUrl(null);
+    if (customizeModalPhoto) {
+      customizeShapeCache.current.set(customizeModalPhoto.id, {
+        mode: "original", dataUrl: null,
+        previews: customizeShapeCache.current.get(customizeModalPhoto.id)?.previews ?? {},
+      });
+    }
   }
 
   async function onCustomizeSelectShape(shape: CutoutShape) {
     setCustomizeSelectedMode(shape);
-    if (customizeShapePreviews[shape]) {
-      setCustomizeCurrentDataUrl(customizeShapePreviews[shape]!);
+    const existing = customizeShapePreviews[shape];
+    if (existing) {
+      setCustomizeCurrentDataUrl(existing);
+      if (customizeModalPhoto) {
+        customizeShapeCache.current.set(customizeModalPhoto.id, {
+          mode: shape, dataUrl: existing,
+          previews: customizeShapeCache.current.get(customizeModalPhoto.id)?.previews ?? customizeShapePreviews,
+        });
+      }
     } else if (customizeModalPhoto) {
       const dataUrl = await generateCutout(customizeModalPhoto.localUrl, shape);
       setCustomizeShapePreviews((prev) => ({ ...prev, [shape]: dataUrl }));
       setCustomizeCurrentDataUrl(dataUrl);
+      customizeShapeCache.current.set(customizeModalPhoto.id, {
+        mode: shape, dataUrl,
+        previews: { ...customizeShapeCache.current.get(customizeModalPhoto.id)?.previews, ...customizeShapePreviews, [shape]: dataUrl },
+      });
     }
   }
 
@@ -1143,6 +1185,12 @@ function CapturePageInner() {
       if (res.ok) {
         setCustomizeCurrentDataUrl(json.sticker);
         setCustomizeSelectedMode("ai-done");
+        if (customizeModalPhoto) {
+          customizeShapeCache.current.set(customizeModalPhoto.id, {
+            mode: "ai-done", dataUrl: json.sticker,
+            previews: customizeShapeCache.current.get(customizeModalPhoto.id)?.previews ?? customizeShapePreviews,
+          });
+        }
       } else {
         setCustomizeAiError("AI couldn't isolate a subject. Try a shape instead.");
       }
@@ -1343,6 +1391,7 @@ function CapturePageInner() {
     setJourneyProgress({ current: 0, total: 0 });
     setJourneySaveError("");
     setMode("single");
+    customizeShapeCache.current.clear();
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -1761,100 +1810,210 @@ function CapturePageInner() {
           />
 
           {journeyStep === "details" && (
-            <div className="space-y-4">
-              {/* Journey header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-neutral-600">{journeyPhotos.length} {journeyPhotos.length === 1 ? "photo" : "photos"}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">{journeyPhotos.length === 1 ? "Sticker" : "Journey"}</span>
-                </div>
-                <button onClick={resetJourney} className="text-xs text-neutral-400 hover:text-neutral-700">Start over</button>
+            <div
+              className="fixed inset-0 z-50 flex flex-col overflow-hidden"
+              style={{ background: "#111113" }}
+              onClick={() => { if (openMenuId) setOpenMenuId(null); }}
+            >
+              {/* Header */}
+              <div className="flex items-center gap-3 px-4 pt-12 pb-4 shrink-0">
+                <button
+                  onClick={resetJourney}
+                  className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(255,255,255,0.1)" }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
+                </button>
+                <h1 className="text-white font-bold text-xl flex-1">
+                  {journeyPhotos.length === 1 ? "Create a Sticker" : "Edit Journey"}
+                </h1>
               </div>
 
-              {/* Caption */}
-              <div>
-                <label className="text-xs text-neutral-500 font-medium uppercase tracking-wide">{journeyPhotos.length === 1 ? "Sticker Caption" : "Journey Caption"}</label>
+              {/* Scrollable body */}
+              <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-6">
+                {/* Title input */}
+                <p className="text-white font-semibold text-base mb-2">
+                  {journeyPhotos.length === 1 ? "Add a caption" : "What is the title of your journey?"}
+                </p>
                 <input
                   value={journeyCaption}
                   onChange={(e) => setJourneyCaption(e.target.value)}
-                  placeholder={journeyPhotos.length === 1 ? "e.g. A day in the city" : "e.g. Weekend in Tokyo"}
-                  className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
+                  placeholder={journeyPhotos.length === 1 ? "e.g. A day in the city" : "ex: Greece Trip 2025"}
+                  className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
+                  style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)" }}
                 />
-              </div>
 
-              {/* Photo list */}
-              <div className="space-y-3">
-                {journeyPhotos.map((photo, index) => (
-                  <div key={photo.id} className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
-                    <div className="flex gap-3 p-3">
-                      {/* Order badge + thumbnail */}
-                      <div className="relative shrink-0">
-                        <img src={photo.localUrl} alt="" className="w-20 h-20 object-cover rounded-xl" />
-                        <span className="absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center shadow">
-                          {index + 1}
-                        </span>
-                      </div>
+                {/* Section heading */}
+                {journeyPhotos.length > 1 && (
+                  <p className="text-white font-semibold text-base mt-6 mb-3">Confirm Selection &amp; Details</p>
+                )}
 
-                      {/* Details */}
-                      <div className="flex-1 min-w-0 space-y-1.5">
-                        {photo.photoTakenAt ? (
-                          <p className="text-xs text-neutral-400 flex items-center gap-1">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                            {formatTimestamp(photo.photoTakenAt)}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-neutral-300">No timestamp</p>
-                        )}
+                {/* Photo cards */}
+                <div className="space-y-3 mt-4">
+                  {journeyPhotos.map((photo, index) => (
+                    <div
+                      key={photo.id}
+                      className="rounded-2xl overflow-hidden"
+                      style={{ background: "#1e1e22", border: "1px solid rgba(255,255,255,0.07)" }}
+                    >
+                      <div className="flex gap-3 p-3 items-start">
+                        {/* Badge + thumbnail */}
+                        <div className="relative shrink-0">
+                          <img src={photo.localUrl} alt="" className="w-20 h-20 object-cover rounded-xl" />
+                          <span
+                            className="absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center shadow"
+                            style={{ background: "#22c55e" }}
+                          >
+                            {index + 1}
+                          </span>
+                        </div>
 
-                        {/* Location */}
-                        {!photo.showLocationPicker ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs">📍</span>
-                            <span className="text-xs text-neutral-600 truncate flex-1">
-                              {photo.locationName || <span className="text-neutral-300">No location detected</span>}
-                            </span>
-                            <button
-                              onClick={() => updatePhoto(photo.id, { showLocationPicker: true })}
-                              className="text-xs text-purple-600 underline underline-offset-2 shrink-0"
+                        {/* Details */}
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          {photo.photoTakenAt ? (
+                            <p className="text-xs flex items-center gap-1" style={{ color: "rgba(255,255,255,0.5)" }}>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                              {formatTimestamp(photo.photoTakenAt)}
+                            </p>
+                          ) : (
+                            <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>No timestamp</p>
+                          )}
+
+                          {/* Location row */}
+                          {!photo.showLocationPicker ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs">📍</span>
+                              <span className="text-xs truncate flex-1" style={{ color: photo.locationName ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.25)" }}>
+                                {photo.locationName || "No location detected"}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <LocationPicker
+                                defaultLat={photo.exifLat}
+                                defaultLng={photo.exifLng}
+                                onChange={(name, newLat, newLng) =>
+                                  updatePhoto(photo.id, { locationName: name, lat: newLat, lng: newLng })
+                                }
+                              />
+                              <button
+                                onClick={() => updatePhoto(photo.id, { showLocationPicker: false })}
+                                className="text-xs underline underline-offset-2"
+                                style={{ color: "#4ade80" }}
+                              >
+                                Done
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Timestamp editor */}
+                          {editingTimestampId === photo.id && (
+                            <div className="space-y-1.5 pt-1">
+                              <input
+                                type="datetime-local"
+                                defaultValue={photo.photoTakenAt ? toLocalInputValue(photo.photoTakenAt) : ""}
+                                className="w-full rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
+                                style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", colorScheme: "dark" }}
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    updatePhoto(photo.id, { photoTakenAt: new Date(e.target.value).toISOString() });
+                                  }
+                                }}
+                              />
+                              <button
+                                onClick={() => setEditingTimestampId(null)}
+                                className="text-xs underline underline-offset-2"
+                                style={{ color: "#4ade80" }}
+                              >
+                                Done
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Three-dot menu button */}
+                        <div className="relative shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(openMenuId === photo.id ? null : photo.id);
+                              setEditingTimestampId(null);
+                            }}
+                            className="w-8 h-8 flex items-center justify-center rounded-full"
+                            style={{ color: "rgba(255,255,255,0.4)" }}
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                              <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
+                            </svg>
+                          </button>
+
+                          {/* Dropdown */}
+                          {openMenuId === photo.id && (
+                            <div
+                              className="absolute right-0 top-9 z-50 rounded-2xl overflow-hidden shadow-2xl"
+                              style={{ background: "#2a2a2e", border: "1px solid rgba(255,255,255,0.1)", minWidth: 180 }}
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              {photo.locationName ? "Edit" : "Set"}
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <LocationPicker
-                              defaultLat={photo.exifLat}
-                              defaultLng={photo.exifLng}
-                              onChange={(name, newLat, newLng) =>
-                                updatePhoto(photo.id, { locationName: name, lat: newLat, lng: newLng })
-                              }
-                            />
-                            <button
-                              onClick={() => updatePhoto(photo.id, { showLocationPicker: false })}
-                              className="text-xs text-neutral-500 underline underline-offset-2"
-                            >
-                              Done
-                            </button>
-                          </div>
-                        )}
+                              <button
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-left text-white hover:bg-white/5 transition-colors"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setEditingTimestampId(photo.id);
+                                }}
+                              >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                Edit Timestamp
+                              </button>
+                              <div className="h-px mx-3" style={{ background: "rgba(255,255,255,0.07)" }} />
+                              <button
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-left text-white hover:bg-white/5 transition-colors"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  updatePhoto(photo.id, { showLocationPicker: true });
+                                }}
+                              >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 21s-8-6.5-8-12a8 8 0 0116 0c0 5.5-8 12-8 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                                Edit Location
+                              </button>
+                              <div className="h-px mx-3" style={{ background: "rgba(255,255,255,0.07)" }} />
+                              <button
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-left hover:bg-white/5 transition-colors"
+                                style={{ color: "#f87171" }}
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  removeJourneyPhoto(photo.id);
+                                }}
+                              >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                                Remove Photo
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
+                  ))}
+                </div>
+
+                {journeySaveError && (
+                  <div className="rounded-xl mt-4 px-4 py-3 text-sm" style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5" }}>
+                    {journeySaveError}
                   </div>
-                ))}
+                )}
               </div>
 
-              {journeySaveError && (
-                <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                  {journeySaveError}
-                </div>
-              )}
-
-              <button
-                onClick={createJourney}
-                className="w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold text-base"
-              >
-                {journeyPhotos.length === 1 ? "Create Sticker" : "Create Journey"}
-              </button>
+              {/* CTA */}
+              <div className="px-4 pb-8 pt-3 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                <button
+                  onClick={createJourney}
+                  className="w-full py-4 rounded-2xl font-bold text-base text-black"
+                  style={{ background: "#22c55e" }}
+                >
+                  {journeyPhotos.length === 1 ? "Create Sticker" : "Create Journey"}
+                </button>
+              </div>
             </div>
           )}
 
@@ -2166,45 +2325,6 @@ function CapturePageInner() {
               </div>
             </div>
 
-            {/* Select Date (timestamp) */}
-            <div>
-              <label className="text-neutral-400 text-sm font-medium">Select Date</label>
-              <input
-                type="datetime-local"
-                value={journeyCaptionTimestamp}
-                onChange={(e) => setJourneyCaptionTimestamp(e.target.value)}
-                className="mt-1.5 w-full bg-neutral-800 text-white rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
-              />
-            </div>
-
-            {/* Select Location */}
-            <div>
-              <label className="text-neutral-400 text-sm font-medium">Select Location</label>
-              <input
-                type="text"
-                value={journeyCaptionLocationName}
-                onChange={(e) => setJourneyCaptionLocationName(e.target.value)}
-                placeholder="Ex: Athens, Greece"
-                className="mt-1.5 w-full bg-neutral-800 text-white placeholder-neutral-600 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-purple-500"
-              />
-              {/* Static map preview if we have coordinates */}
-              {journeyCaptionLat != null && journeyCaptionLng != null && mapboxToken && (
-                <div className="mt-2 rounded-2xl overflow-hidden h-36 relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${journeyCaptionLng},${journeyCaptionLat},13/600x300?access_token=${mapboxToken}`}
-                    alt="Location map"
-                    className="w-full h-full object-cover"
-                  />
-                  {captionModalPhoto.stickerDataUrl && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <img src={captionModalPhoto.stickerDataUrl} alt=""
-                        className="w-14 h-14 object-contain drop-shadow-lg" />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Sticky action buttons */}
