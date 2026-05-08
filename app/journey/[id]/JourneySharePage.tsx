@@ -23,7 +23,7 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
   const mapRef = useRef<any>(null);
   const [activeStop, setActiveStop] = useState(0);
   const [memory, setMemory] = useState<MemoryState | null>(null);
-  const [isAuthed, setIsAuthed] = useState(false);
+  const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -221,8 +221,8 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
           )}
         </div>
 
-        {/* Bottom CTA — only for unauthenticated viewers */}
-        {!isAuthed && (
+        {/* Bottom CTA — only for unauthenticated viewers (null = still checking, hide until known) */}
+        {isAuthed === false && (
           <div className="shrink-0 bg-white border-t border-neutral-100 px-4 py-3 flex items-center gap-3">
             <p className="flex-1 text-xs text-neutral-500">Want to create your own journey?</p>
             <Link href="/auth" className="shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-white"
