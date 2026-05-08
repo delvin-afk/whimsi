@@ -255,7 +255,10 @@ export default function ProfilePage() {
       form.append("userId", userId);
       const res = await fetch("/api/profile/avatar", { method: "POST", body: form });
       const json = await res.json();
-      if (json.avatar_url) setAvatarUrl(json.avatar_url);
+      if (json.avatar_url) {
+        setAvatarUrl(json.avatar_url);
+        window.dispatchEvent(new CustomEvent("avatar-updated", { detail: { url: json.avatar_url } }));
+      }
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

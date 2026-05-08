@@ -2,9 +2,32 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchAvatar() {
+      const supabase = getSupabaseBrowser();
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: profile } = await (supabase as any)
+        .from("profiles").select("avatar_url").eq("id", auth.user.id).single();
+      if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
+    }
+    fetchAvatar();
+
+    const handleAvatarUpdate = (e: Event) => {
+      const url = (e as CustomEvent<{ url: string }>).detail?.url;
+      if (url) setAvatarUrl(url);
+    };
+    window.addEventListener("avatar-updated", handleAvatarUpdate);
+    return () => window.removeEventListener("avatar-updated", handleAvatarUpdate);
+  }, []);
 
   if (pathname.startsWith("/auth")) return null;
 
@@ -72,10 +95,17 @@ export default function BottomNav() {
         onClick={() => { if (pathname.startsWith("/profile")) window.scrollTo({ top: 0, behavior: "smooth" }); }}
         className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-colors ${profileActive ? "text-pink-500" : "text-neutral-400 hover:text-neutral-700"}`}
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth={profileActive ? 2.5 : 1.5} fill={profileActive ? "currentColor" : "none"} fillOpacity={profileActive ? 0.15 : 0} />
-          <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth={profileActive ? 2.5 : 1.5} strokeLinecap="round" />
-        </svg>
+        {avatarUrl ? (
+          <div className={`w-6 h-6 rounded-full overflow-hidden border-2 ${profileActive ? "border-pink-500" : "border-neutral-300"}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={avatarUrl} alt="profile" className="w-full h-full object-cover" />
+          </div>
+        ) : (
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth={profileActive ? 2.5 : 1.5} fill={profileActive ? "currentColor" : "none"} fillOpacity={profileActive ? 0.15 : 0} />
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth={profileActive ? 2.5 : 1.5} strokeLinecap="round" />
+          </svg>
+        )}
         <span className="text-[10px] font-medium">Profile</span>
       </Link>
     </nav>

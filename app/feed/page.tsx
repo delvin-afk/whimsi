@@ -327,6 +327,7 @@ export default function FeedPage() {
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState("");
@@ -339,11 +340,25 @@ export default function FeedPage() {
       const uid = data.user?.id ?? null;
       setCurrentUserId(uid);
 
+      if (uid) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: profile } = await (getSupabaseBrowser() as any)
+          .from("profiles").select("avatar_url").eq("id", uid).single();
+        if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
+      }
+
       const params = uid ? `?user_id=${uid}` : "";
       const res = await fetch(`/api/journeys${params}`).then((r) => r.json()).catch(() => ({ journeys: [] }));
       setJourneys(res.journeys ?? []);
       setLoading(false);
     });
+
+    const handleAvatarUpdate = (e: Event) => {
+      const url = (e as CustomEvent<{ url: string }>).detail?.url;
+      if (url) setAvatarUrl(url);
+    };
+    window.addEventListener("avatar-updated", handleAvatarUpdate);
+    return () => window.removeEventListener("avatar-updated", handleAvatarUpdate);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function startListening() {
@@ -407,10 +422,15 @@ export default function FeedPage() {
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
               </svg>
             </button>
-            <Link href="/profile" className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "#2c2c2e" }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-              </svg>
+            <Link href="/profile" className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center shrink-0" style={{ background: "#2c2c2e" }}>
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="profile" className="w-full h-full object-cover" />
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                </svg>
+              )}
             </Link>
           </div>
         </div>
