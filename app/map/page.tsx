@@ -13,6 +13,15 @@ import type { StickerClickPayload } from "@/components/MapView";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
+function travelDays(journey: Journey): number | null {
+  const dates = journey.stickers
+    .map((s) => (s.photo_taken_at ? new Date(s.photo_taken_at).getTime() : null))
+    .filter((d): d is number => d !== null)
+    .sort((a, b) => a - b);
+  if (dates.length < 2) return null;
+  return Math.max(1, Math.ceil((dates[dates.length - 1] - dates[0]) / 86400000));
+}
+
 type MemoryState = {
   stop: StickerPost;
   stopIndex: number | null;
@@ -189,9 +198,60 @@ export default function MapPage() {
         journeys={journeys}
         selectedJourneyId={selectedJourneyId}
         onJourneySelect={handleJourneySelect}
-        hidden={!!memory}
+        hidden={!!memory || !!selectedJourneyId}
       />
     </div>
+
+    {/* ── Journey floating detail card — mobile only ── */}
+    {selectedJourney && !memory && (
+      <div
+        className="lg:hidden fixed left-3 right-3 z-40 rounded-3xl"
+        style={{
+          bottom: "calc(env(safe-area-inset-bottom) + 72px)",
+          background: "#1a1a1e",
+          boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
+        }}
+      >
+        <div className="px-5 pt-5 pb-5">
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={() => handleJourneySelect(null)}
+              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+              style={{ background: "rgba(255,255,255,0.1)" }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <p className="text-white font-bold text-lg leading-tight truncate">
+              {selectedJourney.caption ?? `${selectedJourney.username}'s Journey`}
+            </p>
+          </div>
+          <div className="flex gap-3 mb-4">
+            <div className="flex-1 rounded-2xl px-4 py-3" style={{ background: "rgba(255,255,255,0.07)" }}>
+              <p className="text-xs mb-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>Number of Entries</p>
+              <p className="text-white font-bold text-2xl leading-tight">{selectedJourney.stickers.length}</p>
+            </div>
+            {(() => {
+              const days = travelDays(selectedJourney);
+              return days != null ? (
+                <div className="flex-1 rounded-2xl px-4 py-3" style={{ background: "rgba(255,255,255,0.07)" }}>
+                  <p className="text-xs mb-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>Travel Time</p>
+                  <p className="text-white font-bold text-2xl leading-tight">{days} {days === 1 ? "day" : "days"}</p>
+                </div>
+              ) : null;
+            })()}
+          </div>
+          <button
+            onClick={() => router.push(`/journey/${selectedJourney.id}`)}
+            className="w-full py-4 rounded-2xl font-bold text-base text-white"
+            style={{ background: "#22c55e" }}
+          >
+            Play Journey
+          </button>
+        </div>
+      </div>
+    )}
 
     {/* ── Memory peek — outside stacking context so it clears BottomNav ── */}
     {memory?.mode === "peek" && (

@@ -125,6 +125,25 @@ export default function MapView({
       el.style.opacity = active ? "1" : "0.15";
       el.style.transition = "opacity 0.25s";
     });
+
+    // Fly to selected journey (only when the map is already loaded — initial load is handled by map.on("load"))
+    if (selectedJourneyId && map.isStyleLoaded()) {
+      const journey = journeys.find((j) => j.id === selectedJourneyId);
+      if (journey) {
+        const locs = journey.stickers.filter((s) => s.lat != null && s.lng != null);
+        if (locs.length === 1) {
+          map.flyTo({ center: [locs[0].lng!, locs[0].lat!], zoom: 14, duration: 900,
+            padding: { top: 60, bottom: 260, left: 60, right: 60 } });
+        } else if (locs.length >= 2) {
+          const lngs = locs.map((s) => s.lng!);
+          const lats = locs.map((s) => s.lat!);
+          map.fitBounds(
+            [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+            { padding: { top: 60, bottom: 260, left: 60, right: 60 }, duration: 900, maxZoom: 15 }
+          );
+        }
+      }
+    }
   }, [selectedJourneyId, journeys]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
