@@ -66,10 +66,25 @@ function JourneyMapView({ journey, mapboxToken }: { journey: Journey; mapboxToke
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
+  const [inView, setInView] = useState(false);
   const stickersWithLoc = journey.stickers.filter((s) => s.lat != null && s.lng != null);
 
+  // Only initialise the map once the card scrolls into the viewport.
+  // Browsers cap WebGL contexts (~8-16 total) so creating all maps at once
+  // causes the most-recently-added ones to render blank.
   useEffect(() => {
-    if (!containerRef.current || mapRef.current || !mapboxToken || stickersWithLoc.length === 0) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setInView(true); },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!inView || !containerRef.current || mapRef.current || !mapboxToken || stickersWithLoc.length === 0) return;
 
     let destroyed = false;
 
@@ -161,7 +176,7 @@ function JourneyMapView({ journey, mapboxToken }: { journey: Journey; mapboxToke
     });
 
     return () => { destroyed = true; mapRef.current?.remove(); mapRef.current = null; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [inView]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={containerRef} className="w-full h-full" />;
 }
