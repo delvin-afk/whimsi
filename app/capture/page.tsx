@@ -676,7 +676,12 @@ function CapturePageInner() {
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    canvas.getContext("2d")!.drawImage(video, 0, 0);
+    const ctx = canvas.getContext("2d")!;
+    if (facingMode === "user") {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, 0, 0);
     const gps = capturedGpsRef.current;
     canvas.toBlob((blob) => {
       if (!blob) return;
@@ -1313,6 +1318,7 @@ function CapturePageInner() {
               playsInline
               muted
               className="absolute inset-0 w-full h-full object-cover"
+              style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
             />
           )}
         </div>
