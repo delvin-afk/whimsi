@@ -193,6 +193,8 @@ function JourneyCard({
   const isOwner = currentUserId === journey.user_id;
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [toggling, setToggling] = useState(false);
+  const [isPublic, setIsPublic] = useState(journey.is_public);
 
   const dateRange = formatDateRange(journey.stickers, journey.created_at);
   const uniqueLocations = [...new Set(journey.stickers.map((s) => s.location_name).filter(Boolean))].slice(0, 2);
@@ -207,6 +209,19 @@ function JourneyCard({
     });
     if (res.ok) onDeleted(journey.id);
     else setDeleting(false);
+  }
+
+  async function handleToggleVisibility() {
+    setToggling(true);
+    const next = !isPublic;
+    const res = await fetch(`/api/journeys/${journey.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: currentUserId, is_public: next }),
+    });
+    if (res.ok) setIsPublic(next);
+    setToggling(false);
+    setSheetOpen(false);
   }
 
   return (
@@ -228,7 +243,7 @@ function JourneyCard({
               {dateRange}{locationStr ? ` · ${locationStr}` : ""}
             </p>
           </div>
-          {!journey.is_public && isOwner && (
+          {!isPublic && isOwner && (
             <span className="shrink-0 text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(74,222,128,0.15)", color: ACCENT }}>
               Private
             </span>
@@ -276,18 +291,46 @@ function JourneyCard({
       {isOwner && sheetOpen && (
         <>
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" onClick={() => setSheetOpen(false)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center">
-            <div className="w-full max-w-lg rounded-t-3xl shadow-2xl overflow-hidden mb-0" style={{ background: "#1c1c1e" }}>
+          <div className="fixed left-0 right-0 z-50 flex justify-center" style={{ bottom: "calc(64px + env(safe-area-inset-bottom))" }}>
+            <div className="w-full max-w-lg rounded-3xl shadow-2xl mx-3" style={{ background: "#1c1c1e" }}>
               <div className="flex justify-center pt-3 pb-1">
                 <div className="w-10 h-1 rounded-full bg-white/20" />
               </div>
-              <div className="px-4 pb-8 pt-2 space-y-1">
+              <div className="px-4 pt-2 pb-4 space-y-1">
+                {/* Visibility toggle */}
+                <button
+                  onClick={handleToggleVisibility}
+                  disabled={toggling}
+                  className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl hover:bg-white/10 text-left disabled:opacity-40 transition-colors"
+                >
+                  {isPublic ? (
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a3a3a3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                      <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                  ) : (
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a3a3a3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                      <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10A15.3 15.3 0 0 1 8 12a15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                  )}
+                  <div>
+                    <p className="font-semibold text-sm text-white">
+                      {toggling ? "Updating…" : isPublic ? "Make private" : "Make public"}
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                      {isPublic ? "Only you will see this journey" : "Share this journey with everyone"}
+                    </p>
+                  </div>
+                </button>
+
+                {/* Delete */}
                 <button
                   onClick={handleDelete}
                   disabled={deleting}
                   className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl hover:bg-white/10 text-left disabled:opacity-40 transition-colors"
                 >
-                  <span className="text-xl">🗑️</span>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                  </svg>
                   <div>
                     <p className="font-semibold text-sm text-red-400">
                       {deleting ? "Deleting…" : "Delete story"}
@@ -295,9 +338,11 @@ function JourneyCard({
                     <p className="text-xs text-neutral-500">Permanently remove this journey</p>
                   </div>
                 </button>
+
+                {/* Cancel */}
                 <button
                   onClick={() => setSheetOpen(false)}
-                  className="w-full py-3 mt-2 rounded-2xl border border-white/10 text-sm font-medium text-neutral-400 hover:bg-white/10 transition-colors"
+                  className="w-full py-3 mt-1 rounded-2xl border border-white/10 text-sm font-medium text-neutral-400 hover:bg-white/10 transition-colors"
                 >
                   Cancel
                 </button>
