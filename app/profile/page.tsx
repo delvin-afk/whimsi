@@ -344,7 +344,6 @@ export default function ProfilePage() {
           {!loading && <CreateCard />}
         </div>
       </div>
-      </div>
     </main>
   );
 }
