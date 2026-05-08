@@ -50,6 +50,7 @@ export type StickerPost = {
   id: string;
   user_id: string;
   username: string;
+  avatar_url: string | null;
   image_url: string;   // Supabase Storage public URL
   caption: string | null;
   voice_url: string | null;
@@ -68,6 +69,7 @@ export type Journey = {
   id: string;
   user_id: string;
   username: string;
+  avatar_url: string | null;
   caption: string | null;
   is_public: boolean;
   created_at: string;

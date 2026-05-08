@@ -82,10 +82,15 @@ export default function MemoryView({
         {/* User info row */}
         <div className="flex items-center gap-3 px-4 pb-4">
           <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-            style={{ background: avatarColor(stop.username) }}
+            className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shrink-0"
+            style={{ background: stop.avatar_url ? "transparent" : avatarColor(stop.username) }}
           >
-            {stop.username[0]?.toUpperCase()}
+            {stop.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={stop.avatar_url} alt={stop.username} className="w-full h-full object-cover" />
+            ) : (
+              stop.username[0]?.toUpperCase()
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm text-white leading-tight">{stop.username}</p>
