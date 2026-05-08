@@ -49,19 +49,20 @@ export default function MemoryPeek({
       {/* Dismiss backdrop */}
       <div className="absolute inset-0" onClick={onClose} />
 
-      {/* Sticker image — centered upper portion */}
+      {/* Sticker image — floats in the map area above the tile, keyed so it swaps on stop change */}
       {stop.image_url && (
         <div
+          key={stop.id}
           className="absolute pointer-events-none flex items-center justify-center"
-          style={{ left: "50%", top: "18%", transform: "translateX(-50%)" }}
+          style={{ left: "50%", top: "16%", transform: "translateX(-50%)" }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={stop.image_url}
             alt={stop.caption ?? "memory"}
             style={{
-              width: "min(65vw, 280px)",
-              height: "min(65vw, 280px)",
+              width: "min(65vw, 260px)",
+              height: "min(65vw, 260px)",
               objectFit: "contain",
               filter: `drop-shadow(0 0 28px ${color}77) drop-shadow(0 6px 16px rgba(0,0,0,0.7))`,
             }}
@@ -69,24 +70,24 @@ export default function MemoryPeek({
         </div>
       )}
 
-      {/* Bottom tile */}
+      {/* Suspended floating tile — clears the nav bar, fully rounded */}
       <div
-        className="absolute left-0 right-0 bottom-0 rounded-t-3xl"
+        className="absolute left-3 right-3 rounded-3xl shadow-2xl"
         style={{
+          bottom: "calc(env(safe-area-inset-bottom) + 72px)",
           background: "#111113",
-          border: "1px solid rgba(255,255,255,0.08)",
-          paddingBottom: "calc(env(safe-area-inset-bottom) + 68px)",
+          border: "1px solid rgba(255,255,255,0.1)",
         }}
         onTouchStart={onTileTouch}
         onTouchEnd={onTileTouchEnd}
         onClick={onExpand}
       >
-        {/* Handle bar */}
+        {/* Tap-to-expand hint */}
         <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
+          <div className="w-8 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.18)" }} />
         </div>
 
-        <div className="px-5 pt-2 pb-2">
+        <div className="px-4 pt-1 pb-4">
           {/* Title + counter */}
           <div className="flex items-center justify-between gap-3 mb-1">
             <p className="font-semibold text-white text-base leading-snug line-clamp-1 flex-1">

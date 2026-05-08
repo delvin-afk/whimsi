@@ -50,11 +50,11 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
     const stop = validStops[index];
     if (!stop || !mapRef.current) return;
     setActiveStop(index);
-    const mapH = containerRef.current?.clientHeight ?? 600;
-    const bottomPad = sheetOpen ? Math.round(mapH * 0.62) : 80;
+    // 280px accounts for suspended tile height + nav bar + margins
+    const bottomPad = sheetOpen ? 280 : 80;
     mapRef.current.flyTo({
       center: [stop.lng!, stop.lat!],
-      zoom: 15,
+      zoom: 16,
       duration: 900,
       padding: { top: 60, bottom: bottomPad, left: 60, right: 60 },
     });

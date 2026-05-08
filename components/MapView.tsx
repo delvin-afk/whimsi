@@ -186,12 +186,11 @@ export default function MapView({
             clickedJourneyRef.current = true;
             selectMarker(wrapper);
             onStickerClick({ stop: sticker, color: "#f43f5e", journeyTitle: null, stopIndex: null, journeyStops: null });
-            const mapH = containerRef.current?.clientHeight ?? 600;
             map.flyTo({
               center: [sticker.lng!, sticker.lat!],
-              zoom: Math.max(map.getZoom(), 13),
+              zoom: Math.max(map.getZoom(), 15),
               duration: 500,
-              padding: { top: 60, bottom: Math.round(mapH * 0.58), left: 60, right: 60 },
+              padding: { top: 60, bottom: 280, left: 60, right: 60 },
             });
           });
           markerInfoRef.current.set(sticker.id, { el: wrapper, coords: [sticker.lng!, sticker.lat!], journeyId: null });
@@ -277,12 +276,11 @@ export default function MapView({
                 stopIndex: stopIndex + 1,
                 journeyStops: validStops,
               });
-              const mapH = containerRef.current?.clientHeight ?? 600;
               map.flyTo({
                 center: [stop.lng!, stop.lat!],
-                zoom: Math.max(map.getZoom(), 13),
+                zoom: Math.max(map.getZoom(), 15),
                 duration: 500,
-                padding: { top: 60, bottom: Math.round(mapH * 0.58), left: 60, right: 60 },
+                padding: { top: 60, bottom: 280, left: 60, right: 60 },
               });
             });
 
