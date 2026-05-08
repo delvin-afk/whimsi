@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Journey } from "@/types";
 import Link from "next/link";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
@@ -369,6 +370,7 @@ function journeyMatchesSearch(journey: Journey, query: string): boolean {
 
 // ── Feed page ─────────────────────────────────────────────────────────────────
 export default function FeedPage() {
+  const router = useRouter();
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -383,6 +385,7 @@ export default function FeedPage() {
   useEffect(() => {
     getSupabaseBrowser().auth.getUser().then(async ({ data }) => {
       const uid = data.user?.id ?? null;
+      if (!uid) { router.push("/auth?redirect=/feed"); return; }
       setCurrentUserId(uid);
 
       if (uid) {

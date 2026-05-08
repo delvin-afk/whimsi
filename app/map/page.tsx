@@ -49,6 +49,7 @@ export default function MapPage() {
   useEffect(() => {
     getSupabaseBrowser().auth.getUser().then(async ({ data }) => {
       const userId = data.user?.id ?? null;
+      if (!userId) { router.push("/auth?redirect=/map"); return; }
       const params = userId ? `?user_id=${userId}` : "";
       const excludeParams = userId
         ? `?exclude_journey=true&user_id=${userId}`
