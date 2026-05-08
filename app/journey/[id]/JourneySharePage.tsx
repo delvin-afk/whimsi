@@ -8,7 +8,7 @@ import { getSupabaseBrowser } from "@/lib/supabase/browser";
 import MemoryPeek from "@/components/map/MemoryPeek";
 import MemoryView from "@/components/map/MemoryView";
 
-const COLOR = "#a855f7";
+const COLOR = "#22c55e";
 
 type MemoryState = {
   stop: StickerPost;
