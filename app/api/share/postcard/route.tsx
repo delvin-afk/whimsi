@@ -101,34 +101,38 @@ export async function GET(req: Request) {
         {/* Right: cream postcard panel */}
         <div style={{ display: "flex", flexDirection: "column", flex: 1, background: "#f5f0e8", position: "relative" }}>
 
-          {/* Wavy lines — top left (SVG matching the app) */}
+          {/* Wavy lines — top left, inline SVG so Satori renders it correctly */}
           <div style={{ position: "absolute", top: 30, left: 30, right: 180, display: "flex" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 54" preserveAspectRatio="none"><path d="M0,10 C25,3 50,18 75,10 C100,3 125,18 150,10" fill="none" stroke="#777" stroke-width="1.4" opacity="0.5"/><path d="M0,25 C25,18 50,33 75,25 C100,18 125,33 150,25" fill="none" stroke="#777" stroke-width="1.4" opacity="0.5"/><path d="M0,40 C25,33 50,48 75,40 C100,33 125,48 150,40" fill="none" stroke="#777" stroke-width="1.4" opacity="0.5"/><text x="6" y="7" font-size="10" fill="#888" opacity="0.7">&#x2736;</text><text x="76" y="28" font-size="9" fill="#888" opacity="0.6">&#x2736;</text><text x="130" y="48" font-size="8" fill="#888" opacity="0.5">&#x2736;</text></svg>`).toString("base64")}`}
-              alt=""
-              style={{ width: "100%", height: 162 }}
-            />
+            <svg width="100%" height="162" viewBox="0 0 150 54" preserveAspectRatio="none">
+              <path d="M0,10 C25,3 50,18 75,10 C100,3 125,18 150,10" fill="none" stroke="#777" strokeWidth="1.4" opacity="0.5" />
+              <path d="M0,25 C25,18 50,33 75,25 C100,18 125,33 150,25" fill="none" stroke="#777" strokeWidth="1.4" opacity="0.5" />
+              <path d="M0,40 C25,33 50,48 75,40 C100,33 125,48 150,40" fill="none" stroke="#777" strokeWidth="1.4" opacity="0.5" />
+              <text x="6"   y="7"  fontSize="10" fill="#888" opacity="0.7">✦</text>
+              <text x="76"  y="28" fontSize="9"  fill="#888" opacity="0.6">✦</text>
+              <text x="130" y="48" fontSize="8"  fill="#888" opacity="0.5">✦</text>
+            </svg>
           </div>
 
-          {/* whimsi burst badge — top right (SVG matching the app exactly) */}
+          {/* whimsi burst badge — top right, inline SVG so "whimsi" text renders */}
           <div style={{ position: "absolute", top: 15, right: 15, display: "flex" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50"><path d="M25,1 L28,10 L37,6 L34,15 L43,15 L37,22 L45,27 L37,32 L43,39 L34,39 L37,48 L28,44 L25,53 L22,44 L13,48 L16,39 L7,39 L13,32 L5,27 L13,22 L7,15 L16,15 L13,6 L22,10 Z" fill="#4ade80"/><text x="25" y="29" text-anchor="middle" font-size="7" font-weight="700" fill="black" font-family="sans-serif">whimsi</text></svg>`).toString("base64")}`}
-              alt=""
-              style={{ width: 186, height: 186 }}
-            />
+            <svg width="186" height="186" viewBox="0 0 50 50">
+              <path
+                d="M25,1 L28,10 L37,6 L34,15 L43,15 L37,22 L45,27 L37,32 L43,39 L34,39 L37,48 L28,44 L25,53 L22,44 L13,48 L16,39 L7,39 L13,32 L5,27 L13,22 L7,15 L16,15 L13,6 L22,10 Z"
+                fill="#4ade80"
+              />
+              <text x="25" y="29" textAnchor="middle" fontSize="7" fontWeight="700" fill="black" fontFamily="sans-serif">whimsi</text>
+            </svg>
           </div>
 
-          {/* Postmark stamp — matching the app SVG exactly */}
+          {/* Postmark stamp — inline SVG so date text renders inside the circle */}
           <div style={{ position: "absolute", top: 210, left: "50%", marginLeft: -120, display: "flex" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><circle cx="40" cy="40" r="37" fill="none" stroke="#a09080" stroke-width="1.5"/><circle cx="40" cy="40" r="31" fill="none" stroke="#a09080" stroke-width="0.8" stroke-dasharray="4 2.5"/><text x="40" y="33" text-anchor="middle" font-size="7" fill="#9c8878" font-family="monospace" letter-spacing="2">&#xB7;  &#xB7;  &#xB7;  &#xB7;</text><text x="40" y="44" text-anchor="middle" font-size="11" fill="#9c8878" font-family="monospace">${dateStr}</text><text x="40" y="55" text-anchor="middle" font-size="7" fill="#9c8878" font-family="monospace" letter-spacing="2">&#xB7;  &#xB7;  &#xB7;  &#xB7;</text></svg>`).toString("base64")}`}
-              alt=""
-              style={{ width: 240, height: 240 }}
-            />
+            <svg width="240" height="240" viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r="37" fill="none" stroke="#a09080" strokeWidth="1.5" />
+              <circle cx="40" cy="40" r="31" fill="none" stroke="#a09080" strokeWidth="0.8" strokeDasharray="4 2.5" />
+              <text x="40" y="33" textAnchor="middle" fontSize="7" fill="#9c8878" fontFamily="monospace">·  ·  ·  ·</text>
+              <text x="40" y="44" textAnchor="middle" fontSize="11" fill="#9c8878" fontFamily="monospace">{dateStr}</text>
+              <text x="40" y="55" textAnchor="middle" fontSize="7" fill="#9c8878" fontFamily="monospace">·  ·  ·  ·</text>
+            </svg>
           </div>
 
           {/* Bottom ruled lines with text */}
