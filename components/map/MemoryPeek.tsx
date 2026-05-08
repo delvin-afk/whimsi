@@ -45,15 +45,12 @@ export default function MemoryPeek({
   }
 
   return (
-    <div className="fixed inset-0 z-[55]">
-      {/* Dismiss backdrop */}
-      <div className="absolute inset-0" onClick={onClose} />
-
+    <div className="fixed inset-0 z-[55] pointer-events-none">
       {/* Sticker image — floats in the map area above the tile, keyed so it swaps on stop change */}
       {stop.image_url && (
         <div
           key={stop.id}
-          className="absolute pointer-events-none flex items-center justify-center"
+          className="absolute flex items-center justify-center"
           style={{ left: "50%", top: "16%", transform: "translateX(-50%)" }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -72,7 +69,7 @@ export default function MemoryPeek({
 
       {/* Suspended floating tile — clears the nav bar, fully rounded */}
       <div
-        className="absolute left-3 right-3 rounded-3xl shadow-2xl"
+        className="absolute left-3 right-3 rounded-3xl shadow-2xl pointer-events-auto"
         style={{
           bottom: "calc(env(safe-area-inset-bottom) + 72px)",
           background: "#111113",
@@ -82,25 +79,36 @@ export default function MemoryPeek({
         onTouchEnd={onTileTouchEnd}
         onClick={onExpand}
       >
-        {/* Tap-to-expand hint */}
+        {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-8 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.18)" }} />
         </div>
 
         <div className="px-4 pt-1 pb-4">
-          {/* Title + counter */}
+          {/* Title + counter + close */}
           <div className="flex items-center justify-between gap-3 mb-1">
             <p className="font-semibold text-white text-base leading-snug line-clamp-1 flex-1">
               {stop.caption ?? (stopIndex != null ? `Memory ${stopIndex}` : "Memory")}
             </p>
-            {stopIndex != null && totalStops != null && (
-              <span
-                className="shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full"
-                style={{ background: `${color}22`, color }}
+            <div className="flex items-center gap-2 shrink-0">
+              {stopIndex != null && totalStops != null && (
+                <span
+                  className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                  style={{ background: `${color}22`, color }}
+                >
+                  {stopIndex} / {totalStops}
+                </span>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); onClose(); }}
+                className="w-7 h-7 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(255,255,255,0.1)" }}
               >
-                {stopIndex} / {totalStops}
-              </span>
-            )}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Date + location */}
