@@ -231,10 +231,15 @@ function JourneyCard({
         {/* Header */}
         <div className="flex items-center gap-3 px-4 pt-4 pb-3">
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-            style={{ background: avatarColor(journey.username) }}
+            className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shrink-0"
+            style={{ background: journey.avatar_url ? "transparent" : avatarColor(journey.username) }}
           >
-            {journey.username[0]?.toUpperCase()}
+            {journey.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={journey.avatar_url} alt={journey.username} className="w-full h-full object-cover" />
+            ) : (
+              journey.username[0]?.toUpperCase()
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white font-semibold text-sm leading-tight">
