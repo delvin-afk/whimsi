@@ -170,6 +170,7 @@ export default function CreateScrapbookPage() {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="e.g. Jess"
               className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+              style={{ fontSize: 16 }}
             />
           </div>
 
@@ -181,6 +182,7 @@ export default function CreateScrapbookPage() {
               placeholder="What's this collection about?"
               rows={2}
               className="mt-1 w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-pink-300"
+              style={{ fontSize: 16 }}
             />
           </div>
 

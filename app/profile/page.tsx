@@ -246,6 +246,7 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen pb-28" style={{ background: "#0f0f0f" }}>
+      <div className="sticky top-0 z-10" style={{ background: "#0f0f0f" }}>
       <div className="mx-auto w-full max-w-xl px-4">
 
         {/* Header */}
@@ -279,6 +280,7 @@ export default function ProfilePage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search your journeys…"
               className="flex-1 bg-transparent text-white placeholder-[#8e8e93] text-sm outline-none"
+              style={{ fontSize: 16 }}
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery("")} className="text-[#8e8e93] hover:text-white shrink-0">
@@ -289,7 +291,10 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+      </div>
+      </div>
 
+      <div className="mx-auto w-full max-w-xl px-4">
         {/* Stats banner */}
         {!loading && (
           <div className="rounded-2xl mb-5 flex divide-x" style={{ background: "#1c1c1e", borderColor: "#2c2c2e" }}>
@@ -338,6 +343,7 @@ export default function ProfilePage() {
           {/* Create card always at the bottom */}
           {!loading && <CreateCard />}
         </div>
+      </div>
       </div>
     </main>
   );

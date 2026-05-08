@@ -14,7 +14,7 @@ interface Props {
   hidden?: boolean;
 }
 
-const SHEET_VH = 78;
+const SHEET_VH = 60;
 const PEEK_PX = 60;
 
 export default function ExploreSheet({ journeys, selectedJourneyId, onJourneySelect, hidden }: Props) {

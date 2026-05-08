@@ -1591,6 +1591,7 @@ function CapturePageInner() {
                         onChange={(e) => { committedRef.current = e.target.value; setCaption(e.target.value); }}
                         placeholder="Write something…" rows={3}
                         className={`w-full rounded-xl border px-3 py-2 pr-11 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#4ade80] transition-colors ${isListening ? "border-red-400 bg-red-50" : "border-neutral-200"}`}
+                        style={{ fontSize: 16 }}
                       />
                       <button type="button" onClick={isListening ? stopListening : startListening}
                         className={`absolute right-2 bottom-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isListening ? "bg-red-500 text-white" : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"}`}>
@@ -1720,7 +1721,7 @@ function CapturePageInner() {
                   onChange={(e) => setJourneyCaption(e.target.value)}
                   placeholder={journeyPhotos.length === 1 ? "e.g. A day in the city" : "ex: Greece Trip 2025"}
                   className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
-                  style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", fontSize: 16 }}
                 />
 
                 {/* Section heading */}
@@ -1839,7 +1840,7 @@ function CapturePageInner() {
                             type="datetime-local"
                             defaultValue={photo.photoTakenAt ? toLocalInputValue(photo.photoTakenAt) : ""}
                             className="w-full rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
-                            style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", colorScheme: "dark" }}
+                            style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", colorScheme: "dark", fontSize: 16 }}
                             onChange={(e) => {
                               if (e.target.value) {
                                 updatePhoto(photo.id, { photoTakenAt: new Date(e.target.value).toISOString() });
@@ -2062,6 +2063,7 @@ function CapturePageInner() {
                     placeholder="Ex: What happened here?"
                     rows={3}
                     className={`w-full bg-neutral-800 text-white placeholder-neutral-600 rounded-2xl px-4 py-3 pr-12 text-sm resize-none outline-none focus:ring-2 transition-colors ${isJourneyListening ? "ring-2 ring-red-500" : "focus:ring-[#4ade80]"}`}
+                    style={{ fontSize: 16 }}
                   />
                   <button
                     type="button"
@@ -2145,7 +2147,7 @@ function CapturePageInner() {
           journeyCaption={journeyCaption}
           savedJourneyId={savedJourneyId}
           mapboxToken={mapboxToken}
-          onViewMap={() => router.push("/map")}
+          onViewMap={() => router.push(`/map?journey=${savedJourneyId}`)}
           onReset={resetJourney}
         />
       )}

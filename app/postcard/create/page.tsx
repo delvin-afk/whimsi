@@ -268,7 +268,7 @@ function CreatePostcardContent() {
               onChange={(e) => setRecipientName(e.target.value)}
               placeholder="To Whom?"
               className="w-full px-4 py-4 rounded-2xl text-white placeholder-neutral-600 text-sm outline-none"
-              style={{ background: "#1c1c1e" }}
+              style={{ background: "#1c1c1e", fontSize: 16 }}
             />
           </div>
 
@@ -280,7 +280,7 @@ function CreatePostcardContent() {
               onChange={(e) => setLocation(e.target.value)}
               placeholder="Ex: Athens, Greece"
               className="w-full px-4 py-4 rounded-2xl text-white placeholder-neutral-600 text-sm outline-none"
-              style={{ background: "#1c1c1e" }}
+              style={{ background: "#1c1c1e", fontSize: 16 }}
             />
           </div>
 
@@ -292,7 +292,7 @@ function CreatePostcardContent() {
               placeholder="Ex: What happened here?"
               rows={5}
               className="w-full px-4 py-4 rounded-2xl text-white placeholder-neutral-600 text-sm outline-none resize-none"
-              style={{ background: "#1c1c1e" }}
+              style={{ background: "#1c1c1e", fontSize: 16 }}
             />
           </div>
 

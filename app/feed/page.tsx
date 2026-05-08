@@ -389,6 +389,7 @@ export default function FeedPage() {
 
   return (
     <main className="min-h-screen pb-24" style={{ background: "#0f0f0f" }}>
+      <div className="sticky top-0 z-10" style={{ background: "#0f0f0f" }}>
       <div className="mx-auto w-full max-w-xl px-4">
 
         {/* Header */}
@@ -426,6 +427,7 @@ export default function FeedPage() {
               onChange={(e) => { committedRef.current = e.target.value; setSearchQuery(e.target.value); }}
               placeholder={isListening ? (interimText ? `"${interimText}"` : "Listening…") : "Search for location, interests, etc."}
               className="flex-1 bg-transparent text-white placeholder-[#8e8e93] text-sm outline-none"
+              style={{ fontSize: 16 }}
             />
             {searchQuery && !isListening ? (
               <button onClick={() => { committedRef.current = ""; setSearchQuery(""); }} className="text-[#8e8e93] hover:text-white shrink-0">
@@ -458,7 +460,10 @@ export default function FeedPage() {
             </p>
           )}
         </div>
+      </div>
+      </div>
 
+      <div className="mx-auto w-full max-w-xl px-4">
       <div className="space-y-4">
         {loading && (
           <div className="flex justify-center py-20">
@@ -496,6 +501,7 @@ export default function FeedPage() {
             onDeleted={(id) => setJourneys((prev) => prev.filter((j) => j.id !== id))}
           />
         ))}
+      </div>
       </div>
       </div>
     </main>

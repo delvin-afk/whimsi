@@ -113,6 +113,7 @@ export default function StickerOptionsSheet({
                 rows={3}
                 placeholder="Write a caption…"
                 className="w-full bg-neutral-800 text-white placeholder-neutral-500 rounded-2xl px-4 py-3 text-sm resize-none outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
+                style={{ fontSize: 16 }}
               />
               <div className="flex gap-2">
                 <button

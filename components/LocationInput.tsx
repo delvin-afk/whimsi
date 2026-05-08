@@ -107,6 +107,7 @@ export default function LocationInput({ value, onChange }: Props) {
             onBlur={() => setTimeout(() => setOpen(false), 150)}
             placeholder="Search for a place…"
             className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 pr-8"
+              style={{ fontSize: 16 }}
           />
           {searching && (
             <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-neutral-200 border-t-pink-400 rounded-full animate-spin" />

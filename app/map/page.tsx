@@ -56,6 +56,28 @@ export default function MapPage() {
     });
   }, []);
 
+  // Auto-open MemoryPeek for the initial journey when landing from the success page
+  useEffect(() => {
+    if (loading || !initialJourneyId) return;
+    const journey = journeys.find((j) => j.id === initialJourneyId);
+    if (!journey) return;
+    const validStops = journey.stickers.filter((s) => s.lat != null && s.lng != null);
+    if (validStops.length === 0) return;
+    setMemory({
+      stop: validStops[0],
+      stopIndex: 1,
+      journeyStops: validStops,
+      journeyTitle: journey.caption ?? `${journey.username}'s Journey`,
+      color: "#22c55e",
+      mode: "peek",
+    });
+  }, [loading, initialJourneyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleJourneySelect(id: string | null) {
+    setSelectedJourneyId(id);
+    if (id === null) setMemory(null);
+  }
+
   function handleStickerClick(payload: StickerClickPayload) {
     setMemory({
       stop: payload.stop,
@@ -99,7 +121,7 @@ export default function MapPage() {
             /* Detail view */
             <div className="px-4 pt-4 pb-6">
               <button
-                onClick={() => setSelectedJourneyId(null)}
+                onClick={() => handleJourneySelect(null)}
                 className="flex items-center gap-2 mb-4 text-sm"
                 style={{ color: "rgba(255,255,255,0.5)" }}
               >
@@ -134,7 +156,7 @@ export default function MapPage() {
                     key={journey.id}
                     journey={journey}
                     isSelected={selectedJourneyId === journey.id}
-                    onTap={() => setSelectedJourneyId(journey.id)}
+                    onTap={() => handleJourneySelect(journey.id)}
                   />
                 ))
               )}
@@ -155,7 +177,7 @@ export default function MapPage() {
             journeys={journeys}
             initialJourneyId={initialJourneyId}
             selectedJourneyId={selectedJourneyId}
-            onJourneySelect={setSelectedJourneyId}
+            onJourneySelect={handleJourneySelect}
             onStickerClick={handleStickerClick}
             flyToRef={mapFlyToRef}
           />
@@ -166,7 +188,7 @@ export default function MapPage() {
       <ExploreSheet
         journeys={journeys}
         selectedJourneyId={selectedJourneyId}
-        onJourneySelect={setSelectedJourneyId}
+        onJourneySelect={handleJourneySelect}
         hidden={!!memory}
       />
     </div>

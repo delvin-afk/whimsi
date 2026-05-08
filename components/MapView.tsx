@@ -523,25 +523,36 @@ export default function MapView({
     <div className="relative w-full h-full">
       {/* Search bar */}
       <div className="absolute top-3 left-3 right-14 z-10">
-        <form onSubmit={searchCity} className="flex gap-2">
-          <input
-            ref={searchInputRef}
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-            placeholder="Search places, restaurants…"
-            className="flex-1 h-10 rounded-xl px-3 outline-none text-white placeholder-neutral-500 focus:ring-2 focus:ring-purple-500"
-            style={{ background: "#1c1c1e", border: "1px solid rgba(255,255,255,0.08)", fontSize: 16 }}
-          />
-          <button
-            type="submit"
-            disabled={searching || !query.trim()}
-            className="h-10 px-3 rounded-xl text-sm font-medium text-white disabled:opacity-40"
-            style={{ background: "#1c1c1e", border: "1px solid rgba(255,255,255,0.08)" }}
-          >
-            {searching ? "…" : "Go"}
-          </button>
+        <form onSubmit={searchCity}>
+          <div className="flex items-center gap-2 px-4 py-3 rounded-2xl" style={{ background: "#1c1c1e" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2.5" strokeLinecap="round" className="shrink-0">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              ref={searchInputRef}
+              value={query}
+              onChange={(e) => onQueryChange(e.target.value)}
+              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              placeholder="Search places, restaurants…"
+              className="flex-1 bg-transparent text-white placeholder-[#8e8e93] text-sm outline-none"
+              style={{ fontSize: 16 }}
+            />
+            {searching && (
+              <div className="w-4 h-4 rounded-full border-2 border-neutral-600 border-t-white animate-spin shrink-0" />
+            )}
+            {!searching && query && (
+              <button
+                type="button"
+                onClick={() => onQueryChange("")}
+                className="text-[#8e8e93] hover:text-white shrink-0"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            )}
+          </div>
         </form>
 
         {showSuggestions && suggestions.length > 0 && (
@@ -568,11 +579,11 @@ export default function MapView({
       <button
         onClick={locateMe}
         disabled={locating}
-        className="absolute top-3 right-3 z-10 w-10 h-10 rounded-xl flex items-center justify-center text-white disabled:opacity-40"
-        style={{ background: "#1c1c1e", border: "1px solid rgba(255,255,255,0.08)" }}
+        className="absolute top-3 right-3 z-10 w-10 h-10 rounded-2xl flex items-center justify-center text-white disabled:opacity-40"
+        style={{ background: "#1c1c1e" }}
       >
         {locating ? (
-          <div className="w-4 h-4 rounded-full border-2 border-neutral-300 border-t-purple-500 animate-spin" />
+          <div className="w-4 h-4 rounded-full border-2 border-neutral-600 border-t-white animate-spin" />
         ) : (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3" />

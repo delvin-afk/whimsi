@@ -184,7 +184,7 @@ export default function LocationPicker({ onChange, defaultLat, defaultLng }: Pro
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Enter location…"
         className="w-full rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
-        style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}
+        style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", fontSize: 16 }}
       />
     );
   }
@@ -201,13 +201,13 @@ export default function LocationPicker({ onChange, defaultLat, defaultLng }: Pro
             onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
             placeholder="Search for a place…"
             className="w-full rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
-            style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}
+            style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", fontSize: 16 }}
           />
 
           {/* Suggestions dropdown */}
           {showSuggestions && suggestions.length > 0 && (
             <div
-              className="absolute left-0 right-0 top-full mt-1 z-[80] rounded-xl overflow-hidden shadow-2xl"
+              className="absolute left-0 right-0 top-full mt-1 z-80 rounded-xl overflow-hidden shadow-2xl"
               style={{ background: "#2a2a2e", border: "1px solid rgba(255,255,255,0.1)" }}
             >
               {suggestions.map((s) => (
