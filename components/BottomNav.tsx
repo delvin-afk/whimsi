@@ -69,6 +69,7 @@ export default function BottomNav() {
 
       <Link
         href="/profile"
+        onClick={() => { if (pathname.startsWith("/profile")) window.scrollTo({ top: 0, behavior: "smooth" }); }}
         className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-colors ${profileActive ? "text-pink-500" : "text-neutral-400 hover:text-neutral-700"}`}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">

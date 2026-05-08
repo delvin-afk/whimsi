@@ -42,10 +42,22 @@ function JourneyMiniMap({ journey, mapboxToken }: { journey: Journey; mapboxToke
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
+  const [inView, setInView] = useState(false);
   const located = journey.stickers.filter((s) => s.lat != null && s.lng != null);
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current || !mapboxToken || located.length === 0) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setInView(true); },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!inView || !containerRef.current || mapRef.current || !mapboxToken || located.length === 0) return;
     let destroyed = false;
 
     import("mapbox-gl").then(({ default: mapboxgl }) => {
@@ -119,7 +131,7 @@ function JourneyMiniMap({ journey, mapboxToken }: { journey: Journey; mapboxToke
     });
 
     return () => { destroyed = true; mapRef.current?.remove(); mapRef.current = null; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [inView]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={containerRef} className="w-full h-full" />;
 }
