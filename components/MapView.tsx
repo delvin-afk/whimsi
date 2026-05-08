@@ -44,6 +44,7 @@ export default function MapView({
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<SuggestionFeature[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -404,9 +405,14 @@ export default function MapView({
       });
     });
 
+    // Resize the Mapbox canvas whenever the visual viewport changes (keyboard open/close on mobile)
+    const onVVResize = () => { mapRef.current?.resize(); };
+    window.visualViewport?.addEventListener("resize", onVVResize);
+
     return () => {
       destroyed = true;
       if (flyToRef) flyToRef.current = null;
+      window.visualViewport?.removeEventListener("resize", onVVResize);
       mapRef.current?.remove();
       mapRef.current = null;
     };
@@ -446,6 +452,7 @@ export default function MapView({
   }
 
   function selectSuggestion(s: SuggestionFeature) {
+    searchInputRef.current?.blur();
     const [lng, lat] = s.center;
     const isPoi = s.place_type.includes("poi");
     const isAddress = s.place_type.includes("address");
@@ -459,6 +466,7 @@ export default function MapView({
 
   async function searchCity(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
+    searchInputRef.current?.blur(); // dismiss keyboard before flying
     if (!query.trim() || !token || !mapRef.current) return;
     if (suggestions.length > 0) { selectSuggestion(suggestions[0]); return; }
     setSearching(true);
@@ -517,13 +525,14 @@ export default function MapView({
       <div className="absolute top-3 left-3 right-14 z-10">
         <form onSubmit={searchCity} className="flex gap-2">
           <input
+            ref={searchInputRef}
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
             placeholder="Search places, restaurants…"
-            className="flex-1 h-10 rounded-xl px-3 text-sm outline-none text-white placeholder-neutral-500 focus:ring-2 focus:ring-purple-500"
-            style={{ background: "#1c1c1e", border: "1px solid rgba(255,255,255,0.08)" }}
+            className="flex-1 h-10 rounded-xl px-3 outline-none text-white placeholder-neutral-500 focus:ring-2 focus:ring-purple-500"
+            style={{ background: "#1c1c1e", border: "1px solid rgba(255,255,255,0.08)", fontSize: 16 }}
           />
           <button
             type="submit"
