@@ -195,7 +195,7 @@ function CreatePostcardContent() {
   const [recipientName, setRecipientName] = useState("");
   const [location, setLocation] = useState("");
   const [caption, setCaption] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [sent, setSent] = useState(false);
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
   function handleSend() {
@@ -208,12 +208,11 @@ function CreatePostcardContent() {
     const title = recipientName ? `A postcard for ${recipientName}` : "A whimsi postcard";
 
     if (navigator.share) {
-      navigator.share({ title, url: shareUrl }).catch(() => {});
+      navigator.share({ title, url: shareUrl })
+        .then(() => setSent(true))
+        .catch(() => {});
     } else {
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-      });
+      navigator.clipboard.writeText(shareUrl).then(() => setSent(true));
     }
   }
 
@@ -227,6 +226,44 @@ function CreatePostcardContent() {
       if (found) setJourney(found);
     });
   }, [journeyId]);
+
+  if (sent) {
+    return (
+      <main className="min-h-screen pb-20" style={{ background: "#0f0f0f" }}>
+        {journey ? (
+          <PostcardPreview
+            journey={journey}
+            recipientName={recipientName}
+            location={location}
+            caption={caption}
+            mapboxToken={mapboxToken}
+          />
+        ) : (
+          <div style={{ height: 340, background: "#f5f0e8" }} />
+        )}
+        <div className="px-4 mt-10 flex flex-col items-center gap-4">
+          <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#4ade8022" }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <p className="text-white text-2xl font-bold">Postcard Sent!</p>
+          {recipientName ? (
+            <p className="text-neutral-400 text-sm text-center">Your postcard for {recipientName} is on its way.</p>
+          ) : (
+            <p className="text-neutral-400 text-sm text-center">Your postcard is on its way.</p>
+          )}
+          <button
+            onClick={() => router.push("/profile")}
+            className="w-full py-4 rounded-2xl font-bold text-base mt-2"
+            style={{ background: "#4ade80", color: "#000" }}
+          >
+            Done
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen pb-20" style={{ background: "#0f0f0f" }}>
@@ -303,13 +340,11 @@ function CreatePostcardContent() {
             className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-base disabled:opacity-40 transition-opacity"
             style={{ background: "#4ade80", color: "#000" }}
           >
-            {copied ? "Link copied!" : "Send Postcard"}
-            {!copied && (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="4" width="20" height="16" rx="2"/>
-                <path d="M7 15h3M7 11h5"/>
-              </svg>
-            )}
+            Send Postcard
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"/>
+              <path d="M7 15h3M7 11h5"/>
+            </svg>
           </button>
         </div>
     </main>
