@@ -24,6 +24,7 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
   const [activeStop, setActiveStop] = useState(0);
   const [memory, setMemory] = useState<MemoryState | null>(null);
   const [isAuthed, setIsAuthed] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   useEffect(() => {
@@ -90,7 +91,7 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
       mapRef.current = map;
 
       map.on("load", async () => {
-        // Fly to stop 1 with peek-tile bottom padding so the pin isn't hidden behind the sheet
+        setMapReady(true);
         flyToStop(0, true);
 
         if (validStops.length >= 2) {
@@ -209,7 +210,14 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
               <p className="text-sm text-neutral-400 text-center">No location data for this journey</p>
             </div>
           ) : (
-            <div ref={containerRef} className="w-full h-full" />
+            <>
+              <div ref={containerRef} className="w-full h-full" />
+              {!mapReady && (
+                <div className="absolute inset-0 flex items-center justify-center" style={{ background: "#f4f0e8" }}>
+                  <div className="h-8 w-8 rounded-full border-2 border-neutral-300 border-t-neutral-600 animate-spin" />
+                </div>
+              )}
+            </>
           )}
         </div>
 
