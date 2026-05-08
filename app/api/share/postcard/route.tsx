@@ -62,12 +62,15 @@ export async function GET(req: Request) {
     }
 
     let overlay = "";
+    const pins = located.map((s) => `pin-l+a855f7(${s.lng},${s.lat})`).join(",");
     if (located.length >= 2) {
       const geojson = JSON.stringify({
         type: "Feature", properties: { stroke: "#a855f7", "stroke-width": 4, "stroke-opacity": 0.9 },
         geometry: { type: "LineString", coordinates: located.map((s) => [s.lng, s.lat]) },
       });
-      overlay = `geojson(${encodeURIComponent(geojson)})/`;
+      overlay = `${pins},geojson(${encodeURIComponent(geojson)})/`;
+    } else if (located.length === 1) {
+      overlay = `${pins}/`;
     }
     mapUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/${overlay}${cLng},${cLat},${zoom},0/${MAP_W}x${MAP_H}?access_token=${token}`;
   }
@@ -101,13 +104,13 @@ export async function GET(req: Request) {
         {/* Right: cream postcard panel */}
         <div style={{ display: "flex", flexDirection: "column", flex: 1, background: "#f5f0e8", position: "relative" }}>
 
-          {/* Wavy lines — top left (shapes only, no text — base64 img renders fine) */}
+          {/* Wavy lines — top left, height scaled to card proportions (not 3×) */}
           <div style={{ position: "absolute", top: 30, left: 30, right: 180, display: "flex" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 54" preserveAspectRatio="none"><path d="M0,10 C25,3 50,18 75,10 C100,3 125,18 150,10" fill="none" stroke="#777" stroke-width="1.4" opacity="0.5"/><path d="M0,25 C25,18 50,33 75,25 C100,18 125,33 150,25" fill="none" stroke="#777" stroke-width="1.4" opacity="0.5"/><path d="M0,40 C25,33 50,48 75,40 C100,33 125,48 150,40" fill="none" stroke="#777" stroke-width="1.4" opacity="0.5"/></svg>`).toString("base64")}`}
               alt=""
-              style={{ width: "100%", height: 162 }}
+              style={{ width: "100%", height: 100 }}
             />
           </div>
 
@@ -122,23 +125,23 @@ export async function GET(req: Request) {
             <span style={{ position: "relative", fontSize: 26, fontWeight: 700, color: "#000", fontFamily: "sans-serif" }}>whimsi</span>
           </div>
 
-          {/* Postmark stamp — circles as img, dots+date+dots as real divs on top */}
-          <div style={{ position: "absolute", top: 210, left: "50%", marginLeft: -120, width: 240, height: 240, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {/* Postmark stamp — moved up so it sits between wavy lines and text, not overlapping either */}
+          <div style={{ position: "absolute", top: 145, left: "50%", marginLeft: -80, width: 160, height: 160, display: "flex", alignItems: "center", justifyContent: "center" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><circle cx="40" cy="40" r="37" fill="none" stroke="#a09080" stroke-width="1.5"/><circle cx="40" cy="40" r="31" fill="none" stroke="#a09080" stroke-width="0.8" stroke-dasharray="4 2.5"/></svg>`).toString("base64")}`}
               alt=""
-              style={{ position: "absolute", top: 0, left: 0, width: 240, height: 240 }}
+              style={{ position: "absolute", top: 0, left: 0, width: 160, height: 160 }}
             />
-            <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-              <span style={{ fontSize: 21, color: "#9c8878", fontFamily: "monospace" }}>·  ·  ·  ·</span>
-              <span style={{ fontSize: 33, color: "#9c8878", fontFamily: "monospace" }}>{dateStr}</span>
-              <span style={{ fontSize: 21, color: "#9c8878", fontFamily: "monospace" }}>·  ·  ·  ·</span>
+            <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+              <span style={{ fontSize: 16, color: "#9c8878", fontFamily: "monospace" }}>·  ·  ·  ·</span>
+              <span style={{ fontSize: 24, color: "#9c8878", fontFamily: "monospace" }}>{dateStr}</span>
+              <span style={{ fontSize: 16, color: "#9c8878", fontFamily: "monospace" }}>·  ·  ·  ·</span>
             </div>
           </div>
 
           {/* Bottom ruled lines with text */}
-          <div style={{ position: "absolute", bottom: 54, left: 48, right: 48, display: "flex", flexDirection: "column", gap: 24 }}>
+          <div style={{ position: "absolute", bottom: 30, left: 48, right: 48, display: "flex", flexDirection: "column", gap: 18 }}>
             <div style={{ borderBottom: "2px solid #c4b49a", paddingBottom: 8, display: "flex" }}>
               <span style={{ color: "#1a0f0a", fontSize: 40, fontStyle: "italic" }}>{to}</span>
             </div>
