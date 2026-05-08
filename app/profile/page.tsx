@@ -212,9 +212,13 @@ function CreateCard() {
 export default function ProfilePage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [userId, setUserId] = useState("");
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
   useEffect(() => {
@@ -222,13 +226,15 @@ export default function ProfilePage() {
       if (!data.user) { router.push("/auth?redirect=/profile"); return; }
 
       const uid = data.user.id;
+      setUserId(uid);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: profile } = await (getSupabaseBrowser() as any)
         .from("profiles")
-        .select("username")
+        .select("username, avatar_url")
         .eq("id", uid)
         .single();
       if (profile?.username) setUsername(profile.username);
+      if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
 
       // Fetch only this user's journeys
       const res = await fetch(`/api/journeys?user_id=${uid}`).then((r) => r.json()).catch(() => ({ journeys: [] }));
@@ -238,6 +244,23 @@ export default function ProfilePage() {
       setLoading(false);
     });
   }, [router]);
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("userId", userId);
+      const res = await fetch("/api/profile/avatar", { method: "POST", body: form });
+      const json = await res.json();
+      if (json.avatar_url) setAvatarUrl(json.avatar_url);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
 
   const filtered = journeys.filter((j) => journeyMatchesSearch(j, searchQuery));
   const locationsDocumented = new Set(
@@ -252,12 +275,47 @@ export default function ProfilePage() {
         {/* Header */}
         <div className="pt-14 pb-5 flex items-center gap-4">
           <div className="flex flex-col items-center gap-1 shrink-0">
-            <div
-              className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl"
-              style={{ background: username ? avatarColor(username) : "#2c2c2e" }}
+            <button
+              type="button"
+              className="relative w-14 h-14 shrink-0"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
             >
-              {username ? username[0].toUpperCase() : ""}
-            </div>
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="avatar" className="w-14 h-14 rounded-full object-cover" />
+              ) : (
+                <div
+                  className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl"
+                  style={{ background: username ? avatarColor(username) : "#2c2c2e" }}
+                >
+                  {username ? username[0].toUpperCase() : ""}
+                </div>
+              )}
+              {/* Camera badge */}
+              <div
+                className="absolute bottom-0 right-0 w-5 h-5 rounded-full flex items-center justify-center border-2"
+                style={{ background: "#2c2c2e", borderColor: "#0f0f0f" }}
+              >
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+              </div>
+              {/* Upload spinner */}
+              {uploading && (
+                <div className="absolute inset-0 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.55)" }}>
+                  <div className="h-5 w-5 rounded-full border-2 border-neutral-400 border-t-white animate-spin" />
+                </div>
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
             <p className="text-neutral-500 text-xs font-medium">Journey</p>
           </div>
           <div className="flex-1 min-w-0">
