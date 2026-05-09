@@ -334,7 +334,7 @@ export default function ProfilePage() {
         <p className="text-white font-bold text-lg mb-3">Journeys</p>
 
         {/* Search */}
-        <div className="mb-4">
+        <div className="mb-6">
           <div className="flex items-center gap-2 px-4 py-3 rounded-2xl" style={{ background: "#1c1c1e" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2.5" strokeLinecap="round" className="shrink-0">
               <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
