@@ -206,15 +206,15 @@ export default function MapPage() {
     {/* ── Journey floating detail card — mobile only ── */}
     {selectedJourney && !memory && (
       <div
-        className="lg:hidden fixed left-3 right-3 z-40 rounded-3xl"
+        className="lg:hidden fixed left-3 right-3 z-40 rounded-2xl"
         style={{
           bottom: "calc(env(safe-area-inset-bottom) + 72px)",
           background: "#1a1a1e",
           boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
         }}
       >
-        <div className="px-5 pt-5 pb-5">
-          <div className="flex items-center gap-3 mb-4">
+        <div className="px-4 pt-4 pb-4">
+          <div className="flex items-center gap-3 mb-3">
             <button
               onClick={() => handleJourneySelect(null)}
               className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
@@ -228,18 +228,21 @@ export default function MapPage() {
               {selectedJourney.caption ?? `${selectedJourney.username}'s Journey`}
             </p>
           </div>
-          <div className="flex gap-3 mb-4">
-            <div className="flex-1 rounded-lg px-4 py-3" style={{ background: "rgba(255,255,255,0.07)" }}>
+          <div className="flex rounded-lg overflow-hidden mb-3" style={{ background: "rgba(255,255,255,0.07)" }}>
+            <div className="flex-1 px-4 py-3">
               <p className="text-xs mb-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>Number of Entries</p>
               <p className="text-white font-bold text-2xl leading-tight">{selectedJourney.stickers.length}</p>
             </div>
             {(() => {
               const days = travelDays(selectedJourney);
               return days != null ? (
-                <div className="flex-1 rounded-lg px-4 py-3" style={{ background: "rgba(255,255,255,0.07)" }}>
-                  <p className="text-xs mb-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>Travel Time</p>
-                  <p className="text-white font-bold text-2xl leading-tight">{days} {days === 1 ? "day" : "days"}</p>
-                </div>
+                <>
+                  <div className="w-px self-stretch my-3" style={{ background: "rgba(255,255,255,0.08)" }} />
+                  <div className="flex-1 px-4 py-3">
+                    <p className="text-xs mb-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>Travel Time</p>
+                    <p className="text-white font-bold text-2xl leading-tight">{days} {days === 1 ? "day" : "days"}</p>
+                  </div>
+                </>
               ) : null;
             })()}
           </div>
