@@ -462,7 +462,7 @@ export default function FeedPage() {
   return (
     <main className="min-h-screen pb-24" style={{ background: "#0f0f0f" }}>
       <div className="sticky top-0 z-10" style={{ background: "#0f0f0f" }}>
-      <div className="mx-auto w-full max-w-xl px-4">
+      <div className="mx-auto w-full max-w-xl px-4 pb-4">
 
         {/* Header */}
         <div className="pt-14 pb-3 flex items-center justify-between">
