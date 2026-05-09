@@ -163,7 +163,7 @@ function ProfileJourneyCard({ journey, mapboxToken }: { journey: Journey; mapbox
 
       {/* Stats below map — single container, two columns */}
       <div className="px-4 pt-3">
-        <div className="flex rounded-2xl overflow-hidden" style={{ background: "#2c2c2e" }}>
+        <div className="flex rounded-lg overflow-hidden" style={{ background: "#2c2c2e" }}>
           <div className="flex-1 flex flex-col items-center justify-center py-3">
             <p className="text-xs text-neutral-500 mb-1 text-center leading-tight">Number of Entries</p>
             <p className="text-white font-bold text-2xl">{journey.stickers.length}</p>
