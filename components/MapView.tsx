@@ -330,7 +330,7 @@ export default function MapView({
             source: "stickers-cluster",
             filter: ["has", "point_count"],
             paint: {
-              "circle-color": "#f43f5e",
+              "circle-color": "#4ade80",
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               "circle-radius": ["step", ["get", "point_count"], 18, 10, 22, 30, 26] as any,
               "circle-stroke-width": 2,
@@ -349,7 +349,7 @@ export default function MapView({
               "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
               "text-size": 13,
             },
-            paint: { "text-color": "#ffffff" },
+            paint: { "text-color": "#000000" },
           });
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -534,7 +534,7 @@ export default function MapView({
   return (
     <div className="relative w-full h-full">
       {/* Search bar */}
-      <div className="absolute top-3 left-3 right-14 z-10">
+      <div className="absolute top-3 left-3 right-3 z-10">
         <form onSubmit={searchCity}>
           <div className="flex items-center gap-2 px-4 py-3 rounded-2xl" style={{ background: "#1c1c1e" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2.5" strokeLinecap="round" className="shrink-0">
