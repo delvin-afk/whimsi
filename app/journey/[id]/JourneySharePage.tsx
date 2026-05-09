@@ -167,12 +167,13 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
     <>
       <div className="flex flex-col" style={{ height: "calc(100dvh - 64px)" }}>
         {/* Top info bar */}
-        <div className="shrink-0 bg-white border-b border-neutral-100 px-3 py-3 flex items-center gap-2">
+        <div className="shrink-0 px-3 py-3 flex items-center gap-2" style={{ background: "#1a1a1e", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <button
             onClick={() => router.back()}
-            className="w-8 h-8 flex items-center justify-center rounded-full shrink-0 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100 transition"
+            className="w-8 h-8 flex items-center justify-center rounded-full shrink-0 transition"
+            style={{ background: "rgba(255,255,255,0.08)" }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
               <path d="M15 18l-6-6 6-6"/>
             </svg>
           </button>
@@ -181,8 +182,8 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
             {journey.username[0]?.toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-sm truncate">{journey.caption ?? `${journey.username}'s Journey`}</p>
-            <p className="text-xs text-neutral-400">
+            <p className="font-bold text-sm text-white truncate">{journey.caption ?? `${journey.username}'s Journey`}</p>
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
               {journey.username}{dateRange ? ` · ${dateRange}` : ""} · {journey.stickers.length} stop{journey.stickers.length !== 1 ? "s" : ""}
             </p>
           </div>

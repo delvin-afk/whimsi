@@ -47,13 +47,13 @@ export default function MemoryView({
 
   return (
     <div
-      className="fixed inset-0 z-60 flex flex-col overflow-hidden"
+      className="fixed inset-0 z-[60] flex flex-col overflow-hidden"
       style={{ background: "#000000", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {/* Header */}
       <div
         className="flex items-center gap-3 px-4 shrink-0"
-        style={{ paddingTop: "max(env(safe-area-inset-top), 16px)", paddingBottom: 12 }}
+        style={{ background: "#000000", paddingTop: "max(env(safe-area-inset-top), 16px)", paddingBottom: 12 }}
       >
         <button
           onClick={onClose}
