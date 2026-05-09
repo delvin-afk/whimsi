@@ -78,9 +78,9 @@ export default function MemoryView({
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto overscroll-contain">
+      <div className="flex-1 overflow-y-auto overscroll-contain" style={{ background: "#000000" }}>
         {/* User info row */}
-        <div className="flex items-center gap-3 px-4 pb-4">
+        <div className="flex items-center gap-3 px-4 py-3 mx-4 mb-3 rounded-2xl" style={{ background: "#1a1a1e" }}>
           <div
             className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shrink-0"
             style={{ background: stop.avatar_url ? "transparent" : avatarColor(stop.username) }}
@@ -94,7 +94,7 @@ export default function MemoryView({
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm text-white leading-tight">{stop.username}</p>
-            <p className="text-xs truncate" style={{ color: "rgba(255,255,255,0.4)" }}>
+            <p className="text-xs truncate" style={{ color: "rgba(255,255,255,0.45)" }}>
               {dateDisplay}
               {stop.location_name ? ` · ${stop.location_name}` : ""}
             </p>
