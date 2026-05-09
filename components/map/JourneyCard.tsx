@@ -171,38 +171,35 @@ export default function JourneyCard({ journey, isSelected, onTap }: Props) {
       {/* Title */}
       <p className="px-4 pb-3 text-white font-bold text-base leading-snug">{title}</p>
 
-      {/* Map thumbnail + stats */}
-      <div className="flex gap-2 mx-4 mb-4" style={{ height: 110 }}>
-        <div className="flex-1 rounded-lg overflow-hidden min-w-0" style={{ background: "#2c2c2e" }}>
-          {hasLocations ? (
-            <JourneyMiniMap stickers={journey.stickers} />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" strokeLinecap="round">
-                <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
-                <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
-              </svg>
-            </div>
-          )}
-        </div>
-
-        <div
-          className="flex flex-col justify-center gap-3 px-4 rounded-lg shrink-0"
-          style={{ background: "rgba(255,255,255,0.05)", minWidth: 120 }}
-        >
-          <div>
-            <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Number of Entries</p>
-            <p className="text-white font-bold text-xl leading-tight">{stopCount}</p>
+      {/* Map thumbnail */}
+      <div className="aspect-square mx-4 rounded-lg overflow-hidden" style={{ background: "#2c2c2e" }}>
+        {hasLocations ? (
+          <JourneyMiniMap stickers={journey.stickers} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" strokeLinecap="round">
+              <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+              <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
+            </svg>
           </div>
-          {days != null && (
-            <div>
-              <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Travel Time</p>
-              <p className="text-white font-bold text-xl leading-tight">
-                {days} {days === 1 ? "day" : "days"}
-              </p>
-            </div>
-          )}
+        )}
+      </div>
+
+      {/* Stats */}
+      <div className="flex rounded-lg overflow-hidden mx-4 mb-4 mt-2" style={{ background: "rgba(255,255,255,0.05)" }}>
+        <div className="flex-1 px-4 py-3">
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Number of Entries</p>
+          <p className="text-white font-bold text-xl leading-tight">{stopCount}</p>
         </div>
+        {days != null && (
+          <>
+            <div className="w-px self-stretch my-3" style={{ background: "rgba(255,255,255,0.08)" }} />
+            <div className="flex-1 px-4 py-3">
+              <p className="text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>Travel Time</p>
+              <p className="text-white font-bold text-xl leading-tight">{days} {days === 1 ? "day" : "days"}</p>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
