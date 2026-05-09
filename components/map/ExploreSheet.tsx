@@ -12,7 +12,7 @@ interface Props {
 }
 
 const SHEET_VH = 60;
-const PEEK_PX = 60;
+const PEEK_PX = 80;
 
 export default function ExploreSheet({ journeys, selectedJourneyId, onJourneySelect, hidden }: Props) {
   const [open, setOpen] = useState(false);
@@ -47,7 +47,7 @@ export default function ExploreSheet({ journeys, selectedJourneyId, onJourneySel
 
       {/* Header */}
       <div
-        className="px-4 pt-4 pb-4 shrink-0 flex flex-col items-center cursor-pointer"
+        className="px-4 pt-2 pb-2 shrink-0 flex flex-col items-center cursor-pointer"
         onClick={() => setOpen((v) => !v)}
       >
         <span className="font-semibold text-base text-white">Explore Journeys</span>

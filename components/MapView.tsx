@@ -173,7 +173,6 @@ export default function MapView({
         zoom: 1.5,
       });
       mapRef.current = map;
-      map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
       map.on("click", () => {
         if (clickedJourneyRef.current) { clickedJourneyRef.current = false; return; }
