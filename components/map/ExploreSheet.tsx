@@ -9,17 +9,13 @@ interface Props {
   selectedJourneyId: string | null;
   onJourneySelect: (id: string | null) => void;
   hidden?: boolean;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
 }
 
 const SHEET_VH = 60;
 const PEEK_PX = 80;
 
-export default function ExploreSheet({ journeys, selectedJourneyId, onJourneySelect, hidden, open: openProp, onOpenChange }: Props) {
-  const [openInternal, setOpenInternal] = useState(false);
-  const open = openProp !== undefined ? openProp : openInternal;
-  const setOpen = (v: boolean) => { setOpenInternal(v); onOpenChange?.(v); };
+export default function ExploreSheet({ journeys, selectedJourneyId, onJourneySelect, hidden }: Props) {
+  const [open, setOpen] = useState(false);
 
   const translateY = hidden
     ? "100%"
@@ -44,7 +40,7 @@ export default function ExploreSheet({ journeys, selectedJourneyId, onJourneySel
       {/* Drag handle */}
       <div
         className="flex flex-col items-center pt-3 pb-1 shrink-0 cursor-pointer select-none"
-        onClick={() => setOpen(!open)}
+        onClick={() => setOpen((v) => !v)}
       >
         <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
       </div>
@@ -52,7 +48,7 @@ export default function ExploreSheet({ journeys, selectedJourneyId, onJourneySel
       {/* Header */}
       <div
         className="px-4 pt-2 pb-2 shrink-0 flex flex-col items-center cursor-pointer"
-        onClick={() => setOpen(!open)}
+        onClick={() => setOpen((v) => !v)}
       >
         <span className="font-semibold text-base text-white">Explore Journeys</span>
         <span className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
