@@ -151,24 +151,24 @@ export default function MemoryView({
       {/* Prev / Next buttons */}
       {journeyStops && journeyStops.length > 1 && (
         <div
-          className="px-4 pt-3 pb-4 flex gap-3 shrink-0"
+          className="px-4 pt-3 pb-4 flex flex-col gap-2 shrink-0"
           style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
         >
           <button
             onClick={() => hasPrev && onNavigate(journeyStops[stopIndex! - 2], stopIndex! - 1)}
             disabled={!hasPrev}
-            className="flex-1 py-3.5 rounded-2xl font-semibold text-sm text-white transition-opacity"
+            className="w-full py-3.5 rounded-2xl font-semibold text-sm text-white transition-opacity"
             style={{ background: "#1a1a1e", opacity: hasPrev ? 1 : 0.3 }}
           >
-            ← Previous Memory
+            Previous Memory
           </button>
           <button
             onClick={() => hasNext && onNavigate(journeyStops[stopIndex!], stopIndex! + 1)}
             disabled={!hasNext}
-            className="flex-1 py-3.5 rounded-2xl font-semibold text-sm text-white transition-opacity"
+            className="w-full py-3.5 rounded-2xl font-semibold text-sm text-white transition-opacity"
             style={{ background: hasNext ? "#22c55e" : "#1a1a1e", opacity: hasNext ? 1 : 0.3 }}
           >
-            Next Memory →
+            Next Memory
           </button>
         </div>
       )}
