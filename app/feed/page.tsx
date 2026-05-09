@@ -466,7 +466,7 @@ export default function FeedPage() {
 
         {/* Header */}
         <div className="pt-14 pb-3 flex items-center justify-between">
-          <span className="text-2xl font-black text-white tracking-tight">whimsi</span>
+          <span className="text-2xl text-white tracking-tight" style={{ fontFamily: "var(--font-righteous)" }}>whimsi</span>
           <div className="flex items-center gap-3">
             <button className="text-white/70 hover:text-white transition">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
