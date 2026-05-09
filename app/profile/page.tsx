@@ -155,7 +155,7 @@ function ProfileJourneyCard({ journey, mapboxToken }: { journey: Journey; mapbox
 
       {/* Map full width, square */}
       <div className="px-4 aspect-square">
-        <Link href={`/map?journey=${journey.id}`} className="relative block w-full h-full rounded-2xl overflow-hidden bg-neutral-800">
+        <Link href={`/map?journey=${journey.id}`} className="relative block w-full h-full rounded-lg overflow-hidden bg-neutral-800">
           <JourneyMiniMap journey={journey} mapboxToken={mapboxToken} />
           <div className="absolute inset-0" />
         </Link>
