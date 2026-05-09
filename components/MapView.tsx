@@ -106,15 +106,10 @@ export default function MapView({
     journeys.forEach((journey) => {
       const active = selectedJourneyId === null || selectedJourneyId === journey.id;
       const lineId = `journey-line-${journey.id}`;
-      const glowId = `${lineId}-glow`;
 
       if (map.getLayer(lineId)) {
-        map.setPaintProperty(lineId, "line-opacity", active ? 0.9 : 0.08);
+        map.setPaintProperty(lineId, "line-opacity", active ? 1 : 0.15);
         map.setPaintProperty(lineId, "line-width", active ? 4.5 : 2);
-      }
-      if (map.getLayer(glowId)) {
-        map.setPaintProperty(glowId, "line-opacity", active ? 0.25 : 0.04);
-        map.setPaintProperty(glowId, "line-width", active ? 10 : 6);
       }
     });
 
@@ -257,8 +252,7 @@ export default function MapView({
             data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates } },
           });
 
-          map.addLayer({ id: `${lineId}-glow`, type: "line", source: sourceId, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": color, "line-width": 10, "line-opacity": 0.25 } });
-          map.addLayer({ id: lineId, type: "line", source: sourceId, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": color, "line-width": 3.5, "line-opacity": 0.85 } });
+          map.addLayer({ id: lineId, type: "line", source: sourceId, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": color, "line-width": 3.5, "line-opacity": 1 } });
           map.addLayer({ id: `${lineId}-hit`, type: "line", source: sourceId, layout: { "line-join": "round", "line-cap": "round" }, paint: { "line-color": color, "line-width": 24, "line-opacity": 0 } });
 
           map.on("click", `${lineId}-hit`, () => {
@@ -593,22 +587,6 @@ export default function MapView({
         )}
       </div>
 
-      {/* Locate me */}
-      <button
-        onClick={locateMe}
-        disabled={locating}
-        className="absolute top-3 right-3 z-10 w-10 h-10 rounded-2xl flex items-center justify-center text-white disabled:opacity-40"
-        style={{ background: "#1c1c1e" }}
-      >
-        {locating ? (
-          <div className="w-4 h-4 rounded-full border-2 border-neutral-600 border-t-white animate-spin" />
-        ) : (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-          </svg>
-        )}
-      </button>
 
       <div ref={containerRef} className="w-full h-full" />
     </div>
