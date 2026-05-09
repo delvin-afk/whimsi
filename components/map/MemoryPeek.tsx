@@ -113,6 +113,15 @@ export default function MemoryPeek({
             {stop.location_name ? ` · ${stop.location_name}` : ""}
           </p>
 
+          {/* View Memory button */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onExpand(); }}
+            className="w-full py-3 rounded-lg font-semibold text-sm text-white my-3"
+            style={{ background: "#22c55e" }}
+          >
+            View Memory
+          </button>
+
           {/* Audio player (stop propagation so tapping it doesn't expand) */}
           {stop.voice_url && (
             <div className="mb-3" onClick={(e) => e.stopPropagation()}>
