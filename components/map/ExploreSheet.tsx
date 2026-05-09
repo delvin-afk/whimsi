@@ -47,14 +47,13 @@ export default function ExploreSheet({ journeys, selectedJourneyId, onJourneySel
 
       {/* Header */}
       <div
-        className="px-2 pt-2 pb-2 shrink-0 flex items-center justify-between cursor-pointer"
+        className="px-4 pt-4 pb-4 shrink-0 flex flex-col items-center cursor-pointer"
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="text-sm" style={{ color: "rgba(255,255,255,0.4)", minWidth: 60 }}>
+        <span className="font-semibold text-base text-white">Explore Journeys</span>
+        <span className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
           {journeys.length} journeys
         </span>
-        <span className="font-semibold text-base text-white text-center flex-1">Explore Journeys</span>
-        <span style={{ minWidth: 60 }} />
       </div>
 
       {/* Divider */}
