@@ -468,12 +468,6 @@ export default function FeedPage() {
         <div className="pt-14 pb-3 flex items-center justify-between">
           <span className="text-2xl font-black text-white tracking-tight">whimsi</span>
           <div className="flex items-center gap-3">
-            <Link href="/map" className="text-white/70 hover:text-white transition">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
-                <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
-              </svg>
-            </Link>
             <button className="text-white/70 hover:text-white transition">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
