@@ -69,22 +69,18 @@ export default function MemoryPeek({
 
       {/* Suspended floating tile — clears the nav bar, fully rounded */}
       <div
-        className="absolute left-3 right-3 rounded-3xl shadow-2xl pointer-events-auto"
+        className="absolute left-3 right-3 rounded-2xl shadow-2xl pointer-events-auto flex flex-col"
         style={{
           bottom: "calc(env(safe-area-inset-bottom) + 72px)",
           background: "#111113",
           border: "1px solid rgba(255,255,255,0.1)",
+          minHeight: 200,
         }}
         onTouchStart={onTileTouch}
         onTouchEnd={onTileTouchEnd}
         onClick={onExpand}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-8 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.18)" }} />
-        </div>
-
-        <div className="px-4 pt-1 pb-4">
+        <div className="px-4 pt-4 pb-4 flex flex-col flex-1 justify-between">
           {/* Title + counter + close */}
           <div className="flex items-center justify-between gap-3 mb-1">
             <p className="font-semibold text-white text-base leading-snug line-clamp-1 flex-1">
