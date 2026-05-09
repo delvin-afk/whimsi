@@ -248,7 +248,7 @@ export default function MapPage() {
           </div>
           <button
             onClick={() => router.push(`/journey/${selectedJourney.id}`)}
-            className="w-full py-4 rounded-2xl font-bold text-base text-white"
+            className="w-full py-4 rounded-lg font-bold text-base text-white"
             style={{ background: "#22c55e" }}
           >
             Play Journey
