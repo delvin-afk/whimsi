@@ -60,8 +60,8 @@ export default function MemoryView({
           className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
           style={{ background: "rgba(255,255,255,0.08)" }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-            <path d="M15 18l-6-6 6-6" />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M18 6 6 18M6 6l12 12" />
           </svg>
         </button>
         <span className="font-semibold text-base text-white truncate flex-1">
