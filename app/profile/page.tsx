@@ -139,7 +139,7 @@ function JourneyMiniMap({ journey, mapboxToken }: { journey: Journey; mapboxToke
 // ── Journey card ──────────────────────────────────────────────────────────────
 function ProfileJourneyCard({ journey, mapboxToken }: { journey: Journey; mapboxToken: string }) {
   return (
-    <div className="rounded-3xl overflow-hidden" style={{ background: "#1c1c1e" }}>
+    <div className="rounded-2xl overflow-hidden" style={{ background: "#1c1c1e" }}>
       {/* Title row */}
       <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-2">
         {journey.caption
@@ -153,19 +153,23 @@ function ProfileJourneyCard({ journey, mapboxToken }: { journey: Journey; mapbox
         )}
       </div>
 
-      {/* Map left + Stats right */}
-      <div className="px-4 flex gap-3" style={{ height: 180 }}>
-        <Link href={`/map?journey=${journey.id}`} className="relative flex-[3] rounded-2xl overflow-hidden bg-neutral-800">
+      {/* Map full width, square */}
+      <div className="px-4 aspect-square">
+        <Link href={`/map?journey=${journey.id}`} className="relative block w-full h-full rounded-2xl overflow-hidden bg-neutral-800">
           <JourneyMiniMap journey={journey} mapboxToken={mapboxToken} />
           <div className="absolute inset-0" />
         </Link>
-        <div className="flex-[2] flex flex-col rounded-2xl overflow-hidden" style={{ background: "#2c2c2e" }}>
-          <div className="flex-1 flex flex-col items-center justify-center px-2">
+      </div>
+
+      {/* Stats below map — single container, two columns */}
+      <div className="px-4 pt-3">
+        <div className="flex rounded-2xl overflow-hidden" style={{ background: "#2c2c2e" }}>
+          <div className="flex-1 flex flex-col items-center justify-center py-3">
             <p className="text-xs text-neutral-500 mb-1 text-center leading-tight">Number of Entries</p>
             <p className="text-white font-bold text-2xl">{journey.stickers.length}</p>
           </div>
-          <div className="h-px mx-3" style={{ background: "#3c3c3e" }} />
-          <div className="flex-1 flex flex-col items-center justify-center px-2">
+          <div className="w-px self-stretch my-3" style={{ background: "#3c3c3e" }} />
+          <div className="flex-1 flex flex-col items-center justify-center py-3">
             <p className="text-xs text-neutral-500 mb-1 text-center leading-tight">Travel Time</p>
             {(() => { const d = travelDays(journey.stickers); return <p className="text-white font-bold text-2xl">{d != null ? `${d} day${d !== 1 ? "s" : ""}` : "—"}</p>; })()}
           </div>
