@@ -229,14 +229,14 @@ export default function MapPage() {
             </p>
           </div>
           <div className="flex gap-3 mb-4">
-            <div className="flex-1 rounded-2xl px-4 py-3" style={{ background: "rgba(255,255,255,0.07)" }}>
+            <div className="flex-1 rounded-lg px-4 py-3" style={{ background: "rgba(255,255,255,0.07)" }}>
               <p className="text-xs mb-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>Number of Entries</p>
               <p className="text-white font-bold text-2xl leading-tight">{selectedJourney.stickers.length}</p>
             </div>
             {(() => {
               const days = travelDays(selectedJourney);
               return days != null ? (
-                <div className="flex-1 rounded-2xl px-4 py-3" style={{ background: "rgba(255,255,255,0.07)" }}>
+                <div className="flex-1 rounded-lg px-4 py-3" style={{ background: "rgba(255,255,255,0.07)" }}>
                   <p className="text-xs mb-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>Travel Time</p>
                   <p className="text-white font-bold text-2xl leading-tight">{days} {days === 1 ? "day" : "days"}</p>
                 </div>

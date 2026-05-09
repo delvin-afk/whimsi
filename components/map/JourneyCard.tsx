@@ -173,7 +173,7 @@ export default function JourneyCard({ journey, isSelected, onTap }: Props) {
 
       {/* Map thumbnail + stats */}
       <div className="flex gap-2 mx-4 mb-4" style={{ height: 110 }}>
-        <div className="flex-1 rounded-xl overflow-hidden min-w-0" style={{ background: "#2c2c2e" }}>
+        <div className="flex-1 rounded-lg overflow-hidden min-w-0" style={{ background: "#2c2c2e" }}>
           {hasLocations ? (
             <JourneyMiniMap stickers={journey.stickers} />
           ) : (
@@ -187,7 +187,7 @@ export default function JourneyCard({ journey, isSelected, onTap }: Props) {
         </div>
 
         <div
-          className="flex flex-col justify-center gap-3 px-4 rounded-xl shrink-0"
+          className="flex flex-col justify-center gap-3 px-4 rounded-lg shrink-0"
           style={{ background: "rgba(255,255,255,0.05)", minWidth: 120 }}
         >
           <div>
