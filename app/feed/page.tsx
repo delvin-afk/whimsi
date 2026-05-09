@@ -227,7 +227,7 @@ function JourneyCard({
 
   return (
     <>
-      <div className="rounded-3xl overflow-hidden" style={{ background: "#1c1c1e" }}>
+      <div className="rounded-2xl overflow-hidden" style={{ background: "#1c1c1e" }}>
         {/* Header */}
         <div className="flex items-center gap-3 px-4 pt-4 pb-3">
           <div
