@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { Journey } from "@/types";
 import JourneyCard from "./JourneyCard";
 
@@ -9,18 +9,13 @@ interface Props {
   selectedJourneyId: string | null;
   onJourneySelect: (id: string | null) => void;
   hidden?: boolean;
-  forceOpen?: boolean;
 }
 
 const SHEET_VH = 60;
 const PEEK_PX = 80;
 
-export default function ExploreSheet({ journeys, selectedJourneyId, onJourneySelect, hidden, forceOpen }: Props) {
+export default function ExploreSheet({ journeys, selectedJourneyId, onJourneySelect, hidden }: Props) {
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (forceOpen) setOpen(true);
-  }, [forceOpen]);
 
   const translateY = hidden
     ? "100%"

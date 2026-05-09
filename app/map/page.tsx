@@ -38,7 +38,6 @@ export default function MapPage() {
   const [initialJourneyId, setInitialJourneyId] = useState<string | null>(null);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
   const [memory, setMemory] = useState<MemoryState | null>(null);
-  const [exploreSheetOpen, setExploreSheetOpen] = useState(0);
   const mapFlyToRef = useRef<((coords: [number, number]) => void) | null>(null);
   const router = useRouter();
 
@@ -201,7 +200,6 @@ export default function MapPage() {
         selectedJourneyId={selectedJourneyId}
         onJourneySelect={handleJourneySelect}
         hidden={!!memory || !!selectedJourneyId}
-        forceOpen={exploreSheetOpen > 0 ? exploreSheetOpen : undefined}
       />
     </div>
 
@@ -266,11 +264,7 @@ export default function MapPage() {
         stopIndex={memory.stopIndex}
         journeyStops={memory.journeyStops}
         color={memory.color}
-        onClose={() => {
-          setMemory(null);
-          setSelectedJourneyId(null);
-          setExploreSheetOpen((n) => n + 1);
-        }}
+        onClose={() => setMemory(null)}
         onExpand={() => setMemory((prev) => prev ? { ...prev, mode: "full" } : prev)}
         onNavigate={handleMemoryNavigate}
       />
