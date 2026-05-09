@@ -465,7 +465,7 @@ export default function FeedPage() {
       <div className="mx-auto w-full max-w-xl px-4">
 
         {/* Header */}
-        <div className="pt-8 pb-3 flex items-center justify-between">
+        <div className="pt-7 pb-3 flex items-center justify-between">
           <span className="text-2xl text-white tracking-tight" style={{ fontFamily: "var(--font-righteous)" }}>whimsi</span>
           <div className="flex items-center gap-3">
             <button className="text-white/70 hover:text-white transition">
