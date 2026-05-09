@@ -61,7 +61,7 @@ export default function MemoryPeek({
               width: "min(65vw, 260px)",
               height: "min(65vw, 260px)",
               objectFit: "contain",
-              filter: `drop-shadow(0 0 28px ${color}77) drop-shadow(0 6px 16px rgba(0,0,0,0.7))`,
+              filter: `drop-shadow(0 6px 16px rgba(0,0,0,0.7))`,
             }}
           />
         </div>
