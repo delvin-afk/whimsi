@@ -473,7 +473,7 @@ export default function FeedPage() {
   const filteredJourneys = journeys.filter((j) => journeyMatchesSearch(j, searchQuery));
 
   return (
-    <main className="min-h-screen pb-24" style={{ background: "#0f0f0f" }}>
+    <main className="min-h-dvh pb-24" style={{ background: "#0f0f0f" }}>
       <div className="sticky top-0 z-10" style={{ background: "#0f0f0f", paddingTop: "env(safe-area-inset-top)" }}>
       <div className="mx-auto w-full max-w-xl px-4">
 

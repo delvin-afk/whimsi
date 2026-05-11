@@ -11,6 +11,18 @@ const INACTIVE = "#6b7280";
 export default function BottomNav() {
   const pathname = usePathname();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    // Hide nav when virtual keyboard opens (visual viewport shrinks)
+    if (typeof window === "undefined" || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const onResize = () => {
+      setKeyboardOpen(vv.height < window.innerHeight * 0.75);
+    };
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     async function fetchAvatar() {
@@ -32,7 +44,7 @@ export default function BottomNav() {
     return () => window.removeEventListener("avatar-updated", handleAvatarUpdate);
   }, []);
 
-  if (pathname.startsWith("/auth") || pathname === "/") return null;
+  if (pathname.startsWith("/auth") || pathname === "/" || keyboardOpen) return null;
 
   const feedActive    = pathname === "/feed";
   const createActive  = pathname.startsWith("/capture") || pathname.startsWith("/scrapbook/create");

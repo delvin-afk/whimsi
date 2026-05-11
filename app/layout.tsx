@@ -14,6 +14,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -29,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
       </head>
-      <body className={`min-h-screen bg-neutral-50 text-neutral-900 ${righteous.variable}`}>
+      <body className={`min-h-dvh bg-neutral-50 text-neutral-900 ${righteous.variable}`}>
         <div style={{ paddingBottom: "calc(64px + env(safe-area-inset-bottom) + 16px)" }}>{children}</div>
         <BottomNav />
       </body>
