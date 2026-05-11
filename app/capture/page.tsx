@@ -1397,11 +1397,11 @@ function CapturePageInner() {
         </div>
 
         {/* Photo preview */}
-        <div className="flex-1 flex items-end justify-center relative overflow-hidden px-3 pb-4" style={{ paddingTop: 80 }}>
+        <div className="flex-1 overflow-hidden px-1" style={{ paddingTop: 80 }}>
           <img
             src={mainUrl}
             alt="Preview"
-            className="w-full max-h-full object-contain rounded-lg"
+            className="w-full h-full object-cover rounded-lg"
           />
           {/* Thumbnail strip if multiple */}
           {pendingPhotos.length > 0 && (
@@ -1423,7 +1423,7 @@ function CapturePageInner() {
         </div>
 
         {/* Actions — pb clears bottom nav (64px) + iOS safe area */}
-        <div className="shrink-0 px-5 pt-4 space-y-3"
+        <div className="shrink-0 px-5 pt-2 space-y-3"
           style={{ paddingBottom: "calc(4rem + env(safe-area-inset-bottom))" }}>
           <button
             onClick={addAnotherPhoto}
