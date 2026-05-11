@@ -27,7 +27,7 @@ export default function ExploreSheet({ journeys, selectedJourneyId, onJourneySel
     <div
       className="lg:hidden fixed left-0 right-0 z-40 flex flex-col"
       style={{
-        bottom: 64,
+        bottom: "calc(64px + env(safe-area-inset-bottom))",
         height: `${SHEET_VH}vh`,
         background: "#1a1a1e",
         borderRadius: "24px 24px 0 0",
