@@ -749,7 +749,7 @@ function CapturePageInner() {
     });
 
     setCameraStep(null);
-    setPendingPhotos([]);
+    // pendingPhotos intentionally kept so back-navigation from details restores the preview
   }
 
   function removePendingPhoto(index: number) {
@@ -1273,8 +1273,17 @@ function CapturePageInner() {
     setJourneyProgress({ current: 0, total: 0 });
     setJourneySaveError("");
     setMode("single");
+    setPendingPhotos([]);
     customizeShapeCache.current.clear();
     captionCache.current.clear();
+  }
+
+  function goBackToPreview() {
+    setJourneyPhotos([]);
+    setJourneyCaption("");
+    customizeShapeCache.current.clear();
+    captionCache.current.clear();
+    setCameraStep("preview");
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -1703,7 +1712,7 @@ function CapturePageInner() {
               {/* Header */}
               <div className="flex items-center gap-3 px-4 pt-12 pb-4 shrink-0">
                 <button
-                  onClick={resetJourney}
+                  onClick={pendingPhotos.length > 0 ? goBackToPreview : resetJourney}
                   className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
                   style={{ background: "rgba(255,255,255,0.1)" }}
                 >
