@@ -10,15 +10,40 @@ export default function Home() {
   const [showButtons, setShowButtons] = useState(false);
 
   useEffect(() => {
-    const authCheck = getSupabaseBrowser().auth.getUser();
+    const supabase = getSupabaseBrowser();
     const minDelay = new Promise<void>((res) => setTimeout(res, 1800));
 
-    Promise.all([authCheck, minDelay]).then(([{ data }]) => {
-      if (data.user) {
-        router.replace("/feed");
-      } else {
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) {
+        await minDelay;
         setShowButtons(true);
+        return;
       }
+
+      const uid = data.user.id;
+
+      // Prefetch feed data while splash is visible
+      const journeysFetch = fetch(`/api/journeys?user_id=${uid}`)
+        .then((r) => r.json())
+        .catch(() => null);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const avatarFetch = (supabase as any)
+        .from("profiles").select("avatar_url").eq("id", uid).single()
+        .then((res: { data: { avatar_url: string } | null }) => res.data?.avatar_url ?? null)
+        .catch(() => null);
+
+      const [, journeysData, avatarUrl] = await Promise.all([minDelay, journeysFetch, avatarFetch]);
+
+      try {
+        sessionStorage.setItem("whimsi_feed_preload", JSON.stringify({
+          journeys: journeysData?.journeys ?? [],
+          avatarUrl,
+          ts: Date.now(),
+        }));
+      } catch {}
+
+      router.replace("/feed");
     });
   }, [router]);
 
@@ -28,7 +53,6 @@ export default function Home() {
 function LandingPage({ showButtons }: { showButtons: boolean }) {
   return (
     <div className="fixed inset-0 bg-[#0b0b0b] flex flex-col select-none">
-      {/* Full-screen image */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/landing-page.jpeg"
@@ -37,7 +61,6 @@ function LandingPage({ showButtons }: { showButtons: boolean }) {
         style={{ objectFit: "cover", objectPosition: "center" }}
       />
 
-      {/* Bottom gradient — only visible when buttons are shown */}
       {showButtons && (
         <div
           className="absolute inset-x-0 bottom-0 pointer-events-none"
@@ -48,7 +71,6 @@ function LandingPage({ showButtons }: { showButtons: boolean }) {
         />
       )}
 
-      {/* CTA buttons — only for unauthenticated users */}
       {showButtons && (
         <div className="relative z-10 mt-auto px-8 pb-14 space-y-3">
           <Link

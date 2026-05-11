@@ -397,15 +397,28 @@ export default function FeedPage() {
       if (!uid) { router.push("/auth?redirect=/feed"); return; }
       setCurrentUserId(uid);
 
-      if (uid) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: profile } = await (getSupabaseBrowser() as any)
-          .from("profiles").select("avatar_url").eq("id", uid).single();
-        if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
-      }
+      // Use data prefetched by the splash screen if fresh (< 30s old)
+      try {
+        const raw = sessionStorage.getItem("whimsi_feed_preload");
+        if (raw) {
+          sessionStorage.removeItem("whimsi_feed_preload");
+          const cached = JSON.parse(raw);
+          if (Date.now() - cached.ts < 30000) {
+            setJourneys(cached.journeys ?? []);
+            if (cached.avatarUrl) setAvatarUrl(cached.avatarUrl);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch {}
 
-      const params = uid ? `?user_id=${uid}` : "";
-      const res = await fetch(`/api/journeys${params}`).then((r) => r.json()).catch(() => ({ journeys: [] }));
+      // Fallback: fetch normally
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: profile } = await (getSupabaseBrowser() as any)
+        .from("profiles").select("avatar_url").eq("id", uid).single();
+      if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
+
+      const res = await fetch(`/api/journeys?user_id=${uid}`).then((r) => r.json()).catch(() => ({ journeys: [] }));
       setJourneys(res.journeys ?? []);
       setLoading(false);
     });
