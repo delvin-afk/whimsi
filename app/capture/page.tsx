@@ -1406,7 +1406,7 @@ function CapturePageInner() {
         </div>
 
         {/* Photo preview */}
-        <div className="flex-1 overflow-hidden px-1" style={{ paddingTop: 80 }}>
+        <div className="flex-1 relative overflow-hidden px-1" style={{ paddingTop: 80 }}>
           <img
             src={mainUrl}
             alt="Preview"
@@ -1431,9 +1431,9 @@ function CapturePageInner() {
           )}
         </div>
 
-        {/* Actions — pb clears bottom nav (64px) + iOS safe area */}
+        {/* Actions */}
         <div className="shrink-0 px-5 pt-2 space-y-3"
-          style={{ paddingBottom: "calc(4rem + env(safe-area-inset-bottom))" }}>
+          style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
           <button
             onClick={addAnotherPhoto}
             className="w-full py-4 rounded-2xl bg-neutral-800 text-white font-bold text-base flex items-center justify-center gap-2"
