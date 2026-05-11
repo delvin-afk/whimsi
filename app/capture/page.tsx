@@ -2043,8 +2043,9 @@ function CapturePageInner() {
                   disabled={customizeAiLoading}
                   className="flex items-center gap-1.5 text-[#4ade80] text-sm font-semibold disabled:opacity-40 active:scale-95 transition"
                 >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11 3L12.5 8.5L18 10L12.5 11.5L11 17L9.5 11.5L4 10L9.5 8.5Z"/>
+                    <path d="M18.5 2L19.3 4.7L22 5.5L19.3 6.3L18.5 9L17.7 6.3L15 5.5L17.7 4.7Z"/>
                   </svg>
                   Use AI
                 </button>
