@@ -421,8 +421,12 @@ function JourneyDoneScreen({
         <div className="bg-neutral-900 rounded-3xl overflow-hidden shadow-xl">
           {/* User row */}
           <div className="px-4 py-3 flex items-center gap-3">
-            <div className="w-11 h-11 rounded-full bg-[#a855f7] flex items-center justify-center text-white font-bold text-base shrink-0">
-              {username[0]?.toUpperCase()}
+            <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-base shrink-0"
+              style={{ background: avatarUrl ? "transparent" : "#a855f7" }}>
+              {avatarUrl
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={avatarUrl} alt={username} className="w-full h-full object-cover" />
+                : username[0]?.toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm text-white truncate">{username} shared a story</p>
@@ -508,6 +512,7 @@ function CapturePageInner() {
   const searchParams = useSearchParams();
   const flow = searchParams.get("flow") ?? "sticker"; // "sticker" | "journey"
   const [username, setUsername] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [userId, setUserId] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -768,11 +773,12 @@ function CapturePageInner() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any)
         .from("profiles")
-        .select("username")
+        .select("username, avatar_url")
         .eq("id", data.user.id)
         .single()
-        .then(({ data: profile }: { data: { username?: string } | null }) => {
+        .then(({ data: profile }: { data: { username?: string; avatar_url?: string } | null }) => {
           if (profile?.username) setUsername(profile.username);
+          if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
         });
     });
   }, [router]);
@@ -1304,8 +1310,11 @@ function CapturePageInner() {
             {pendingPhotos.length > 1 ? "Create a Journey" : "Create a Sticker"}
           </button>
           {username && (
-            <div className="w-9 h-9 rounded-full bg-[#a855f7] flex items-center justify-center text-white font-bold text-sm">
-              {username[0]?.toUpperCase()}
+            <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shrink-0"
+              style={{ background: avatarUrl ? "transparent" : "#a855f7" }}>
+              {avatarUrl
+                ? <img src={avatarUrl} alt={username} className="w-full h-full object-cover" /> // eslint-disable-line @next/next/no-img-element
+                : username[0]?.toUpperCase()}
             </div>
           )}
         </div>
