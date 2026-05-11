@@ -214,6 +214,7 @@ out/
 
 secrets/
 *.json
+!public/manifest.json
 
 
 # logs
