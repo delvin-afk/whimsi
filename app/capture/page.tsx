@@ -1324,12 +1324,12 @@ function CapturePageInner() {
         </div>
 
         {/* Controls — pb clears bottom nav (64px) + iOS safe area */}
-        <div className="absolute bottom-0 left-0 right-0 pt-6 flex items-center justify-around px-12"
+        <div className="absolute bottom-0 left-0 right-0 pt-6 flex items-center justify-center gap-16"
           style={{ paddingBottom: "calc(4rem + env(safe-area-inset-bottom))" }}>
           {/* Flip */}
           <button onClick={flipCamera}
-            className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center active:scale-90 transition">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+            className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center active:scale-90 transition">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
               <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
               <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
             </svg>
@@ -1345,7 +1345,7 @@ function CapturePageInner() {
           </button>
 
           {/* Gallery */}
-          <label className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center active:scale-90 transition cursor-pointer">
+          <label className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center active:scale-90 transition cursor-pointer">
             <input
               ref={fileRef}
               type="file"
