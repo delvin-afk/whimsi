@@ -2026,13 +2026,13 @@ function CapturePageInner() {
                 src={customizeCurrentDataUrl ?? combinedModalPhoto.localUrl}
                 alt="Sticker preview"
                 className="w-full h-full object-contain"
-                style={{ filter: "drop-shadow(0 8px 32px rgba(168,85,247,0.35))" }}
+                style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.4))" }}
               />
             )}
           </div>
 
           {/* Bottom panel — shape picker + caption + footer */}
-          <div className="shrink-0 bg-neutral-900 rounded-t-3xl flex flex-col" style={{ maxHeight: "58vh" }}>
+          <div className="shrink-0 bg-neutral-900 rounded-t-lg flex flex-col" style={{ maxHeight: "58vh" }}>
 
             {/* Shape picker (always visible) */}
             <div className="shrink-0 px-5 pt-4 pb-3 space-y-2.5">
@@ -2041,7 +2041,7 @@ function CapturePageInner() {
                 <button
                   onClick={onCustomizeUseAI}
                   disabled={customizeAiLoading}
-                  className="flex items-center gap-1.5 text-[#a855f7] text-sm font-semibold disabled:opacity-40 active:scale-95 transition"
+                  className="flex items-center gap-1.5 text-[#4ade80] text-sm font-semibold disabled:opacity-40 active:scale-95 transition"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -2052,7 +2052,7 @@ function CapturePageInner() {
               <div className="flex gap-2 overflow-x-auto pb-1">
                 <button
                   onClick={onCustomizeSelectOriginal}
-                  className={`shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 transition ${customizeSelectedMode === "original" ? "border-white" : "border-neutral-700"}`}
+                  className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition ${customizeSelectedMode === "original" ? "border-white" : "border-neutral-700"}`}
                 >
                   <img src={combinedModalPhoto.localUrl} alt="Original" className="w-full h-full object-cover" />
                 </button>
@@ -2060,7 +2060,7 @@ function CapturePageInner() {
                   <button
                     key={id}
                     onClick={() => onCustomizeSelectShape(id)}
-                    className={`shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 bg-neutral-800 transition flex items-center justify-center ${customizeSelectedMode === id ? "border-white" : "border-neutral-700"}`}
+                    className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 bg-neutral-800 transition flex items-center justify-center ${customizeSelectedMode === id ? "border-white" : "border-neutral-700"}`}
                   >
                     {customizeShapePreviews[id]
                       ? <img src={customizeShapePreviews[id]} alt={label} className="w-full h-full object-contain" />
@@ -2086,7 +2086,7 @@ function CapturePageInner() {
                     onChange={(e) => { journeyCommittedRef.current = e.target.value; setJourneyCaptionInput(e.target.value); }}
                     placeholder="Ex: What happened here?"
                     rows={3}
-                    className={`w-full bg-neutral-800 text-white placeholder-neutral-600 rounded-2xl px-4 py-3 pr-12 text-sm resize-none outline-none focus:ring-2 transition-colors ${isJourneyListening ? "ring-2 ring-red-500" : "focus:ring-[#4ade80]"}`}
+                    className={`w-full bg-neutral-800 text-white placeholder-neutral-600 rounded-lg px-4 py-3 pr-12 text-sm resize-none outline-none focus:ring-2 transition-colors ${isJourneyListening ? "ring-2 ring-red-500" : "focus:ring-[#4ade80]"}`}
                     style={{ fontSize: 16 }}
                   />
                   <button
@@ -2114,25 +2114,21 @@ function CapturePageInner() {
                 <div className="mt-1.5">
                   {!journeyCaptionVoicePreviewUrl && !journeyCaptionIsRecording && (
                     <button type="button" onClick={startJourneyCaptionRecording}
-                      className="w-full flex items-center gap-3 py-3 px-4 rounded-2xl border border-white/10 bg-neutral-800 hover:bg-neutral-700 transition-colors">
-                      <span className="w-8 h-8 rounded-full bg-[#4ade80] flex items-center justify-center shrink-0">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                          <rect x="9" y="2" width="6" height="12" rx="3" stroke="black" strokeWidth="1.5"/>
-                          <path d="M5 10a7 7 0 0 0 14 0" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
-                          <path d="M12 19v3M9 22h6" stroke="black" strokeWidth="1.5" strokeLinecap="round"/>
-                        </svg>
+                      className="w-full flex items-center gap-3 py-3 px-4 rounded-lg border border-white/10 bg-neutral-800 hover:bg-neutral-700 transition-colors">
+                      <span className="w-8 h-8 rounded-full border-2 border-[#4ade80] flex items-center justify-center shrink-0">
+                        <span className="w-3 h-3 rounded-full bg-[#4ade80]" />
                       </span>
-                      <span className="text-sm text-neutral-400">Tap to share the story with your voice</span>
+                      <span className="text-sm text-neutral-400 italic">Tap to share the story with your voice</span>
                     </button>
                   )}
                   {journeyCaptionIsRecording && (
-                    <div className="flex items-center gap-3 py-3 px-4 rounded-2xl border border-[#4ade80] bg-green-950/30">
+                    <div className="flex items-center gap-3 py-3 px-4 rounded-lg border border-[#4ade80] bg-green-950/30">
                       <span className="w-3 h-3 rounded-full bg-[#4ade80] animate-pulse shrink-0" />
                       <span className="flex-1 text-sm text-neutral-300 font-mono">
                         {String(Math.floor(journeyCaptionRecordingSeconds / 60)).padStart(2, "0")}:{String(journeyCaptionRecordingSeconds % 60).padStart(2, "0")}
                       </span>
                       <button type="button" onClick={stopJourneyCaptionRecording}
-                        className="px-3 py-1.5 rounded-xl bg-neutral-100 text-neutral-900 text-xs font-bold">Stop</button>
+                        className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-900 text-xs font-bold">Stop</button>
                     </div>
                   )}
                   {journeyCaptionVoicePreviewUrl && !journeyCaptionIsRecording && (
@@ -2153,10 +2149,10 @@ function CapturePageInner() {
               <button
                 onClick={() => onCombinedConfirm(false)}
                 disabled={customizeAiLoading}
-                className="w-full py-3.5 rounded-2xl font-semibold text-sm text-black disabled:opacity-40 active:scale-[0.98] transition"
+                className="w-full py-3.5 rounded-lg font-semibold text-sm text-black disabled:opacity-40 active:scale-[0.98] transition"
                 style={{ background: "#22c55e" }}
               >
-                {journeyPhotos.findIndex((p) => p.id === combinedModalPhoto.id) < journeyPhotos.length - 1 ? "Next →" : "Finish"}
+                {journeyPhotos.findIndex((p) => p.id === combinedModalPhoto.id) < journeyPhotos.length - 1 ? "Next →" : "Save Details"}
               </button>
             </div>
           </div>
