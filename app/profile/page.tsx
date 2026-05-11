@@ -276,7 +276,7 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen pb-28" style={{ background: "#0f0f0f" }}>
-      <div className="sticky top-0 z-10" style={{ background: "#0f0f0f" }}>
+      <div className="sticky top-0 z-10" style={{ background: "#0f0f0f", paddingTop: "env(safe-area-inset-top)" }}>
       <div className="mx-auto w-full max-w-xl px-4">
 
         {/* Header */}
