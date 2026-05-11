@@ -1,64 +1,49 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 export default function Home() {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
-
   useEffect(() => {
     getSupabaseBrowser()
       .auth.getUser()
       .then(({ data }) => {
-        if (data.user) {
-          router.replace("/feed");
-        } else {
-          setReady(true);
-        }
+        if (data.user) router.replace("/feed");
       });
   }, [router]);
-
-  if (!ready) {
-    return (
-      <div className="fixed inset-0 bg-[#0b0b0b] flex items-center justify-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icon-512.png" alt="whimsi" className="w-14 h-14 rounded-2xl opacity-90" />
-      </div>
-    );
-  }
 
   return <LandingPage />;
 }
 
 function LandingPage() {
   return (
-    <div className="fixed inset-0 bg-[#0b0b0b] flex flex-col">
-      {/* Full-screen background image */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/landing-page.jpeg"
-        alt=""
-        className="absolute inset-0 w-full h-full"
-        style={{ objectFit: "cover", objectPosition: "center" }}
-      />
+    <div className="fixed inset-0 bg-[#0b0b0b] flex flex-col select-none">
+      {/* Image container — upper 65% of screen */}
+      <div className="relative flex items-center justify-center overflow-hidden" style={{ height: "65%" }}>
+        {/* Top fade */}
+        <div
+          className="absolute inset-x-0 top-0 z-10 pointer-events-none"
+          style={{ height: "20%", background: "linear-gradient(to bottom, #0b0b0b, transparent)" }}
+        />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/landing-page.jpeg"
+          alt=""
+          className="w-full"
+          style={{ objectFit: "contain" }}
+        />
+        {/* Bottom fade */}
+        <div
+          className="absolute inset-x-0 bottom-0 z-10 pointer-events-none"
+          style={{ height: "30%", background: "linear-gradient(to bottom, transparent, #0b0b0b)" }}
+        />
+      </div>
 
-      {/* Bottom gradient so buttons stay readable */}
-      <div
-        className="absolute inset-x-0 bottom-0 pointer-events-none"
-        style={{
-          height: "55%",
-          background: "linear-gradient(to bottom, transparent, rgba(11,11,11,0.85) 50%, #0b0b0b 100%)",
-        }}
-      />
-
-      {/* Spacer pushes buttons to bottom */}
-      <div className="flex-1" />
-
-      {/* CTA buttons */}
-      <div className="relative z-10 px-8 pb-14 space-y-3">
+      {/* CTA buttons pinned to bottom */}
+      <div className="flex-1 flex flex-col justify-end px-8 pb-14 space-y-3">
         <Link
           href="/auth"
           className="block w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold text-base text-center"
