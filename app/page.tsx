@@ -7,12 +7,14 @@ import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 export default function Home() {
   const router = useRouter();
+
   useEffect(() => {
-    getSupabaseBrowser()
-      .auth.getUser()
-      .then(({ data }) => {
-        if (data.user) router.replace("/feed");
-      });
+    const authCheck = getSupabaseBrowser().auth.getUser();
+    const minDelay = new Promise<void>((res) => setTimeout(res, 1800));
+
+    Promise.all([authCheck, minDelay]).then(([{ data }]) => {
+      if (data.user) router.replace("/feed");
+    });
   }, [router]);
 
   return <LandingPage />;
@@ -21,29 +23,26 @@ export default function Home() {
 function LandingPage() {
   return (
     <div className="fixed inset-0 bg-[#0b0b0b] flex flex-col select-none">
-      {/* Image container — upper 65% of screen */}
-      <div className="relative flex items-center justify-center overflow-hidden" style={{ height: "65%" }}>
-        {/* Top fade */}
-        <div
-          className="absolute inset-x-0 top-0 z-10 pointer-events-none"
-          style={{ height: "20%", background: "linear-gradient(to bottom, #0b0b0b, transparent)" }}
-        />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/landing-page.jpeg"
-          alt=""
-          className="w-full"
-          style={{ objectFit: "contain" }}
-        />
-        {/* Bottom fade */}
-        <div
-          className="absolute inset-x-0 bottom-0 z-10 pointer-events-none"
-          style={{ height: "30%", background: "linear-gradient(to bottom, transparent, #0b0b0b)" }}
-        />
-      </div>
+      {/* Full-screen image */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/landing-page.jpeg"
+        alt=""
+        className="absolute inset-0 w-full h-full"
+        style={{ objectFit: "cover", objectPosition: "center" }}
+      />
 
-      {/* CTA buttons pinned to bottom */}
-      <div className="flex-1 flex flex-col justify-end px-8 pb-14 space-y-3">
+      {/* Bottom gradient so buttons stay readable */}
+      <div
+        className="absolute inset-x-0 bottom-0 pointer-events-none"
+        style={{
+          height: "50%",
+          background: "linear-gradient(to bottom, transparent, rgba(11,11,11,0.9) 55%, #0b0b0b 100%)",
+        }}
+      />
+
+      {/* CTA buttons */}
+      <div className="relative z-10 mt-auto px-8 pb-14 space-y-3">
         <Link
           href="/auth"
           className="block w-full py-4 rounded-2xl bg-[#4ade80] text-black font-bold text-base text-center"
