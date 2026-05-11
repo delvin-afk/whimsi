@@ -2,7 +2,7 @@
   "name": "whimsi",
   "short_name": "whimsi",
   "description": "Capture and share your journeys",
-  "start_url": "/feed",
+  "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0f0f0f",
