@@ -1722,10 +1722,9 @@ function CapturePageInner() {
               <div className="flex items-center gap-3 px-4 pt-12 pb-4 shrink-0">
                 <button
                   onClick={pendingPhotos.length > 0 ? goBackToPreview : resetJourney}
-                  className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-                  style={{ background: "rgba(255,255,255,0.1)" }}
+                  className="flex items-center justify-center shrink-0"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
                     <path d="M15 18l-6-6 6-6" />
                   </svg>
                 </button>
@@ -1744,7 +1743,7 @@ function CapturePageInner() {
                   value={journeyCaption}
                   onChange={(e) => setJourneyCaption(e.target.value)}
                   placeholder={journeyPhotos.length === 1 ? "e.g. A day in the city" : "ex: Greece Trip 2025"}
-                  className="w-full rounded-2xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
+                  className="w-full rounded-lg px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#4ade80]"
                   style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", fontSize: 16 }}
                 />
 
@@ -1758,7 +1757,7 @@ function CapturePageInner() {
                   {journeyPhotos.map((photo, index) => (
                     <div
                       key={photo.id}
-                      className="rounded-2xl"
+                      className="rounded-lg"
                       style={{ background: "#1e1e22", border: "1px solid rgba(255,255,255,0.07)" }}
                     >
                       {/* ── Main row ── */}
