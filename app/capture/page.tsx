@@ -1397,11 +1397,11 @@ function CapturePageInner() {
         </div>
 
         {/* Photo preview */}
-        <div className="flex-1 flex items-center justify-center relative overflow-hidden pt-20">
+        <div className="flex-1 flex items-center justify-center relative overflow-hidden pt-20 px-3">
           <img
             src={mainUrl}
             alt="Preview"
-            className="max-w-full max-h-full object-contain rounded-2xl"
+            className="w-full object-cover rounded-lg"
           />
           {/* Thumbnail strip if multiple */}
           {pendingPhotos.length > 0 && (
