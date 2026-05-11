@@ -282,10 +282,11 @@ const DONE_COLOR = "#a855f7";
 const DONE_STICKER_SIZE = 60;
 
 function JourneyDoneScreen({
-  journeyPhotos, username, journeyCaption, savedJourneyId, mapboxToken, onViewMap, onReset,
+  journeyPhotos, username, avatarUrl, journeyCaption, savedJourneyId, mapboxToken, onViewMap, onReset,
 }: {
   journeyPhotos: PhotoItem[];
   username: string;
+  avatarUrl: string | null;
   journeyCaption: string;
   savedJourneyId: string;
   mapboxToken: string;
@@ -2167,6 +2168,7 @@ function CapturePageInner() {
         <JourneyDoneScreen
           journeyPhotos={journeyPhotos}
           username={username}
+          avatarUrl={avatarUrl}
           journeyCaption={journeyCaption}
           savedJourneyId={savedJourneyId}
           mapboxToken={mapboxToken}
