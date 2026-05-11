@@ -175,9 +175,9 @@ function OnboardingForm() {
   if (isPermissionStep) {
     const info = PERMISSION_INFO[step];
     return (
-      <div className="min-h-screen bg-[#0b0b0b] text-white flex flex-col">
+      <div className="min-h-dvh bg-[#0b0b0b] text-white flex flex-col">
         {/* Progress bar + back */}
-        <div className="flex items-center gap-3 px-6 pt-10 pb-4">
+        <div className="flex items-center gap-3 px-6 pb-4" style={{ paddingTop: "max(env(safe-area-inset-top), 40px)" }}>
           <button
             onClick={back}
             className="w-8 h-8 flex items-center justify-center text-white/50 hover:text-white text-2xl shrink-0"
@@ -246,9 +246,9 @@ function OnboardingForm() {
 
   // ── Standard onboarding UI ──────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#0b0b0b] text-white flex flex-col">
+    <div className="min-h-dvh bg-[#0b0b0b] text-white flex flex-col">
       {/* Header */}
-      <div className="relative flex items-center justify-center pt-12 pb-2 px-6">
+      <div className="relative flex items-center justify-center pb-2 px-6" style={{ paddingTop: "max(env(safe-area-inset-top), 48px)" }}>
         {stepIndex > 0 && (
           <button
             onClick={back}

@@ -165,7 +165,7 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
 
   return (
     <>
-      <div className="flex flex-col" style={{ height: "calc(100dvh - 64px)" }}>
+      <div className="flex flex-col" style={{ height: "calc(100dvh - 64px - env(safe-area-inset-bottom))" }}>
         {/* Top info bar */}
         <div className="shrink-0 px-3 py-3 flex items-center gap-2" style={{ background: "#1a1a1e", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <button

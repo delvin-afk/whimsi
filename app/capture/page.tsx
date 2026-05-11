@@ -414,7 +414,7 @@ function JourneyDoneScreen({
 
   return (
     <div className="fixed inset-0 z-[80] flex flex-col" style={{ background: "#4ade80" }}>
-      <div className="shrink-0 pt-14 pb-5 px-5 text-center">
+      <div className="shrink-0 pb-5 px-5 text-center" style={{ paddingTop: "max(env(safe-area-inset-top), 56px)" }}>
         <p className="text-3xl font-black text-black">{journeyPhotos.length === 1 ? "Sticker is live! 🤩" : "Journey is live! 🤩"}</p>
       </div>
 
@@ -1300,7 +1300,7 @@ function CapturePageInner() {
     return (
       <div className="fixed inset-0 bg-black flex flex-col z-[60]">
         {/* Header */}
-        <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pt-12 pb-4">
+        <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pb-4" style={{ paddingTop: "max(env(safe-area-inset-top), 48px)" }}>
           <button
             onClick={() => { streamRef.current?.getTracks().forEach((t) => t.stop()); router.push("/feed"); }}
             className="flex items-center gap-1.5 text-white font-semibold text-base"
@@ -1403,7 +1403,7 @@ function CapturePageInner() {
     return (
       <div className="fixed inset-0 bg-neutral-950 flex flex-col z-[60]">
         {/* Header */}
-        <div className="absolute top-0 left-0 right-0 z-10 flex items-center px-4 pt-12 pb-4">
+        <div className="absolute top-0 left-0 right-0 z-10 flex items-center px-4 pb-4" style={{ paddingTop: "max(env(safe-area-inset-top), 48px)" }}>
           <button
             onClick={() => setCameraStep("camera")}
             className="flex items-center gap-1.5 text-white font-semibold text-base"
@@ -1597,7 +1597,7 @@ function CapturePageInner() {
                 onClick={() => setShowShareForm(false)}
               />
               {/* Sheet */}
-              <div className="fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh]">
+              <div className="fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh]" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
                 {/* Drag handle + header */}
                 <div className="flex items-center justify-between px-5 pt-4 pb-3 shrink-0">
                   <p className="font-bold text-base">Share your sticker</p>
@@ -1720,7 +1720,7 @@ function CapturePageInner() {
               onClick={() => { if (openMenuId) setOpenMenuId(null); }}
             >
               {/* Header */}
-              <div className="flex items-center gap-3 px-4 pt-12 pb-4 shrink-0">
+              <div className="flex items-center gap-3 px-4 pb-4 shrink-0" style={{ paddingTop: "max(env(safe-area-inset-top), 48px)" }}>
                 <button
                   onClick={pendingPhotos.length > 0 ? goBackToPreview : resetJourney}
                   className="flex items-center justify-center shrink-0"
@@ -2002,7 +2002,7 @@ function CapturePageInner() {
       {combinedModalPhoto && (
         <div className="fixed inset-0 z-[70] bg-neutral-950 flex flex-col">
           {/* Header */}
-          <div className="shrink-0 flex items-center gap-3 px-5 pt-12 pb-3">
+          <div className="shrink-0 flex items-center gap-3 px-5 pb-3" style={{ paddingTop: "max(env(safe-area-inset-top), 48px)" }}>
             <button
               onClick={onCombinedBack}
               className="w-9 h-9 flex items-center justify-center rounded-full bg-neutral-800 shrink-0"

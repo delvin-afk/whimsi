@@ -50,9 +50,9 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0b0b] text-white flex flex-col">
+    <div className="min-h-dvh bg-[#0b0b0b] text-white flex flex-col">
       {/* Header */}
-      <div className="relative flex items-center justify-center pt-12 pb-2 px-6">
+      <div className="relative flex items-center justify-center pb-2 px-6" style={{ paddingTop: "max(env(safe-area-inset-top), 48px)" }}>
         <Link
           href="/auth"
           className="absolute left-6 w-8 h-8 flex items-center justify-center text-white/50 hover:text-white text-2xl"

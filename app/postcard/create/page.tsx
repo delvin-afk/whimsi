@@ -229,7 +229,7 @@ function CreatePostcardContent() {
 
   if (sent) {
     return (
-      <main className="min-h-screen pb-20" style={{ background: "#0f0f0f" }}>
+      <main className="min-h-dvh pb-20" style={{ background: "#0f0f0f" }}>
         {journey ? (
           <PostcardPreview
             journey={journey}
@@ -266,9 +266,9 @@ function CreatePostcardContent() {
   }
 
   return (
-    <main className="min-h-screen pb-20" style={{ background: "#0f0f0f" }}>
+    <main className="min-h-dvh pb-20" style={{ background: "#0f0f0f" }}>
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-14 pb-6">
+      <div className="flex items-center gap-3 px-4 pb-6" style={{ paddingTop: "max(env(safe-area-inset-top), 56px)" }}>
         <button
           onClick={() => router.back()}
           className="text-white p-1 -ml-1"

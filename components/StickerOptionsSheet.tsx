@@ -60,8 +60,8 @@ export default function StickerOptionsSheet({
       />
 
       {/* Sheet */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center">
-        <div className="w-full max-w-lg bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden mb-20">
+      <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div className="w-full max-w-lg bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden">
           {/* Handle */}
           <div className="flex justify-center pt-3 pb-1">
             <div className="w-10 h-1 rounded-full bg-white/20" />
