@@ -534,7 +534,7 @@ export default function MapView({
   return (
     <div className="relative w-full h-full">
       {/* Search bar */}
-      <div className="absolute top-3 left-3 right-3 z-10">
+      <div className="absolute left-3 right-3 z-10" style={{ top: "calc(env(safe-area-inset-top) + 12px)" }}>
         <form onSubmit={searchCity}>
           <div className="flex items-center gap-2 px-4 py-3 rounded-2xl" style={{ background: "#1c1c1e" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2.5" strokeLinecap="round" className="shrink-0">
