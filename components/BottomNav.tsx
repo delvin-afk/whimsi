@@ -32,7 +32,7 @@ export default function BottomNav() {
     return () => window.removeEventListener("avatar-updated", handleAvatarUpdate);
   }, []);
 
-  if (pathname.startsWith("/auth")) return null;
+  if (pathname.startsWith("/auth") || pathname === "/") return null;
 
   const feedActive    = pathname === "/feed";
   const createActive  = pathname.startsWith("/capture") || pathname.startsWith("/scrapbook/create");

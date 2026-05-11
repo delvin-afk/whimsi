@@ -1,5 +1,6 @@
 import "./globals.css";
 import { Righteous } from "next/font/google";
+import type { Viewport } from "next";
 import BottomNav from "@/components/BottomNav";
 
 const righteous = Righteous({ subsets: ["latin"], weight: "400", variable: "--font-righteous" });
@@ -7,6 +8,12 @@ const righteous = Righteous({ subsets: ["latin"], weight: "400", variable: "--fo
 export const metadata = {
   title: "whimsi",
   description: "Turn your travels into stickers",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
