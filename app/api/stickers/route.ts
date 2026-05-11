@@ -11,6 +11,7 @@ export async function GET(req: Request) {
     let query = supabaseAdmin
       .from("stickers")
       .select("*")
+      .eq("is_hidden", false)
       .order("created_at", { ascending: false })
       .limit(50);
 

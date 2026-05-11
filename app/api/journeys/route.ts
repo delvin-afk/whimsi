@@ -6,10 +6,11 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("user_id");
 
-    // Fetch journeys: public ones + owner's private ones
+    // Fetch journeys: public ones + owner's private ones, never hidden ones
     let journeyQuery = supabaseAdmin
       .from("journeys")
       .select("*")
+      .eq("is_hidden", false)
       .order("created_at", { ascending: false })
       .limit(50);
 
