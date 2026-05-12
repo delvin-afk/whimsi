@@ -315,7 +315,7 @@ function JourneyCard({
               <div className="px-4 pt-2 pb-4 space-y-1">
                 {/* Edit post */}
                 <button
-                  onClick={() => { setSheetOpen(false); cardRouter.push(`/journey/${journey.id}/edit`); }}
+                  onClick={() => { setSheetOpen(false); cardRouter.push(`/capture?flow=journey&edit=${journey.id}`); }}
                   className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl hover:bg-white/10 text-left transition-colors"
                 >
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a3a3a3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">

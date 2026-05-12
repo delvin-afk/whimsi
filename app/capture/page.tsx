@@ -551,6 +551,7 @@ function CapturePageInner() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Journey mode state ─────────────────────────────────────────────────────
+  const [editJourneyId, setEditJourneyId] = useState<string | null>(null);
   const [journeyPhotos, setJourneyPhotos] = useState<PhotoItem[]>([]);
   const [journeyCaption, setJourneyCaption] = useState("");
   const [journeyStep, setJourneyStep] = useState<"details" | "processing" | "saving" | "done" | "rescue">("details");
@@ -768,21 +769,92 @@ function CapturePageInner() {
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { router.push("/auth?redirect=/capture"); return; }
-      setUserId(data.user.id);
+      const uid = data.user.id;
+      setUserId(uid);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any)
         .from("profiles")
         .select("username, avatar_url")
-        .eq("id", data.user.id)
+        .eq("id", uid)
         .single()
         .then(({ data: profile }: { data: { username?: string; avatar_url?: string } | null }) => {
           if (profile?.username) setUsername(profile.username);
           if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
         });
+
+      // Edit mode: load existing journey into the details step
+      const editId = searchParams.get("edit");
+      if (!editId) return;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: journey } = await (supabase as any)
+        .from("journeys").select("*").eq("id", editId).eq("user_id", uid).single() as { data: { caption: string | null } | null };
+      if (!journey) return;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: stickerRows } = await (supabase as any)
+        .from("stickers").select("*").eq("journey_id", editId).order("order_index", { ascending: true }) as {
+          data: Array<{ id: string; image_url: string; caption: string | null; voice_url: string | null; location_name: string | null; lat: number | null; lng: number | null; photo_taken_at: string | null }> | null
+        };
+
+      const photos: PhotoItem[] = await Promise.all((stickerRows ?? []).map(async (s, i) => {
+        let base64 = "";
+        let mimeType = "image/png";
+        let localUrl = s.image_url;
+        let file: File = new File([], `sticker-${i}.png`, { type: "image/png" });
+        try {
+          const resp = await fetch(s.image_url);
+          const blob = await resp.blob();
+          mimeType = blob.type || "image/png";
+          localUrl = URL.createObjectURL(blob);
+          file = new File([blob], `sticker-${i}.${mimeType.split("/")[1] ?? "png"}`, { type: mimeType });
+          base64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve((reader.result as string).split(",")[1] ?? "");
+            reader.onerror = () => resolve("");
+            reader.readAsDataURL(blob);
+          });
+        } catch { /* keep defaults */ }
+        const stickerDataUrl = base64 ? `data:${mimeType};base64,${base64}` : null;
+        // Pre-populate caption + voice cache so combined modal restores them
+        captionCache.current.set(s.id, {
+          caption: s.caption ?? "",
+          voiceBlob: null,
+          voiceMimeType: null,
+          voicePreviewUrl: s.voice_url ?? null,
+        });
+        return {
+          id: s.id,
+          file,
+          localUrl,
+          base64,
+          mimeType,
+          stickerDataUrl,
+          exifLat: undefined,
+          exifLng: undefined,
+          photoTakenAt: s.photo_taken_at ?? undefined,
+          locationName: s.location_name ?? "",
+          lat: s.lat,
+          lng: s.lng,
+          status: "done" as const,
+          errorMsg: "",
+          showLocationPicker: false,
+          caption: s.caption ?? "",
+          voiceBlob: null,
+          voiceMimeType: null,
+        };
+      }));
+
+      setEditJourneyId(editId);
+      setJourneyCaption(journey.caption ?? "");
+      setJourneyPhotos(photos);
+      setMode("journey");
+      setJourneyStep("details");
+      setCameraStep(null);
     });
-  }, [router]);
+  }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── File picker handler ───────────────────────────────────────────────────
   async function onFilesSelected(files: FileList | null) {
@@ -1210,6 +1282,15 @@ function CapturePageInner() {
 
 
 
+  async function toVoiceBase64(blob: Blob): Promise<string | null> {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string).split(",")[1] ?? null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  }
+
   async function saveJourney(photos: PhotoItem[]) {
     const validPhotos = photos.filter((p) => p.stickerDataUrl);
     if (validPhotos.length < 1) {
@@ -1218,20 +1299,56 @@ function CapturePageInner() {
     }
     setJourneyStep("saving");
     setJourneySaveError("");
+
+    // ── Edit mode: update existing journey ────────────────────────────────────
+    if (editJourneyId) {
+      try {
+        const stickersPayload = await Promise.all(validPhotos.map(async (p) => {
+          const voiceBase64 = p.voiceBlob ? await toVoiceBase64(p.voiceBlob) : null;
+          const voiceMimeType = p.voiceBlob ? (p.voiceBlob.type || p.voiceMimeType || "audio/webm") : null;
+          // Detect if sticker was modified: cached voice preview (existing URL) vs new blob
+          const cached = captionCache.current.get(p.id);
+          const clearVoice = !p.voiceBlob && cached?.voicePreviewUrl == null;
+          return {
+            id: p.id,
+            caption: p.caption.trim() || null,
+            voiceBase64,
+            voiceMimeType,
+            clearVoice,
+          };
+        }));
+        const res = await fetch("/api/journey/edit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            journeyId: editJourneyId,
+            caption: journeyCaption.trim() || null,
+            stickers: stickersPayload,
+          }),
+        });
+        const json = await res.json();
+        if (res.ok) {
+          setSavedJourneyId(editJourneyId);
+          setJourneyStep("done");
+        } else {
+          setJourneySaveError(json.error ?? "Failed to save changes");
+          setJourneyStep("rescue");
+        }
+      } catch {
+        setJourneySaveError("Network error saving changes");
+        setJourneyStep("rescue");
+      }
+      return;
+    }
+
+    // ── Create mode ───────────────────────────────────────────────────────────
     try {
       const stickersPayload = await Promise.all(validPhotos.map(async (p, i) => {
         let voiceBase64: string | null = null;
         let voiceMimeType: string | null = null;
         if (p.voiceBlob) {
-          voiceBase64 = await new Promise<string | null>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              const result = reader.result as string | null;
-              resolve(result ? result.split(",")[1] ?? null : null);
-            };
-            reader.onerror = () => resolve(null);
-            reader.readAsDataURL(p.voiceBlob!);
-          });
+          voiceBase64 = await toVoiceBase64(p.voiceBlob);
           voiceMimeType = p.voiceBlob.type || p.voiceMimeType || "audio/webm";
         }
         const stickerBase64 = p.stickerDataUrl
@@ -1921,7 +2038,7 @@ function CapturePageInner() {
                   className="w-full py-4 rounded-2xl font-bold text-base text-black"
                   style={{ background: "#22c55e" }}
                 >
-                  {journeyPhotos.length === 1 ? "Create Sticker" : "Create Journey"}
+                  {editJourneyId ? "Save Changes" : journeyPhotos.length === 1 ? "Create Sticker" : "Create Journey"}
                 </button>
               </div>
             </div>
