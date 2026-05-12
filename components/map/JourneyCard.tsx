@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { Journey, StickerPost } from "@/types";
 
 const ROUTE_COLOR = "#22c55e";
@@ -154,7 +155,9 @@ export default function JourneyCard({ journey, isSelected, onTap }: Props) {
     >
       {/* User info row */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-        <div
+        <Link
+          href={`/u/${journey.user_id}`}
+          onClick={(e) => e.stopPropagation()}
           className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shrink-0"
           style={{ background: journey.avatar_url ? "transparent" : color }}
         >
@@ -164,9 +167,11 @@ export default function JourneyCard({ journey, isSelected, onTap }: Props) {
           ) : (
             journey.username[0]?.toUpperCase()
           )}
-        </div>
+        </Link>
         <div className="min-w-0">
-          <p className="text-white text-sm font-semibold leading-tight">{journey.username}</p>
+          <Link href={`/u/${journey.user_id}`} onClick={(e) => e.stopPropagation()}>
+            <p className="text-white text-sm font-semibold leading-tight hover:underline">{journey.username}</p>
+          </Link>
           <p className="text-xs leading-tight truncate" style={{ color: "rgba(255,255,255,0.45)" }}>
             {dateDisplay}{firstLocation ? ` · ${firstLocation}` : ""}
           </p>

@@ -991,7 +991,8 @@ function CapturePageInner() {
   }
 
   async function createJourney() {
-    if (!userId || !username) { router.push("/auth"); return; }
+    if (!userId) { router.push("/auth"); return; }
+    if (!username) { router.push("/auth/onboard"); return; }
     setJourneyStep("processing");
     setJourneyProgress({ current: 0, total: journeyPhotos.length });
     setJourneySaveError("");

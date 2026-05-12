@@ -230,7 +230,9 @@ function JourneyCard({
       <div className="rounded-2xl overflow-hidden" style={{ background: "#1c1c1e" }}>
         {/* Header */}
         <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-          <div
+          <Link
+            href={`/u/${journey.user_id}`}
+            onClick={(e) => e.stopPropagation()}
             className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shrink-0"
             style={{ background: journey.avatar_url ? "transparent" : avatarColor(journey.username) }}
           >
@@ -240,10 +242,13 @@ function JourneyCard({
             ) : (
               journey.username[0]?.toUpperCase()
             )}
-          </div>
+          </Link>
           <div className="flex-1 min-w-0">
             <p className="text-white font-semibold text-sm leading-tight">
-              {journey.username} <span className="font-normal text-neutral-400">shared a story</span>
+              <Link href={`/u/${journey.user_id}`} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                {journey.username}
+              </Link>{" "}
+              <span className="font-normal text-neutral-400">shared a story</span>
             </p>
             <p className="text-xs text-neutral-500 truncate">
               {dateRange}{locationStr ? ` · ${locationStr}` : ""}

@@ -14,7 +14,11 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false })
       .limit(50);
 
-    if (userId) {
+    const profileUserId = searchParams.get("profile_user_id");
+    if (profileUserId) {
+      // Public profile view — only public journeys for this specific user
+      journeyQuery = journeyQuery.eq("user_id", profileUserId).eq("is_public", true);
+    } else if (userId) {
       // Return public journeys OR journeys owned by this user
       journeyQuery = journeyQuery.or(`is_public.eq.true,user_id.eq.${userId}`);
     } else {
