@@ -722,11 +722,12 @@ function CapturePageInner() {
     // Snapshot GPS before any async work
     const gpsNow = capturedGpsRef.current;
 
-    // Merge fallback GPS into each pending photo that lacks it
+    // Merge fallback GPS only for camera-captured photos (takenAt is set).
+    // Gallery photos leave lat/lng unset so EXIF extraction can fill them in.
     const photos = pendingPhotos.map((p) => ({
       ...p,
-      lat: p.lat ?? gpsNow?.lat,
-      lng: p.lng ?? gpsNow?.lng,
+      lat: p.takenAt != null ? (p.lat ?? gpsNow?.lat) : p.lat,
+      lng: p.takenAt != null ? (p.lng ?? gpsNow?.lng) : p.lng,
     }));
 
     // Build DataTransfer for the existing file-handling logic
@@ -734,26 +735,28 @@ function CapturePageInner() {
     photos.forEach((p) => dt.items.add(p.file));
     await onFilesSelected(dt.files);
 
-    // Inject captured GPS + timestamp since canvas photos have no EXIF
+    // Inject camera GPS + timestamp (canvas photos have no EXIF).
+    // For gallery photos meta.lat is undefined so EXIF values win via ??.
+    // Reverse-geocode using whichever GPS ends up being the final value.
     setJourneyPhotos((prev) => prev.map((item, i) => {
       const meta = photos[i];
       if (!meta) return item;
-      return {
-        ...item,
-        photoTakenAt: meta.takenAt ?? item.photoTakenAt,
-        lat: meta.lat ?? item.lat,
-        lng: meta.lng ?? item.lng,
-      };
-    }));
-    photos.forEach((meta, i) => {
-      if (meta.lat != null && meta.lng != null && mapboxToken) {
-        reverseGeocode(meta.lat, meta.lng, mapboxToken).then((name) => {
-          setJourneyPhotos((prev) => prev.map((item, idx) =>
-            idx === i ? { ...item, locationName: name } : item
+      const finalLat = meta.lat ?? item.lat;
+      const finalLng = meta.lng ?? item.lng;
+      if (finalLat != null && finalLng != null && mapboxToken) {
+        reverseGeocode(finalLat, finalLng, mapboxToken).then((name) => {
+          setJourneyPhotos((prev2) => prev2.map((p, idx) =>
+            idx === i ? { ...p, locationName: name } : p
           ));
         });
       }
-    });
+      return {
+        ...item,
+        photoTakenAt: meta.takenAt ?? item.photoTakenAt,
+        lat: finalLat ?? null,
+        lng: finalLng ?? null,
+      };
+    }));
 
     setCameraStep(null);
     // pendingPhotos intentionally kept so back-navigation from details restores the preview
