@@ -157,11 +157,10 @@ function OnboardingForm() {
   }
 
   function continueWithGoogle() {
-    const next = encodeURIComponent(`/auth/onboard?redirect=${encodeURIComponent(redirectTo)}`);
     getSupabaseBrowser().auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${next}`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
   }

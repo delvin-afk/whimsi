@@ -10,7 +10,6 @@ function CallbackHandler() {
 
   useEffect(() => {
     const code = searchParams.get("code");
-    const next = searchParams.get("next") ?? "/auth/onboard";
 
     if (!code) {
       router.replace("/auth");
@@ -20,7 +19,7 @@ function CallbackHandler() {
     getSupabaseBrowser()
       .auth.exchangeCodeForSession(code)
       .then(({ error }) => {
-        router.replace(error ? "/auth" : next);
+        router.replace(error ? "/auth" : "/auth/onboard");
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
