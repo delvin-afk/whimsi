@@ -109,6 +109,17 @@ function OnboardForm() {
       if (!name.trim()) { setError("Enter your name"); return; }
       setStep("birthday");
     } else if (step === "birthday") {
+      if (bdMm || bdDd || bdYyyy) {
+        const mm = parseInt(bdMm || "0");
+        const dd = parseInt(bdDd || "0");
+        const yyyy = parseInt(bdYyyy || "0");
+        const currentYear = new Date().getFullYear();
+        if (bdMm && (mm < 1 || mm > 12)) { setError("Month must be between 1 and 12"); return; }
+        if (bdDd && (dd < 1 || dd > 31)) { setError("Day must be between 1 and 31"); return; }
+        if (bdYyyy && bdYyyy.length === 4 && (yyyy < 1900 || yyyy > currentYear)) {
+          setError(`Year must be between 1900 and ${currentYear}`); return;
+        }
+      }
       setStep("interests");
     } else if (step === "interests") {
       await saveProfile();
@@ -126,12 +137,17 @@ function OnboardForm() {
           : null;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from("profiles").upsert({
+      const { error } = await (supabase as any).from("profiles").upsert({
         id: userId,
         username: name.trim(),
         birthday: birthdayStr,
         interests,
       });
+
+      if (error) {
+        setError(error.code === "23505" ? "That username is already taken." : (error.message ?? "Failed to save. Try again."));
+        return;
+      }
 
       setStep("camera");
     } catch {
