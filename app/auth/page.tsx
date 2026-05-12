@@ -157,12 +157,7 @@ function OnboardingForm() {
   }
 
   function continueWithGoogle() {
-    getSupabaseBrowser().auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+    getSupabaseBrowser().auth.signInWithOAuth({ provider: "google" });
   }
 
   function toggleInterest(label: string) {

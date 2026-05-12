@@ -40,13 +40,7 @@ function LoginForm() {
   }
 
   async function continueWithGoogle() {
-    const supabase = getSupabaseBrowser();
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+    await getSupabaseBrowser().auth.signInWithOAuth({ provider: "google" });
   }
 
   return (

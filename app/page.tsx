@@ -22,23 +22,31 @@ export default function Home() {
 
       const uid = data.user.id;
 
-      // Prefetch feed data while splash is visible
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const profileFetch = (supabase as any)
+        .from("profiles").select("username, avatar_url").eq("id", uid).single()
+        .then((res: { data: { username?: string; avatar_url?: string } | null }) => res.data)
+        .catch(() => null);
+
+      const [, profile] = await Promise.all([minDelay, profileFetch]);
+
+      // New user (Google sign-up with no profile yet) — send to onboarding
+      if (!profile?.username) {
+        router.replace("/auth/onboard");
+        return;
+      }
+
+      // Existing user — prefetch feed data and go straight in
       const journeysFetch = fetch(`/api/journeys?user_id=${uid}`)
         .then((r) => r.json())
         .catch(() => null);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const avatarFetch = (supabase as any)
-        .from("profiles").select("avatar_url").eq("id", uid).single()
-        .then((res: { data: { avatar_url: string } | null }) => res.data?.avatar_url ?? null)
-        .catch(() => null);
-
-      const [, journeysData, avatarUrl] = await Promise.all([minDelay, journeysFetch, avatarFetch]);
+      const [journeysData] = await Promise.all([journeysFetch]);
 
       try {
         sessionStorage.setItem("whimsi_feed_preload", JSON.stringify({
           journeys: journeysData?.journeys ?? [],
-          avatarUrl,
+          avatarUrl: profile.avatar_url ?? null,
           ts: Date.now(),
         }));
       } catch {}
