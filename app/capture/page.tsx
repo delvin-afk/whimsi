@@ -38,17 +38,27 @@ declare global {
 }
 
 // ── Cut-out shapes ────────────────────────────────────────────────────────────
-type CutoutShape = "circle" | "star" | "square" | "diamond";
+type CutoutShape = "circle" | "star" | "square" | "diamond" | "heart" | "hexagon" | "triangle" | "pentagon" | "octagon" | "cross" | "arrow" | "shield" | "star5" | "flower";
 
 type CombinedResult =
   | { type: "back" }
   | { type: "confirm"; stickerDataUrl: string | null; caption: string; voiceBlob: Blob | null; voiceMimeType: string | null };
 
 const CUTOUT_SHAPES: { id: CutoutShape; label: string }[] = [
-  { id: "circle",  label: "Circle"  },
-  { id: "star",    label: "Star"    },
-  { id: "square",  label: "Square"  },
-  { id: "diamond", label: "Diamond" },
+  { id: "circle",   label: "Circle"   },
+  { id: "star",     label: "Burst"    },
+  { id: "star5",    label: "Star"     },
+  { id: "heart",    label: "Heart"    },
+  { id: "square",   label: "Square"   },
+  { id: "diamond",  label: "Diamond"  },
+  { id: "hexagon",  label: "Hex"      },
+  { id: "triangle", label: "Triangle" },
+  { id: "pentagon", label: "Pentagon" },
+  { id: "octagon",  label: "Octagon"  },
+  { id: "shield",   label: "Shield"   },
+  { id: "cross",    label: "Cross"    },
+  { id: "arrow",    label: "Arrow"    },
+  { id: "flower",   label: "Flower"   },
 ];
 
 function buildShapePath(
@@ -58,6 +68,19 @@ function buildShapePath(
   rough: boolean,
 ) {
   const n = (scale: number) => rough ? (Math.random() - 0.5) * scale : 0;
+  // Helper: draw a polygon/polyline with optional noise per segment
+  function polyPath(pts: [number, number][], stepsPerSide = 12) {
+    for (let i = 0; i < pts.length; i++) {
+      const [x1, y1] = pts[i];
+      const [x2, y2] = pts[(i + 1) % pts.length];
+      for (let j = 0; j <= stepsPerSide; j++) {
+        const t = j / stepsPerSide;
+        const x = cx + x1 + (x2 - x1) * t + n(r * 0.045);
+        const y = cy + y1 + (y2 - y1) * t + n(r * 0.045);
+        i === 0 && j === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+    }
+  }
   ctx.beginPath();
   switch (shape) {
     case "circle": {
@@ -72,8 +95,7 @@ function buildShapePath(
       break;
     }
     case "star": {
-      const pts = 12;
-      const inner = r * 0.42;
+      const pts = 12; const inner = r * 0.42;
       for (let i = 0; i < pts * 2; i++) {
         const a = (i / (pts * 2)) * Math.PI * 2 - Math.PI / 2;
         const rr = (i % 2 === 0 ? r : inner) + n(r * 0.06);
@@ -83,43 +105,93 @@ function buildShapePath(
       }
       break;
     }
-    case "square": {
-      if (rough) {
-        const sides = 4;
-        const corners: [number, number][] = [[-r,-r],[r,-r],[r,r],[-r,r]];
-        const steps = 20;
-        for (let s = 0; s < sides; s++) {
-          const [x1,y1] = corners[s];
-          const [x2,y2] = corners[(s+1)%sides];
-          for (let j = 0; j <= steps; j++) {
-            const t = j / steps;
-            const x = cx + x1 + (x2-x1)*t + n(r * 0.05);
-            const y = cy + y1 + (y2-y1)*t + n(r * 0.05);
-            s===0 && j===0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-          }
-        }
-      } else {
-        ctx.rect(cx-r, cy-r, r*2, r*2);
+    case "star5": {
+      const pts = 5; const inner = r * 0.42;
+      for (let i = 0; i < pts * 2; i++) {
+        const a = (i / (pts * 2)) * Math.PI * 2 - Math.PI / 2;
+        const rr = (i % 2 === 0 ? r : inner) + n(r * 0.06);
+        const x = cx + rr * Math.cos(a);
+        const y = cy + rr * Math.sin(a);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
       break;
     }
+    case "heart": {
+      const steps = 120;
+      for (let i = 0; i <= steps; i++) {
+        const t = (i / steps) * Math.PI * 2;
+        const hx = 16 * Math.pow(Math.sin(t), 3);
+        const hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+        const scale = r / 13;
+        const x = cx + hx * scale + n(r * 0.04);
+        const y = cy + hy * scale + n(r * 0.04);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      break;
+    }
+    case "square": {
+      const corners: [number, number][] = [[-r, -r], [r, -r], [r, r], [-r, r]];
+      polyPath(corners, 20);
+      break;
+    }
     case "diamond": {
-      const tips: [number,number][] = [
-        [cx,       cy-r+n(r*.05)],
-        [cx+r+n(r*.05), cy      ],
-        [cx,       cy+r+n(r*.05)],
-        [cx-r+n(r*.05), cy      ],
-      ];
-      const steps = 15;
-      for (let i = 0; i < 4; i++) {
-        const [x1,y1] = tips[i];
-        const [x2,y2] = tips[(i+1)%4];
-        for (let j = 0; j <= steps; j++) {
-          const t = j / steps;
-          const x = x1 + (x2-x1)*t + n(r*.05);
-          const y = y1 + (y2-y1)*t + n(r*.05);
-          i===0 && j===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-        }
+      polyPath([[0, -r], [r, 0], [0, r], [-r, 0]], 15);
+      break;
+    }
+    case "hexagon": {
+      const pts = Array.from({ length: 6 }, (_, i): [number, number] => {
+        const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+        return [r * Math.cos(a), r * Math.sin(a)];
+      });
+      polyPath(pts, 10);
+      break;
+    }
+    case "triangle": {
+      const pts = Array.from({ length: 3 }, (_, i): [number, number] => {
+        const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
+        return [r * Math.cos(a), r * Math.sin(a)];
+      });
+      polyPath(pts, 15);
+      break;
+    }
+    case "pentagon": {
+      const pts = Array.from({ length: 5 }, (_, i): [number, number] => {
+        const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+        return [r * Math.cos(a), r * Math.sin(a)];
+      });
+      polyPath(pts, 12);
+      break;
+    }
+    case "octagon": {
+      const pts = Array.from({ length: 8 }, (_, i): [number, number] => {
+        const a = (i / 8) * Math.PI * 2 - Math.PI / 8;
+        return [r * Math.cos(a), r * Math.sin(a)];
+      });
+      polyPath(pts, 8);
+      break;
+    }
+    case "cross": {
+      const a = r * 0.36;
+      polyPath([[-a,-r],[a,-r],[a,-a],[r,-a],[r,a],[a,a],[a,r],[-a,r],[-a,a],[-r,a],[-r,-a],[-a,-a]], 6);
+      break;
+    }
+    case "arrow": {
+      polyPath([[-r,-r*0.32],[r*0.08,-r*0.32],[r*0.08,-r*0.72],[r,0],[r*0.08,r*0.72],[r*0.08,r*0.32],[-r,r*0.32]], 8);
+      break;
+    }
+    case "shield": {
+      polyPath([[-r*0.75,-r],[r*0.75,-r],[r,-r*0.2],[r,r*0.35],[0,r],[-r,r*0.35],[-r,-r*0.2]], 12);
+      break;
+    }
+    case "flower": {
+      const petals = 6; const steps = 120;
+      for (let i = 0; i <= steps; i++) {
+        const t = (i / steps) * Math.PI * 2;
+        const bloom = 0.5 + 0.5 * Math.cos(petals * t);
+        const rr = r * (0.45 + 0.55 * bloom) + n(r * 0.04);
+        const x = cx + rr * Math.cos(t);
+        const y = cy + rr * Math.sin(t);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
       break;
     }
@@ -163,23 +235,70 @@ function generateCutout(localUrl: string, shape: CutoutShape): Promise<string> {
 
 function CutoutShapeIcon({ shape }: { shape: CutoutShape }) {
   const s = 48;
-  const cx = s/2, cy = s/2, r = s/2 - 4;
+  const cx = s / 2, cy = s / 2, r = s / 2 - 4;
+  function poly(n: number, offsetAngle = -Math.PI / 2): string {
+    return Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * Math.PI * 2 + offsetAngle;
+      return `${i === 0 ? "M" : "L"}${cx + r * Math.cos(a)} ${cy + r * Math.sin(a)}`;
+    }).join(" ") + "Z";
+  }
+  function starPath(pts: number, innerRatio: number): string {
+    return Array.from({ length: pts * 2 }, (_, i) => {
+      const a = (i / (pts * 2)) * Math.PI * 2 - Math.PI / 2;
+      const rr = i % 2 === 0 ? r : r * innerRatio;
+      return `${i === 0 ? "M" : "L"}${cx + rr * Math.cos(a)} ${cy + rr * Math.sin(a)}`;
+    }).join(" ") + "Z";
+  }
   switch (shape) {
     case "circle":
       return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><circle cx={cx} cy={cy} r={r} fill="white"/></svg>;
-    case "star": {
-      const pts = 12, inner = r*.42;
-      const d = Array.from({length: pts*2}, (_,i) => {
-        const a = (i/(pts*2))*Math.PI*2 - Math.PI/2;
-        const rr = i%2===0 ? r : inner;
-        return `${i===0?"M":"L"}${cx+rr*Math.cos(a)} ${cy+rr*Math.sin(a)}`;
-      }).join(" ")+"Z";
+    case "star":
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={starPath(12, 0.42)} fill="white"/></svg>;
+    case "star5":
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={starPath(5, 0.42)} fill="white"/></svg>;
+    case "heart": {
+      const d = Array.from({ length: 121 }, (_, i) => {
+        const t = (i / 120) * Math.PI * 2;
+        const hx = 16 * Math.pow(Math.sin(t), 3);
+        const hy = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+        const sc = r / 13;
+        return `${i === 0 ? "M" : "L"}${cx + hx * sc} ${cy + hy * sc}`;
+      }).join(" ") + "Z";
       return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={d} fill="white"/></svg>;
     }
     case "square":
-      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><rect x={4} y={4} width={s-8} height={s-8} fill="white"/></svg>;
-    case "diamond": {
-      const d = `M${cx} ${4} L${s-4} ${cy} L${cx} ${s-4} L${4} ${cy}Z`;
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><rect x={cx - r} y={cy - r} width={r * 2} height={r * 2} fill="white"/></svg>;
+    case "diamond":
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={`M${cx} ${cy-r} L${cx+r} ${cy} L${cx} ${cy+r} L${cx-r} ${cy}Z`} fill="white"/></svg>;
+    case "hexagon":
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={poly(6)} fill="white"/></svg>;
+    case "triangle":
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={poly(3)} fill="white"/></svg>;
+    case "pentagon":
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={poly(5)} fill="white"/></svg>;
+    case "octagon":
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={poly(8, -Math.PI / 8)} fill="white"/></svg>;
+    case "shield": {
+      const d = `M${cx-r*.75} ${cy-r} L${cx+r*.75} ${cy-r} L${cx+r} ${cy-r*.2} L${cx+r} ${cy+r*.35} L${cx} ${cy+r} L${cx-r} ${cy+r*.35} L${cx-r} ${cy-r*.2}Z`;
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={d} fill="white"/></svg>;
+    }
+    case "cross": {
+      const a = r * 0.36;
+      const d = `M${cx-a} ${cy-r} L${cx+a} ${cy-r} L${cx+a} ${cy-a} L${cx+r} ${cy-a} L${cx+r} ${cy+a} L${cx+a} ${cy+a} L${cx+a} ${cy+r} L${cx-a} ${cy+r} L${cx-a} ${cy+a} L${cx-r} ${cy+a} L${cx-r} ${cy-a} L${cx-a} ${cy-a}Z`;
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={d} fill="white"/></svg>;
+    }
+    case "arrow": {
+      const d = `M${cx-r} ${cy-r*.32} L${cx+r*.08} ${cy-r*.32} L${cx+r*.08} ${cy-r*.72} L${cx+r} ${cy} L${cx+r*.08} ${cy+r*.72} L${cx+r*.08} ${cy+r*.32} L${cx-r} ${cy+r*.32}Z`;
+      return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={d} fill="white"/></svg>;
+    }
+    case "flower": {
+      const petals = 6; const steps = 120;
+      const d = Array.from({ length: steps + 1 }, (_, i) => {
+        const t = (i / steps) * Math.PI * 2;
+        const bloom = 0.5 + 0.5 * Math.cos(petals * t);
+        const rr = r * (0.45 + 0.55 * bloom);
+        return `${i === 0 ? "M" : "L"}${cx + rr * Math.cos(t)} ${cy + rr * Math.sin(t)}`;
+      }).join(" ") + "Z";
       return <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}><path d={d} fill="white"/></svg>;
     }
   }
