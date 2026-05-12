@@ -717,6 +717,7 @@ function CapturePageInner() {
   const streamRef = useRef<MediaStream | null>(null);
   const capturedGpsRef = useRef<{ lat: number; lng: number } | null>(null);
   const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
+  const [selectedPreviewIndex, setSelectedPreviewIndex] = useState(0);
 
   // Detect mobile and launch camera
   useEffect(() => {
@@ -812,12 +813,10 @@ function CapturePageInner() {
     canvas.toBlob((blob) => {
       if (!blob) return;
       const file = new File([blob], `capture-${Date.now()}.jpg`, { type: "image/jpeg" });
-      setPendingPhotos((prev) => [...prev, {
-        file,
-        takenAt: new Date().toISOString(),
-        lat: gps?.lat,
-        lng: gps?.lng,
-      }]);
+      setPendingPhotos((prev) => {
+        setSelectedPreviewIndex(prev.length); // select the newly added photo
+        return [...prev, { file, takenAt: new Date().toISOString(), lat: gps?.lat, lng: gps?.lng }];
+      });
       setCameraStep("preview");
     }, "image/jpeg", 0.92);
   }
@@ -884,7 +883,8 @@ function CapturePageInner() {
   function removePendingPhoto(index: number) {
     setPendingPhotos((prev) => {
       const next = prev.filter((_, i) => i !== index);
-      if (next.length === 0) setCameraStep("camera");
+      if (next.length === 0) { setCameraStep("camera"); return next; }
+      setSelectedPreviewIndex((sel) => Math.min(sel, next.length - 1));
       return next;
     });
   }
@@ -1634,7 +1634,8 @@ function CapturePageInner() {
 
   // ── Preview screen ─────────────────────────────────────────────────────────
   if (cameraStep === "preview" && pendingPhotos.length > 0) {
-    const mainPhoto = pendingPhotos[pendingPhotos.length - 1];
+    const safeIndex = Math.min(selectedPreviewIndex, pendingPhotos.length - 1);
+    const mainPhoto = pendingPhotos[safeIndex];
     const mainUrl = URL.createObjectURL(mainPhoto.file);
 
     return (
@@ -1659,14 +1660,22 @@ function CapturePageInner() {
             alt="Preview"
             className="w-full h-full object-cover rounded-lg"
           />
-          {/* Thumbnail strip if multiple */}
+          {/* Thumbnail strip — tap to preview, X to remove */}
           {pendingPhotos.length > 0 && (
             <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 px-4">
               {pendingPhotos.map((f, i) => {
                 const url = URL.createObjectURL(f.file);
+                const isSelected = i === safeIndex;
                 return (
                   <div key={i} className="relative">
-                    <img src={url} alt="" className="w-14 h-14 object-cover rounded-xl border-2 border-white/30" />
+                    <button onClick={() => setSelectedPreviewIndex(i)}>
+                      <img
+                        src={url}
+                        alt=""
+                        className="w-14 h-14 object-cover rounded-xl border-2 transition-all"
+                        style={{ borderColor: isSelected ? "white" : "rgba(255,255,255,0.3)", opacity: isSelected ? 1 : 0.65 }}
+                      />
+                    </button>
                     <button
                       onClick={() => removePendingPhoto(i)}
                       className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center font-bold"
