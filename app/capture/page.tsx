@@ -590,7 +590,7 @@ function CapturePageInner() {
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
   // ── Camera-first state (mobile) ───────────────────────────────────────────
-  type PendingPhoto = { file: File; takenAt: string; lat?: number; lng?: number };
+  type PendingPhoto = { file: File; takenAt?: string; lat?: number; lng?: number };
   const [cameraStep, setCameraStep] = useState<"camera" | "preview" | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [cameraError, setCameraError] = useState(false);
@@ -1494,9 +1494,6 @@ function CapturePageInner() {
                 const gps = capturedGpsRef.current;
                 const files: PendingPhoto[] = Array.from(e.target.files).map((f) => ({
                   file: f,
-                  takenAt: new Date().toISOString(),
-                  lat: gps?.lat,
-                  lng: gps?.lng,
                 }));
                 setPendingPhotos((prev) => [...prev, ...files]);
                 setCameraStep("preview");
