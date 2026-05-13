@@ -31,20 +31,9 @@ export async function POST(req: Request) {
     // 1) Upsert profile
     await supabaseAdmin.from("profiles").upsert({ id: userId, username }, { onConflict: "id" });
 
-    // 2) Create journey row (private by default)
-    const { data: journey, error: journeyError } = await supabaseAdmin
-      .from("journeys")
-      .insert({ user_id: userId, username, caption: caption ?? null, is_public: false })
-      .select()
-      .single();
-
-    if (journeyError || !journey) {
-      throw new Error(`Journey insert failed: ${journeyError?.message}`);
-    }
-
-    // 3) Upload each sticker image and insert sticker rows
-    const insertedStickers = [];
-    for (const s of stickers) {
+    // 2) Upload ALL images and voice files to storage in parallel — before touching the DB.
+    //    If any upload fails the journey row is never created, so no orphaned journeys.
+    const uploaded = await Promise.all(stickers.map(async (s) => {
       const mimeMatch = s.stickerBase64.match(/^data:([^;]+);base64,/);
       const mimeType = mimeMatch?.[1] ?? "image/png";
       const ext = mimeType === "image/jpeg" ? "jpg" : mimeType.split("/")[1] ?? "png";
@@ -58,37 +47,49 @@ export async function POST(req: Request) {
 
       if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`);
 
-      const { data: { publicUrl } } = supabaseAdmin.storage
-        .from("Stickers")
-        .getPublicUrl(filename);
+      const { data: { publicUrl } } = supabaseAdmin.storage.from("Stickers").getPublicUrl(filename);
 
       let voiceUrl: string | null = null;
       if (s.voiceBase64) {
-        const mimeType = s.voiceMimeType || "audio/webm";
-        const voiceBuffer = Buffer.from(s.voiceBase64, "base64");
-        const ext = mimeType.includes("mp4") ? "m4a" : mimeType.includes("ogg") ? "ogg" : "webm";
-        const voiceFilename = `audio/${userId}/${Date.now()}-${s.orderIndex}.${ext}`;
+        const vMime = s.voiceMimeType || "audio/webm";
+        const vBuffer = Buffer.from(s.voiceBase64, "base64");
+        const vExt = vMime.includes("mp4") ? "m4a" : vMime.includes("ogg") ? "ogg" : "webm";
+        const vFilename = `audio/${userId}/${Date.now()}-${s.orderIndex}.${vExt}`;
         const { error: voiceUploadError } = await supabaseAdmin.storage
           .from("Stickers")
-          .upload(voiceFilename, voiceBuffer, { contentType: mimeType, upsert: false });
-        if (voiceUploadError) {
-          console.error(`Voice upload failed for sticker ${s.orderIndex}:`, voiceUploadError.message);
+          .upload(vFilename, vBuffer, { contentType: vMime, upsert: false });
+        if (!voiceUploadError) {
+          const { data: { publicUrl: vUrl } } = supabaseAdmin.storage.from("Stickers").getPublicUrl(vFilename);
+          voiceUrl = vUrl;
         } else {
-          const { data: { publicUrl: voicePublicUrl } } = supabaseAdmin.storage
-            .from("Stickers")
-            .getPublicUrl(voiceFilename);
-          voiceUrl = voicePublicUrl;
+          console.error(`Voice upload failed for sticker ${s.orderIndex}:`, voiceUploadError.message);
         }
       }
 
+      return { ...s, publicUrl, voiceUrl };
+    }));
+
+    // 3) All uploads succeeded — now create the journey row
+    const { data: journey, error: journeyError } = await supabaseAdmin
+      .from("journeys")
+      .insert({ user_id: userId, username, caption: caption ?? null, is_public: false })
+      .select()
+      .single();
+
+    if (journeyError || !journey) {
+      throw new Error(`Journey insert failed: ${journeyError?.message}`);
+    }
+
+    // 4) Insert all sticker rows in parallel
+    const insertedStickers = await Promise.all(uploaded.map(async (s) => {
       const { data: sticker, error: insertError } = await supabaseAdmin
         .from("stickers")
         .insert({
           user_id: userId,
           username,
-          image_url: publicUrl,
+          image_url: s.publicUrl,
           caption: s.caption ?? null,
-          voice_url: voiceUrl,
+          voice_url: s.voiceUrl,
           location_name: s.locationName ?? null,
           lat: s.lat ?? null,
           lng: s.lng ?? null,
@@ -101,8 +102,8 @@ export async function POST(req: Request) {
         .single();
 
       if (insertError) throw new Error(`Sticker insert failed: ${insertError.message}`);
-      insertedStickers.push(sticker);
-    }
+      return sticker;
+    }));
 
     return NextResponse.json({ journey: { ...journey, stickers: insertedStickers } });
   } catch (e: unknown) {
