@@ -45,13 +45,15 @@ export async function POST(req: Request) {
 
     const cutout = Buffer.from(await removeBgRes.arrayBuffer());
 
-    // 2) Build white outline stroke around the silhouette
+    // 2) Build thick rough-edged white border matching the cutout shape aesthetic (~5% of image size)
     const cutoutMeta = await sharp(cutout).metadata();
     const tw = cutoutMeta.width ?? 0;
     const th = cutoutMeta.height ?? 0;
     if (!tw || !th) throw new Error("remove.bg returned empty image");
 
-    const borderSize = 16;
+    // Scale border to ~5% of the larger dimension — same proportion as the canvas cutout shapes
+    const borderSize = Math.round(Math.max(tw, th) * 0.05);
+    const pad = Math.round(borderSize * 0.7);
 
     const alphaChannelPng = await sharp(cutout)
       .ensureAlpha()
@@ -67,8 +69,9 @@ export async function POST(req: Request) {
         right: borderSize,
         background: { r: 0, g: 0, b: 0 },
       })
-      .blur(borderSize * 0.55)
-      .threshold(20)
+      // Larger blur spread + high threshold = hard chunky edge that reads as rough
+      .blur(borderSize * 0.7)
+      .threshold(110)
       .png()
       .toBuffer();
 
@@ -95,16 +98,16 @@ export async function POST(req: Request) {
       .png()
       .toBuffer();
 
-    // 3) Composite: white outline behind cutout, add transparent padding
+    // 3) Composite: white border behind cutout, add transparent breathing room
     const sticker = await sharp(outlinePng)
       .composite([
         { input: cutout, top: borderSize, left: borderSize, blend: "over" },
       ])
       .extend({
-        top: 18,
-        bottom: 18,
-        left: 18,
-        right: 18,
+        top: pad,
+        bottom: pad,
+        left: pad,
+        right: pad,
         background: { r: 0, g: 0, b: 0, alpha: 0 },
       })
       .png()
