@@ -90,8 +90,11 @@ export default function MemoryPeek({
       {/* Suspended floating tile — clears the nav bar, fully rounded */}
       <div
         className="absolute rounded-2xl shadow-2xl pointer-events-auto flex flex-col"
-        style={{ left: "50%", transform: "translateX(-50%)", width: "calc(100% - 24px)", maxWidth: 480 }}
         style={{
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "calc(100% - 24px)",
+          maxWidth: 480,
           bottom: "calc(env(safe-area-inset-bottom) + 72px)",
           background: "#111113",
           border: "1px solid rgba(255,255,255,0.1)",
