@@ -6,7 +6,7 @@ Turn your photos into stickers, build journey stories, and pin them on a shared 
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 16 (App Router, Turbopack) |
+| Framework | Next.js 15 (App Router, Turbopack) |
 | Language | TypeScript |
 | Styling | Tailwind CSS v4 |
 | Auth | Supabase Auth (email/password + Google OAuth) |
@@ -75,6 +75,8 @@ Turn your photos into stickers, build journey stories, and pin them on a shared 
 | `/journey/[id]` | Single journey view with swipe navigation |
 | `/s/[id]` | Public sticker share page |
 | `/scrapbook` | Personal sticker collage |
+| `/u/[userId]` | Public profile page (avatar, username, public journeys) |
+| `/profile` | Your own profile and settings |
 
 ## API Routes
 
@@ -89,6 +91,7 @@ Turn your photos into stickers, build journey stories, and pin them on a shared 
 | `/api/journeys` | GET | Fetch journeys for a user (public + private) |
 | `/api/journeys/[id]` | PATCH / DELETE | Update visibility or delete a journey |
 | `/api/lesson` | POST | Generate a Gemini micro-lesson for a detected object |
+| `/api/journey/edit` | PATCH | Update journey title, caption, or visibility |
 | `/api/share/journey/[id]` | GET | Generate the 1080×1080 share card image (Edge) |
 
 ## Getting Started (Local Setup)
@@ -142,7 +145,7 @@ Add your local and production URLs to Authentication → URL Configuration
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open [https://whimsi.me](https://whimsi.me) or `http://localhost:3000` for local development
 
 ## Deployment
 
