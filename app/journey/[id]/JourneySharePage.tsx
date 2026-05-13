@@ -26,6 +26,7 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
   const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [navigating, setNavigating] = useState(true);
+  const [mapZoom, setMapZoom] = useState(16);
   const markerElsRef = useRef<HTMLDivElement[]>([]);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -95,6 +96,20 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
 
       map.on("load", async () => {
         setMapReady(true);
+
+        // Register listeners BEFORE the first flyTo so the initial moveend is never missed
+        map.on("moveend", () => setNavigating(false));
+
+        const scaleMarkers = () => {
+          const zoom = map.getZoom();
+          setMapZoom(zoom);
+          const scale = Math.max(0.2, Math.min(1, 1 - (16 - zoom) * 0.15));
+          markerElsRef.current.forEach((el) => {
+            el.style.transform = `scale(${scale})`;
+          });
+        };
+        map.on("zoom", scaleMarkers);
+
         flyToStop(0, true);
 
         if (validStops.length >= 2) {
@@ -160,18 +175,6 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
             .addTo(map);
         });
 
-        // Scale markers as the user zooms so they don't crowd the view
-        const scaleMarkers = () => {
-          const zoom = map.getZoom();
-          const scale = Math.max(0.2, Math.min(1, 1 - (16 - zoom) * 0.15));
-          markerElsRef.current.forEach((el) => {
-            el.style.transform = `scale(${scale})`;
-          });
-        };
-        map.on("zoom", scaleMarkers);
-
-        // Pop the floating sticker in once the fly animation lands
-        map.on("moveend", () => setNavigating(false));
       });
     });
 
@@ -261,6 +264,7 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
           journeyStops={validStops}
           color={COLOR}
           navigating={navigating}
+          mapZoom={mapZoom}
           onClose={() => setMemory(null)}
           onExpand={() => setMemory((prev) => prev ? { ...prev, mode: "full" } : prev)}
           onNavigate={handleNavigate}

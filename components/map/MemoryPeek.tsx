@@ -10,6 +10,7 @@ interface Props {
   journeyStops: StickerPost[] | null;
   color: string;
   navigating?: boolean;
+  mapZoom?: number;
   onClose: () => void;
   onExpand: () => void;
   onNavigate: (stop: StickerPost, index: number) => void;
@@ -21,6 +22,7 @@ export default function MemoryPeek({
   journeyStops,
   color,
   navigating = false,
+  mapZoom = 16,
   onClose,
   onExpand,
   onNavigate,
@@ -48,34 +50,40 @@ export default function MemoryPeek({
 
   return (
     <div className="fixed inset-0 z-[55] pointer-events-none">
-      {/* Sticker image — floats above the tile, fades out during fly and springs in on landing */}
+      {/* Sticker image — outer wrapper follows map zoom, inner wrapper handles navigation fade+pop */}
       {stop.image_url && (
         <div
-          className="absolute flex items-center justify-center"
+          className="absolute"
           style={{
             left: "50%",
             top: "16%",
-            opacity: navigating ? 0 : 1,
-            transform: navigating
-              ? "translateX(-50%) scale(0.7)"
-              : "translateX(-50%) scale(1)",
-            transition: navigating
-              ? "opacity 0.15s ease, transform 0.15s ease"
-              : "opacity 0.45s ease-out 0.05s, transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s",
+            // Shrinks proportionally as the user zooms out on the map
+            transform: `translateX(-50%) scale(${Math.max(0.2, Math.min(1, 1 - (16 - mapZoom) * 0.15))})`,
+            transformOrigin: "top center",
+            transition: "transform 0.15s ease",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            key={stop.id}
-            src={stop.image_url}
-            alt={stop.caption ?? "memory"}
+          <div
             style={{
-              width: "min(65vw, 260px)",
-              height: "min(65vw, 260px)",
-              objectFit: "contain",
-              filter: `drop-shadow(0 6px 16px rgba(0,0,0,0.7))`,
+              // Single constant transition — no toggling the transition property
+              opacity: navigating ? 0 : 1,
+              transform: navigating ? "scale(0.75)" : "scale(1)",
+              transition: "opacity 0.35s ease, transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)",
             }}
-          />
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={stop.id}
+              src={stop.image_url}
+              alt={stop.caption ?? "memory"}
+              style={{
+                width: "min(65vw, 260px)",
+                height: "min(65vw, 260px)",
+                objectFit: "contain",
+                filter: `drop-shadow(0 6px 16px rgba(0,0,0,0.7))`,
+              }}
+            />
+          </div>
         </div>
       )}
 
