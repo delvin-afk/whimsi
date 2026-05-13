@@ -28,7 +28,18 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
   const [navigating, setNavigating] = useState(true);
   const [mapZoom, setMapZoom] = useState(16);
   const markerElsRef = useRef<HTMLDivElement[]>([]);
+  const navIdRef = useRef(0);
+  const activeStopIdxRef = useRef(0);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+  function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
 
   useEffect(() => {
     getSupabaseBrowser().auth.getSession().then(({ data }) => setIsAuthed(!!data.session));
@@ -53,16 +64,49 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
   function flyToStop(index: number, sheetOpen = false) {
     const stop = validStops[index];
     if (!stop || !mapRef.current) return;
+    const prevIndex = activeStopIdxRef.current;
     setActiveStop(index);
+    activeStopIdxRef.current = index;
     setNavigating(true);
-    // 280px accounts for suspended tile height + nav bar + margins
+
+    const navId = ++navIdRef.current;
+    const map = mapRef.current;
     const bottomPad = sheetOpen ? 280 : 80;
-    mapRef.current.flyTo({
-      center: [stop.lng!, stop.lat!],
-      zoom: 16,
-      duration: 1100,
-      padding: { top: 60, bottom: bottomPad, left: 60, right: 60 },
-    });
+    const pad = { top: 60, bottom: bottomPad, left: 60, right: 60 };
+
+    const prev = validStops[prevIndex] ?? null;
+    const distKm = prev && prevIndex !== index
+      ? haversineKm(prev.lat!, prev.lng!, stop.lat!, stop.lng!)
+      : 0;
+
+    if (distKm > 80) {
+      // Two-phase: fitBounds overview → fly into destination
+      const maxZoom = distKm > 1500 ? 2 : distKm > 500 ? 4 : distKm > 150 ? 6 : 8;
+      map.fitBounds(
+        [[Math.min(prev!.lng!, stop.lng!), Math.min(prev!.lat!, stop.lat!)],
+         [Math.max(prev!.lng!, stop.lng!), Math.max(prev!.lat!, stop.lat!)]],
+        { padding: pad, maxZoom, duration: 1400 }
+      );
+      map.once("moveend", () => {
+        if (navIdRef.current !== navId) return;
+        setTimeout(() => {
+          if (navIdRef.current !== navId) return;
+          map.flyTo({ center: [stop.lng!, stop.lat!], zoom: 16, duration: 1400, padding: pad });
+          map.once("moveend", () => {
+            if (navIdRef.current !== navId) return;
+            setNavigating(false);
+          });
+        }, 600);
+      });
+    } else {
+      const curve = distKm < 2 ? 1.0 : distKm < 15 ? 1.6 : 2.5;
+      const duration = distKm < 2 ? 900 : distKm < 15 ? 1400 : 2000;
+      map.flyTo({ center: [stop.lng!, stop.lat!], zoom: 16, curve, duration, padding: pad });
+      map.once("moveend", () => {
+        if (navIdRef.current !== navId) return;
+        setNavigating(false);
+      });
+    }
   }
 
   function handleNavigate(stop: StickerPost, index: number) {
@@ -96,9 +140,6 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
 
       map.on("load", async () => {
         setMapReady(true);
-
-        // Register listeners BEFORE the first flyTo so the initial moveend is never missed
-        map.on("moveend", () => setNavigating(false));
 
         const scaleMarkers = () => {
           const zoom = map.getZoom();
