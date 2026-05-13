@@ -63,7 +63,7 @@ function LandingPage({ showButtons }: { showButtons: boolean }) {
     <div className="fixed inset-0 bg-[#0b0b0b] flex flex-col select-none">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/landing-page.jpeg"
+        src="/landing-page.png"
         alt=""
         className="absolute inset-0 w-full h-full"
         style={{ objectFit: "cover", objectPosition: "center" }}
