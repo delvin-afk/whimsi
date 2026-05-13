@@ -25,6 +25,8 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
   const [memory, setMemory] = useState<MemoryState | null>(null);
   const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [navigating, setNavigating] = useState(true);
+  const markerElsRef = useRef<HTMLDivElement[]>([]);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   useEffect(() => {
@@ -51,12 +53,13 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
     const stop = validStops[index];
     if (!stop || !mapRef.current) return;
     setActiveStop(index);
+    setNavigating(true);
     // 280px accounts for suspended tile height + nav bar + margins
     const bottomPad = sheetOpen ? 280 : 80;
     mapRef.current.flyTo({
       center: [stop.lng!, stop.lat!],
       zoom: 16,
-      duration: 900,
+      duration: 1100,
       padding: { top: 60, bottom: bottomPad, left: 60, right: 60 },
     });
   }
@@ -129,7 +132,7 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
 
         validStops.forEach((stop, i) => {
           const wrapper = document.createElement("div");
-          wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer;";
+          wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:pointer;transform-origin:bottom center;transition:transform 0.15s ease;";
           const stickerWrap = document.createElement("div");
           stickerWrap.style.cssText = "position:relative;width:44px;height:44px;";
           const img = document.createElement("img");
@@ -150,16 +153,32 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
             setMemory({ stop, stopIndex: i + 1, mode: "peek" });
           });
 
+          markerElsRef.current.push(wrapper);
+
           new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
             .setLngLat([stop.lng!, stop.lat!])
             .addTo(map);
         });
+
+        // Scale markers as the user zooms so they don't crowd the view
+        const scaleMarkers = () => {
+          const zoom = map.getZoom();
+          const scale = Math.max(0.2, Math.min(1, 1 - (16 - zoom) * 0.15));
+          markerElsRef.current.forEach((el) => {
+            el.style.transform = `scale(${scale})`;
+          });
+        };
+        map.on("zoom", scaleMarkers);
+
+        // Pop the floating sticker in once the fly animation lands
+        map.on("moveend", () => setNavigating(false));
       });
     });
 
     return () => {
       mapRef.current?.remove();
       mapRef.current = null;
+      markerElsRef.current = [];
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -241,6 +260,7 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
           stopIndex={memory.stopIndex}
           journeyStops={validStops}
           color={COLOR}
+          navigating={navigating}
           onClose={() => setMemory(null)}
           onExpand={() => setMemory((prev) => prev ? { ...prev, mode: "full" } : prev)}
           onNavigate={handleNavigate}

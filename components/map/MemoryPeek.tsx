@@ -9,6 +9,7 @@ interface Props {
   stopIndex: number | null;
   journeyStops: StickerPost[] | null;
   color: string;
+  navigating?: boolean;
   onClose: () => void;
   onExpand: () => void;
   onNavigate: (stop: StickerPost, index: number) => void;
@@ -19,6 +20,7 @@ export default function MemoryPeek({
   stopIndex,
   journeyStops,
   color,
+  navigating = false,
   onClose,
   onExpand,
   onNavigate,
@@ -46,15 +48,25 @@ export default function MemoryPeek({
 
   return (
     <div className="fixed inset-0 z-[55] pointer-events-none">
-      {/* Sticker image — floats in the map area above the tile, keyed so it swaps on stop change */}
+      {/* Sticker image — floats above the tile, fades out during fly and springs in on landing */}
       {stop.image_url && (
         <div
-          key={stop.id}
           className="absolute flex items-center justify-center"
-          style={{ left: "50%", top: "16%", transform: "translateX(-50%)" }}
+          style={{
+            left: "50%",
+            top: "16%",
+            opacity: navigating ? 0 : 1,
+            transform: navigating
+              ? "translateX(-50%) scale(0.7)"
+              : "translateX(-50%) scale(1)",
+            transition: navigating
+              ? "opacity 0.15s ease, transform 0.15s ease"
+              : "opacity 0.45s ease-out 0.05s, transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s",
+          }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
+            key={stop.id}
             src={stop.image_url}
             alt={stop.caption ?? "memory"}
             style={{
