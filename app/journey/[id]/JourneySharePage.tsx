@@ -306,7 +306,7 @@ export default function JourneySharePage({ journey }: { journey: Journey }) {
           color={COLOR}
           navigating={navigating}
           mapZoom={mapZoom}
-          onClose={() => setMemory(null)}
+          onClose={() => router.back()}
           onExpand={() => setMemory((prev) => prev ? { ...prev, mode: "full" } : prev)}
           onNavigate={handleNavigate}
         />
